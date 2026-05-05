@@ -1,0 +1,114 @@
+"use client";
+
+import { FaFacebook, FaInstagram, FaYoutube } from "react-icons/fa";
+
+export default function Footer() {
+  return (
+    <footer className="bg-[#0B1120] text-white pt-20 pb-10">
+      <div className="max-w-7xl mx-auto px-6">
+        {/* TOP GRID */}
+        <div className="grid md:grid-cols-5 gap-12">
+          {/* BRAND */}
+          <div>
+            <h3 className="text-xl flex gap-1 font-bold mb-4">
+              <span className="bg-gradient-to-r from-purple-500 to-indigo-500 bg-clip-text text-transparent">
+                my
+              </span>
+              BillBook
+            </h3>
+
+            <p className="text-sm text-white/60 leading-relaxed">
+              Smart GST billing software built for modern businesses in India.
+              Manage invoices, inventory, and payments — all in one place.
+            </p>
+
+            {/* SOCIAL */}
+            <div className="flex gap-4 mt-6">
+              <IconWrap>
+                <FaYoutube />
+              </IconWrap>
+              <IconWrap>
+                <FaFacebook />
+              </IconWrap>
+              <IconWrap>
+                <FaInstagram />
+              </IconWrap>
+            </div>
+          </div>
+
+          {/* COMPANY */}
+          <FooterCol
+            title="Company"
+            items={["About Us", "Pricing", "Blog", "Careers"]}
+          />
+
+          {/* PRODUCT */}
+          <FooterCol
+            title="Product"
+            items={["GST Billing", "Inventory", "Reports", "E-Invoicing"]}
+          />
+
+          {/* RESOURCES */}
+          <FooterCol
+            title="Resources"
+            items={["Invoice Formats", "GST Guide", "Help Center", "FAQs"]}
+          />
+
+          {/* CONTACT */}
+          <div>
+            <h4 className="font-semibold mb-4 text-white">Contact</h4>
+            <ul className="space-y-2 text-sm text-white/60">
+              <li>support@mybillbook.com</li>
+              <li>+91 74004 17400</li>
+              <li>Mon–Sat, 9AM–9PM</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* DIVIDER */}
+        <div className="border-t border-white/10 mt-12 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-white/50">
+            © {new Date().getFullYear()} myBillBook. All rights reserved.
+          </p>
+
+          <div className="flex gap-6 text-sm text-white/50">
+            <span className="hover:text-white cursor-pointer transition">
+              Privacy Policy
+            </span>
+            <span className="hover:text-white cursor-pointer transition">
+              Terms
+            </span>
+            <span className="hover:text-white cursor-pointer transition">
+              Refund
+            </span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+/* 🔹 Reusable Column */
+function FooterCol({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div>
+      <h4 className="font-semibold mb-4 text-white">{title}</h4>
+      <ul className="space-y-2 text-sm text-white/60">
+        {items.map((item, i) => (
+          <li key={i} className="hover:text-white cursor-pointer transition">
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/* 🔹 Icon Wrapper */
+function IconWrap({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition cursor-pointer text-lg">
+      {children}
+    </div>
+  );
+}
