@@ -896,6 +896,7 @@ type Customer = {
   id: string;
   name: string;
   gstin?: string; // ✅ ADDED
+  phone?: string;
 };
 
 type Product = {
@@ -943,6 +944,7 @@ export default function CreateInvoice() {
           id: d.id,
           name: d.data().name,
           gstin: d.data().gstin || "", // ✅ ADDED
+           phone: d.data().phone || "",
         }))
       );
 
@@ -1088,6 +1090,7 @@ export default function CreateInvoice() {
 
         customerName,
         customerGSTIN: selectedCustomer?.gstin || "", // ✅ ONLY ADDITION
+        customerPhone: selectedCustomer?.phone || "",
 
         items: validItems,
 

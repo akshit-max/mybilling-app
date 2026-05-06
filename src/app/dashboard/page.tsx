@@ -7,8 +7,16 @@ import { signOut } from "firebase/auth";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+// import { ShieldCheck } from "lucide-react";
 import toast from "react-hot-toast";
-
+import {
+  LayoutDashboard,
+  FileText,
+  Users,
+  Package,
+  Building2,
+  ShieldCheck,
+} from "lucide-react";
 /* TYPES */
 type Invoice = {
   id: string;
@@ -54,65 +62,63 @@ export default function Dashboard() {
 
   /* 🔥 FETCH DATA */
 
-
   useEffect(() => {
-  const unsubscribe = auth.onAuthStateChanged(async (user) => {
-    if (!user) {
-      setLoadingData(false);
-      return;
-    }
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        setLoadingData(false);
+        return;
+      }
 
-    try {
-      // INVOICES
-      const iq = query(
-        collection(db, "invoices"),
-        where("userId", "==", user.uid)
-      );
-      const isnap = await getDocs(iq);
+      try {
+        // INVOICES
+        const iq = query(
+          collection(db, "invoices"),
+          where("userId", "==", user.uid),
+        );
+        const isnap = await getDocs(iq);
 
-      const invoiceData: Invoice[] = isnap.docs.map((d) => ({
-        id: d.id,
-        customerName: d.data().customerName,
-        total: d.data().total,
-        status: d.data().status || "pending",
-      }));
+        const invoiceData: Invoice[] = isnap.docs.map((d) => ({
+          id: d.id,
+          customerName: d.data().customerName,
+          total: d.data().total,
+          status: d.data().status || "pending",
+        }));
 
-      setInvoices(invoiceData);
+        setInvoices(invoiceData);
 
-      // PRODUCTS
-      const pq = query(
-        collection(db, "products"),
-        where("userId", "==", user.uid)
-      );
-      const psnap = await getDocs(pq);
+        // PRODUCTS
+        const pq = query(
+          collection(db, "products"),
+          where("userId", "==", user.uid),
+        );
+        const psnap = await getDocs(pq);
 
-      const productData: Product[] = psnap.docs.map((d) => ({
-        id: d.id,
-        name: d.data().name,
-        stock: d.data().stock || 0,
-      }));
+        const productData: Product[] = psnap.docs.map((d) => ({
+          id: d.id,
+          name: d.data().name,
+          stock: d.data().stock || 0,
+        }));
 
-      setProducts(productData);
+        setProducts(productData);
 
-      // CUSTOMERS
-      const cq = query(
-        collection(db, "customers"),
-        where("userId", "==", user.uid)
-      );
-      const csnap = await getDocs(cq);
+        // CUSTOMERS
+        const cq = query(
+          collection(db, "customers"),
+          where("userId", "==", user.uid),
+        );
+        const csnap = await getDocs(cq);
 
-      setCustomers(csnap.docs.map((d) => ({ id: d.id })));
+        setCustomers(csnap.docs.map((d) => ({ id: d.id })));
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to load dashboard");
+      } finally {
+        setLoadingData(false);
+      }
+    });
 
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to load dashboard");
-    } finally {
-      setLoadingData(false);
-    }
-  });
-
-  return () => unsubscribe();
-}, []);
+    return () => unsubscribe();
+  }, []);
   // useEffect(() => {
   //   const fetchData = async () => {
   //     const user = auth.currentUser;
@@ -193,7 +199,7 @@ export default function Dashboard() {
 
         {/* SIDEBAR */}
         <aside className="w-64 bg-[#0B1120] text-white p-6 flex flex-col justify-between">
-          <div>
+          {/* <div>
             <h2 className="text-xl font-semibold mb-8">
               <span className="text-purple-400">my</span>BillBook
             </h2>
@@ -220,9 +226,84 @@ export default function Dashboard() {
               >
                 Inventory
               </Link>
-              <Link href="/dashboard/settings">Settings</Link>
+              <Link href="/dashboard/settings"
+              className="block hover:text-white">Company</Link>
+
+              <Link  href="/dashboard/backup"
+                className="block hover:text-white">
+              
+                Settings
+              </Link>
+            </nav>
+          </div> */}
+
+          {/* <aside className="w-64 bg-[#0B1120] text-white p-6 flex flex-col justify-between"> */}
+
+          <div>
+            {/* LOGO */}
+            <h2 className="text-2xl font-semibold mb-10 tracking-tight">
+              <span className="text-purple-400">my</span>
+              BillBook
+            </h2>
+
+            {/* NAVIGATION */}
+            <nav className="space-y-2 text-sm">
+              {/* DASHBOARD */}
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition"
+              >
+                <LayoutDashboard size={18} />
+                Dashboard
+              </Link>
+
+              {/* INVOICES */}
+              <Link
+                href="/dashboard/invoices"
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition"
+              >
+                <FileText size={18} />
+                Invoices
+              </Link>
+
+              {/* CUSTOMERS */}
+              <Link
+                href="/dashboard/customers"
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition"
+              >
+                <Users size={18} />
+                Customers
+              </Link>
+
+              {/* INVENTORY */}
+              <Link
+                href="/dashboard/products"
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition"
+              >
+                <Package size={18} />
+                Inventory
+              </Link>
+
+              {/* COMPANY */}
+              <Link
+                href="/dashboard/settings"
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition"
+              >
+                <Building2 size={18} />
+                Company
+              </Link>
+
+              {/* SETTINGS / BACKUP */}
+              <Link
+                href="/dashboard/backup"
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition"
+              >
+                <ShieldCheck size={18} />
+                Settings
+              </Link>
             </nav>
           </div>
+          {/* </aside> */}
 
           {/* <button
             onClick={handleLogout}
