@@ -1,6 +1,18 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 export default function OfflinePage() {
+  const router = useRouter();
+
+  const handleRetry = () => {
+    if (navigator.onLine) {
+      router.push("/");
+    } else {
+      alert("Still offline");
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
 
@@ -12,12 +24,11 @@ export default function OfflinePage() {
 
         <p className="text-gray-600 mb-6">
           Internet connection is unavailable.
-
           You can still access cached data.
         </p>
 
         <button
-          onClick={() => window.location.reload()}
+          onClick={handleRetry}
           className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg"
         >
           Retry

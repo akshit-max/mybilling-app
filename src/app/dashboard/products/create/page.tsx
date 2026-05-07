@@ -91,12 +91,8 @@
 //   );
 // }
 
-
-
-
-
 "use client";
-
+import { v4 as uuidv4 } from "uuid";
 import { useState } from "react";
 import { db, auth } from "@/lib/firebase";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
@@ -104,10 +100,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
-import {
-  ArrowLeft,
-  Package,
-} from "lucide-react";
+import { ArrowLeft, Package } from "lucide-react";
 
 export default function CreateProduct() {
   const router = useRouter();
@@ -117,6 +110,7 @@ export default function CreateProduct() {
   const [gst, setGst] = useState(18);
   const [stock, setStock] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [barcode, setBarcode] = useState("");
 
   const handleSubmit = async () => {
     const user = auth.currentUser;
@@ -126,13 +120,30 @@ export default function CreateProduct() {
 
     try {
       setLoading(true);
+      const generatedBarcode = barcode || uuidv4().slice(0, 12);
+
+      // await addDoc(collection(db, "products"), {
+      //   userId: user.uid,
+      //   name,
+      //   price: Number(price),
+      //   gst: Number(gst),
+      //   stock: Number(stock),
+      //   createdAt: serverTimestamp(),
+      // });
 
       await addDoc(collection(db, "products"), {
         userId: user.uid,
+
         name,
+
         price: Number(price),
+
         gst: Number(gst),
+
         stock: Number(stock),
+
+        barcode: "PRD" + Math.floor(100000 + Math.random() * 900000),
+
         createdAt: serverTimestamp(),
       });
 
@@ -148,10 +159,8 @@ export default function CreateProduct() {
   return (
     <div className="min-h-screen bg-[#F9FAFB] p-6">
       <div className="max-w-xl mx-auto space-y-6">
-
         {/* 🔥 HEADER */}
         <div className="flex items-center justify-between">
-
           <div className="flex items-center gap-3">
             <Package className="text-purple-600" size={20} />
             <h1 className="text-2xl font-semibold text-gray-900">
@@ -166,18 +175,13 @@ export default function CreateProduct() {
             <ArrowLeft size={16} />
             Back
           </Link>
-
         </div>
 
         {/* 📦 CARD */}
         <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-6 shadow-sm">
-
           {/* PRODUCT DETAILS */}
           <div className="space-y-4">
-
-            <p className="text-sm font-medium text-gray-800">
-              Product Details
-            </p>
+            <p className="text-sm font-medium text-gray-800">Product Details</p>
 
             {/* NAME */}
             <div className="space-y-1">
@@ -230,6 +234,28 @@ export default function CreateProduct() {
               />
             </div>
 
+            {/* BARCODE */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">
+                Barcode (Optional)
+              </label>
+
+              <input
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value)}
+                placeholder="Auto generated if empty"
+                className="
+      w-full
+      border border-gray-300
+      rounded-lg
+      px-4 py-3
+      text-sm
+      focus:ring-2
+      focus:ring-purple-500
+      outline-none
+    "
+              />
+            </div>
           </div>
 
           {/* SUBMIT */}
@@ -239,7 +265,6 @@ export default function CreateProduct() {
           >
             {loading ? "Saving..." : "Add Product"}
           </button>
-
         </div>
       </div>
     </div>

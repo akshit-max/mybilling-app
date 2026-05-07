@@ -856,7 +856,7 @@
 
 
 "use client";
-
+import BarcodeScanner from "react-qr-barcode-scanner";
 import { useEffect, useState } from "react";
 import { db, auth } from "@/lib/firebase";
 import {
@@ -903,6 +903,7 @@ type Product = {
   id: string;
   name: string;
   price: number;
+   barcode?: string;
 };
 
 type Status = "paid" | "pending" | "credit";
@@ -913,6 +914,11 @@ export default function CreateInvoice() {
   const [customerName, setCustomerName] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [showScanner, setShowScanner] =
+  useState(false);
+
+const [scannedBarcode, setScannedBarcode] =
+  useState("");
 
   const [items, setItems] = useState<Item[]>([
     { name: "", qty: 1, price: 0 },
@@ -958,7 +964,9 @@ export default function CreateInvoice() {
         psnap.docs.map((d) => ({
           id: d.id,
           name: d.data().name,
+          // price: d.data().price,
           price: d.data().price,
+barcode: d.data().barcode || "",
         }))
       );
     };
@@ -1120,6 +1128,8 @@ export default function CreateInvoice() {
     }
   };
 
+ 
+
   return (
     <section className="bg-gray-50 min-h-screen py-10">
       <div className="max-w-5xl mx-auto px-6">
@@ -1207,6 +1217,27 @@ export default function CreateInvoice() {
                     ))}
                   </select>
 
+                  <button
+  type="button"
+  onClick={() =>
+    setShowScanner(true)
+  }
+  className="
+    bg-purple-600
+    hover:bg-purple-700
+    text-white
+    px-4
+    py-2
+    rounded-lg
+    text-sm
+  "
+>
+  Scan Barcode
+</button>
+
+
+
+
                   <input
                     type="number"
                     value={item.qty}
@@ -1235,6 +1266,81 @@ export default function CreateInvoice() {
               + Add Item
             </button>
           </div>
+          {showScanner && (
+
+  <div className="mt-6">
+
+    <div
+      className="
+        max-w-xl
+        mx-auto
+        bg-black
+        rounded-2xl
+        overflow-hidden
+        border-4
+        border-purple-500
+      "
+    >
+
+      <BarcodeScanner
+        width={500}
+        height={300}
+        onUpdate={(err, result) => {
+
+          if (result) {
+
+           const text =
+  result.getText();
+
+const found =
+  products.find(
+    (p) =>
+      p.barcode === text
+  );
+
+if (found) {
+
+  toast.success(
+    `${found.name} scanned`
+  );
+
+  setItems((prev) => [
+
+    ...prev,
+
+    {
+      productId: found.id,
+      name: found.name,
+      qty: 1,
+      price: found.price,
+    },
+
+  ]);
+
+} else {
+
+  toast.error(
+    "Product not found"
+  );
+
+}
+
+setShowScanner(false);
+
+          }
+
+        }}
+      />
+
+    </div>
+
+    <p className="text-center text-sm text-gray-500 mt-3">
+      Point camera at barcode
+    </p>
+
+  </div>
+
+)}
 
           {/* DISCOUNT + STATUS */}
           <div className="grid md:grid-cols-2 gap-6">
