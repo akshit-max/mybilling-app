@@ -14,9 +14,20 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// export const metadata = {
+//   title: "myBillBook",
+//   description: "GST Billing SaaS",
+// };
+
+
 export const metadata = {
   title: "myBillBook",
-  description: "GST Billing SaaS",
+  description: "Smart GST Billing Software",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/icon-192.png",
+  },
 };
 
 export default function RootLayout({
