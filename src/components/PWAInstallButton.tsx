@@ -46,23 +46,29 @@ export default function PWAInstallButton() {
   if (!deferredPrompt) return null;
 
   return (
+  <div className="fixed bottom-6 right-6 z-[9999]">
     <button
       onClick={handleInstall}
       className="
-        fixed
-        bottom-5
-        left-5
-        z-50
-        bg-purple-600
-        hover:bg-purple-700
+        bg-gradient-to-r
+        from-purple-600
+        to-indigo-600
+        hover:from-purple-700
+        hover:to-indigo-700
         text-white
-        px-4
-        py-2
-        rounded-lg
-        shadow-lg
+        px-5
+        py-3
+        rounded-2xl
+        shadow-xl
+        text-sm
+        font-medium
+        transition-all
+        duration-200
+        hover:scale-105
       "
     >
       Install App
     </button>
-  );
+  </div>
+);
 }
