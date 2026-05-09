@@ -385,17 +385,6 @@
 //   );
 // }
 
-
-
-
-
-
-
-
-
-
-
-
 // "use client";
 
 // import { useEffect, useState } from "react";
@@ -852,9 +841,6 @@
 //   );
 // }
 
-
-
-
 "use client";
 import BarcodeScanner from "react-qr-barcode-scanner";
 import { useEffect, useState } from "react";
@@ -874,13 +860,15 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
+import { ArrowLeft, Users, Package, Tag, CheckCircle } from "lucide-react";
+
+import { saveOfflineInvoice } from "@/lib/offlineInvoices";
 import {
-  ArrowLeft,
-  Users,
-  Package,
-  Tag,
-  CheckCircle,
-} from "lucide-react";
+  cacheCustomers,
+  cacheProducts,
+  getCachedCustomers,
+  getCachedProducts,
+} from "@/lib/indexedDB";
 
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 
@@ -903,7 +891,8 @@ type Product = {
   id: string;
   name: string;
   price: number;
-   barcode?: string;
+  barcode?: string;
+  stock?: number;
 };
 
 type Status = "paid" | "pending" | "credit";
@@ -914,18 +903,15 @@ export default function CreateInvoice() {
   const [customerName, setCustomerName] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [showScanner, setShowScanner] =
-  useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
-const [scannedBarcode, setScannedBarcode] =
-  useState("");
+  const [isOffline, setIsOffline] = useState(false);
 
-  const [items, setItems] = useState<Item[]>([
-    { name: "", qty: 1, price: 0 },
-  ]);
+  const [scannedBarcode, setScannedBarcode] = useState("");
 
-  const [discountType, setDiscountType] =
-    useState<DiscountType>("flat");
+  const [items, setItems] = useState<Item[]>([{ name: "", qty: 1, price: 0 }]);
+
+  const [discountType, setDiscountType] = useState<DiscountType>("flat");
   const [discountValue, setDiscountValue] = useState(0);
 
   const [gstEnabled, setGstEnabled] = useState(true);
@@ -938,57 +924,78 @@ const [scannedBarcode, setScannedBarcode] =
     const fetchData = async () => {
       const user = auth.currentUser;
       if (!user) return;
-
-      const cq = query(
-        collection(db, "customers"),
-        where("userId", "==", user.uid)
-      );
-      const csnap = await getDocs(cq);
-
-      setCustomers(
-        csnap.docs.map((d) => ({
+      try {
+        const cq = query(
+          collection(db, "customers"),
+          where("userId", "==", user.uid),
+        );
+        const csnap = await getDocs(cq);
+        const customerList = csnap.docs.map((d) => ({
           id: d.id,
           name: d.data().name,
-          gstin: d.data().gstin || "", // ✅ ADDED
-           phone: d.data().phone || "",
-        }))
-      );
+          gstin: d.data().gstin || "",
+          phone: d.data().phone || "",
+        }));
+        setCustomers(customerList);
+        await cacheCustomers(customerList);
 
-      const pq = query(
-        collection(db, "products"),
-        where("userId", "==", user.uid)
-      );
-      const psnap = await getDocs(pq);
-
-      setProducts(
-        psnap.docs.map((d) => ({
+        const pq = query(
+          collection(db, "products"),
+          where("userId", "==", user.uid),
+        );
+        const psnap = await getDocs(pq);
+        const productList = psnap.docs.map((d) => ({
           id: d.id,
           name: d.data().name,
-          // price: d.data().price,
           price: d.data().price,
-barcode: d.data().barcode || "",
-        }))
-      );
+          barcode: d.data().barcode || "",
+          stock: d.data().stock || 0,
+        }));
+        setProducts(productList);
+        await cacheProducts(productList);
+      } catch (err) {
+        console.error(err);
+        const cachedCustomers = await getCachedCustomers();
+        const cachedProducts = await getCachedProducts();
+        setCustomers(cachedCustomers);
+        setProducts(cachedProducts);
+        if (!cachedCustomers.length && !cachedProducts.length) {
+          toast("Offline cache empty. You can still create invoice manually.");
+        } else {
+          toast("Loaded cached customers/products for offline mode.");
+        }
+      }
     };
 
     fetchData();
   }, []);
 
+  useEffect(() => {
+    const updateStatus = () => {
+      setIsOffline(!navigator.onLine);
+    };
+
+    updateStatus();
+
+    window.addEventListener("online", updateStatus);
+
+    window.addEventListener("offline", updateStatus);
+
+    return () => {
+      window.removeEventListener("online", updateStatus);
+
+      window.removeEventListener("offline", updateStatus);
+    };
+  }, []);
+
   /* INVOICE NUMBER */
-  const generateInvoiceNumber = async (
-    userId: string,
-    now: Date
-  ) => {
+  const generateInvoiceNumber = async (userId: string, now: Date) => {
     const dateStr =
       now.getFullYear().toString() +
       String(now.getMonth() + 1).padStart(2, "0") +
       String(now.getDate()).padStart(2, "0");
 
-    const counterRef = doc(
-      db,
-      "invoiceCounters",
-      `${userId}_${dateStr}`
-    );
+    const counterRef = doc(db, "invoiceCounters", `${userId}_${dateStr}`);
 
     const newNumber = await runTransaction(db, async (tx) => {
       const snap = await tx.get(counterRef);
@@ -1008,22 +1015,20 @@ barcode: d.data().barcode || "",
   };
 
   /* CALC */
-  const validItems = items.filter(
-    (i) => i.name && i.qty > 0 && i.price > 0
-  );
+  const validItems = items.filter((i) => i.name && i.qty > 0 && i.price > 0);
 
   const calc = calculateInvoice(
     validItems,
     discountType,
     discountValue,
-    gstEnabled
+    gstEnabled,
   );
 
   /* UPDATE ITEM */
   const updateItem = (
     index: number,
     field: keyof Item,
-    value: string | number
+    value: string | number,
   ) => {
     const updated = [...items];
     updated[index] = {
@@ -1038,102 +1043,394 @@ barcode: d.data().barcode || "",
   };
 
   /* SUBMIT */
+  // const handleSubmit = async () => {
+  //   const user = auth.currentUser;
+  //   if (!user) return toast.error("Not logged in");
+
+  //   if (!customerName) return toast.error("Select customer");
+
+  //   if (!validItems.length) return toast.error("Add valid items");
+
+  //   try {
+  //     setLoading(true);
+
+  //     /* STOCK CHECK */
+  //     for (const item of validItems) {
+  //       if (!item.productId) continue;
+
+  //       const productRef = doc(db, "products", item.productId);
+  //       const snap = await getDoc(productRef);
+
+  //       if (!snap.exists()) {
+  //         toast.error(`Product not found: ${item.name}`);
+  //         return;
+  //       }
+
+  //       const stock = snap.data()?.stock || 0;
+
+  //       if (item.qty > stock) {
+  //         toast.error(
+  //           `Not enough stock for ${item.name} (Available: ${stock})`,
+  //         );
+  //         return;
+  //       }
+
+  //       await updateDoc(productRef, {
+  //         stock: stock - item.qty,
+  //       });
+
+  //       if (stock - item.qty <= 2) {
+  //         toast(`Low stock: ${item.name}`);
+  //       }
+  //     }
+
+  //     const now = new Date();
+
+  //     const invoiceNumber = await generateInvoiceNumber(user.uid, now);
+
+  //     const selectedCustomer = customers.find((c) => c.name === customerName);
+
+  //     const invoiceData = {
+  //       userId: user.uid,
+  //       invoiceNumber,
+
+  //       customerName,
+  //       customerGSTIN: selectedCustomer?.gstin || "",
+
+  //       customerPhone: selectedCustomer?.phone || "",
+
+  //       items: validItems,
+
+  //       subtotal: calc.subtotal,
+
+  //       discountType,
+  //       discountValue,
+
+  //       discountAmount: calc.discountAmount,
+
+  //       gstEnabled,
+
+  //       cgst: calc.cgst,
+  //       sgst: calc.sgst,
+
+  //       total: calc.total,
+
+  //       status,
+
+  //       createdAt: now,
+  //     };
+
+  //     // await addDoc(collection(db, "invoices"), {
+  //     //   userId: user.uid,
+  //     //   invoiceNumber,
+
+  //     //   customerName,
+  //     //   customerGSTIN: selectedCustomer?.gstin || "", // ✅ ONLY ADDITION
+  //     //   customerPhone: selectedCustomer?.phone || "",
+
+  //     //   items: validItems,
+
+  //     //   subtotal: calc.subtotal,
+  //     //   discountType,
+  //     //   discountValue,
+  //     //   discountAmount: calc.discountAmount,
+
+  //     //   gstEnabled,
+  //     //   cgst: calc.cgst,
+  //     //   sgst: calc.sgst,
+
+  //     //   total: calc.total,
+  //     //   status,
+
+  //     //   createdAt: now,
+  //     // });
+
+  //     if (!navigator.onLine) {
+  //       await saveOfflineInvoice(invoiceData);
+
+  //       toast.success("Invoice saved offline ✅");
+
+  //       router.push("/dashboard/invoices");
+
+  //       return;
+  //     }
+
+  //     await addDoc(collection(db, "invoices"), invoiceData);
+  //     toast.success("Invoice created ✅");
+  //     router.push("/dashboard/invoices");
+  //   } catch (err) {
+  //     console.error(err);
+  //     toast.error("Failed");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+
+
   const handleSubmit = async () => {
-    const user = auth.currentUser;
-    if (!user) return toast.error("Not logged in");
 
-    if (!customerName)
-      return toast.error("Select customer");
+  const user = auth.currentUser;
 
-    if (!validItems.length)
-      return toast.error("Add valid items");
+  if (!user)
+    return toast.error(
+      "Not logged in"
+    );
 
-    try {
-      setLoading(true);
+  if (!customerName)
+    return toast.error(
+      "Select customer"
+    );
 
-      /* STOCK CHECK */
-      for (const item of validItems) {
-        if (!item.productId) continue;
+  if (!validItems.length)
+    return toast.error(
+      "Add valid items"
+    );
 
-        const productRef = doc(db, "products", item.productId);
-        const snap = await getDoc(productRef);
+  try {
 
-        if (!snap.exists()) {
-          toast.error(`Product not found: ${item.name}`);
-          return;
-        }
+    setLoading(true);
 
-        const stock = snap.data()?.stock || 0;
+    const now = new Date();
 
-        if (item.qty > stock) {
-          toast.error(
-            `Not enough stock for ${item.name} (Available: ${stock})`
-          );
-          return;
-        }
+    /* OFFLINE SAFE INVOICE NUMBER */
 
-        await updateDoc(productRef, {
-          stock: stock - item.qty,
-        });
+    const invoiceNumber =
+      navigator.onLine
+        ? await generateInvoiceNumber(
+            user.uid,
+            now
+          )
+        : `OFFLINE-${Date.now()}`;
 
-        if (stock - item.qty <= 2) {
-          toast(`Low stock: ${item.name}`);
-        }
+    const selectedCustomer =
+      customers.find(
+        (c) =>
+          c.name === customerName
+      );
+
+    const invoiceData = {
+      userId: user.uid,
+      invoiceNumber,
+
+      customerName,
+
+      customerGSTIN:
+        selectedCustomer?.gstin || "",
+
+      customerPhone:
+        selectedCustomer?.phone || "",
+
+      items: validItems,
+
+      subtotal: calc.subtotal,
+
+      discountType,
+      discountValue,
+
+      discountAmount:
+        calc.discountAmount,
+
+      gstEnabled,
+
+      cgst: calc.cgst,
+      sgst: calc.sgst,
+
+      total: calc.total,
+
+      status,
+
+      createdAt: now,
+    };
+
+    /* OFFLINE SAVE */
+
+    if (!navigator.onLine) {
+  const stockUsageByProduct = new Map<
+    string,
+    number
+  >();
+
+  for (const item of validItems) {
+    if (!item.productId) continue;
+    stockUsageByProduct.set(
+      item.productId,
+      (stockUsageByProduct.get(
+        item.productId
+      ) || 0) + item.qty
+    );
+  }
+
+  for (const [
+    productId,
+    requestedQty,
+  ] of stockUsageByProduct) {
+    const cachedProduct =
+      products.find(
+        (p) => p.id === productId
+      );
+    const availableStock =
+      cachedProduct?.stock ?? 0;
+
+    if (requestedQty > availableStock) {
+      toast.error(
+        `Not enough offline stock for ${cachedProduct?.name || "product"} (Available: ${availableStock})`
+      );
+      return;
+    }
+  }
+
+  // #region agent log
+  fetch('http://127.0.0.1:7809/ingest/8b97420f-199d-4dc5-a788-8a6b32d14476',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c7c612'},body:JSON.stringify({sessionId:'c7c612',runId:'phase2',hypothesisId:'offline-stock',location:'src/app/dashboard/invoices/create/page.tsx:1246',message:'Offline stock validation passed',data:{items:validItems.length},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+
+  setLoading(false);
+
+  await saveOfflineInvoice(
+    invoiceData
+  );
+
+  const updatedProducts =
+    products.map((product) => {
+      const usedQty =
+        stockUsageByProduct.get(
+          product.id
+        ) || 0;
+
+      if (!usedQty) {
+        return product;
       }
 
-      const now = new Date();
+      return {
+        ...product,
+        stock: Math.max(
+          0,
+          (product.stock || 0) -
+            usedQty
+        ),
+      };
+    });
 
-      const invoiceNumber = await generateInvoiceNumber(
-        user.uid,
-        now
+  setProducts(updatedProducts);
+  await cacheProducts(
+    updatedProducts
+  );
+
+  // #region agent log
+  fetch('http://127.0.0.1:7809/ingest/8b97420f-199d-4dc5-a788-8a6b32d14476',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c7c612'},body:JSON.stringify({sessionId:'c7c612',runId:'phase2',hypothesisId:'offline-stock',location:'src/app/dashboard/invoices/create/page.tsx:1246',message:'Offline stock decremented locally',data:{products:updatedProducts.length},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+
+  toast.success(
+    "Invoice saved offline ✅"
+  );
+
+  router.push(
+    "/dashboard/invoices"
+  );
+
+  return Promise.resolve();
+}
+
+if (!navigator.onLine) {
+  return;
+}
+
+    /* STOCK CHECK */
+
+    for (const item of validItems) {
+
+      if (!item.productId)
+        continue;
+
+      const productRef = doc(
+        db,
+        "products",
+        item.productId
       );
 
-      const selectedCustomer = customers.find(
-        (c) => c.name === customerName
+      const snap =
+        await getDoc(
+          productRef
+        );
+
+      if (!snap.exists()) {
+
+        toast.error(
+          `Product not found: ${item.name}`
+        );
+
+        return;
+
+      }
+
+      const stock =
+        snap.data()?.stock || 0;
+
+      if (item.qty > stock) {
+
+        toast.error(
+          `Not enough stock for ${item.name} (Available: ${stock})`
+        );
+
+        return;
+
+      }
+
+      await updateDoc(
+        productRef,
+        {
+          stock:
+            stock - item.qty,
+        }
       );
 
-      await addDoc(collection(db, "invoices"), {
-        userId: user.uid,
-        invoiceNumber,
+      if (
+        stock - item.qty <= 2
+      ) {
 
-        customerName,
-        customerGSTIN: selectedCustomer?.gstin || "", // ✅ ONLY ADDITION
-        customerPhone: selectedCustomer?.phone || "",
+        toast(
+          `Low stock: ${item.name}`
+        );
 
-        items: validItems,
+      }
 
-        subtotal: calc.subtotal,
-        discountType,
-        discountValue,
-        discountAmount: calc.discountAmount,
-
-        gstEnabled,
-        cgst: calc.cgst,
-        sgst: calc.sgst,
-
-        total: calc.total,
-        status,
-
-        createdAt: now,
-      });
-
-      toast.success("Invoice created ✅");
-      router.push("/dashboard/invoices");
-
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed");
-    } finally {
-      setLoading(false);
     }
-  };
 
- 
+    /* FIREBASE SAVE */
+
+    await addDoc(
+      collection(
+        db,
+        "invoices"
+      ),
+      invoiceData
+    );
+
+    toast.success(
+      "Invoice created ✅"
+    );
+
+    router.push(
+      "/dashboard/invoices"
+    );
+
+  } catch (err) {
+
+    console.error(err);
+
+    toast.error("Failed");
+
+  } finally {
+
+    setLoading(false);
+
+  }
+
+};
 
   return (
     <section className="bg-gray-50 min-h-screen py-10">
       <div className="max-w-5xl mx-auto px-6">
-
         {/* HEADER */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-semibold text-gray-900">
@@ -1149,9 +1446,26 @@ barcode: d.data().barcode || "",
           </Link>
         </div>
 
+        {isOffline && (
+          <div
+            className="
+      bg-yellow-100
+      border
+      border-yellow-300
+      text-yellow-800
+      px-4
+      py-3
+      rounded-xl
+      mb-4
+      text-sm
+    "
+          >
+            You are offline. Invoices will sync automatically.
+          </div>
+        )}
+
         {/* CARD */}
         <div className="bg-white rounded-xl border p-6 space-y-6 shadow-sm">
-
           {/* CUSTOMER */}
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -1189,13 +1503,10 @@ barcode: d.data().barcode || "",
             <div className="space-y-3">
               {items.map((item, i) => (
                 <div key={i} className="grid grid-cols-3 gap-3">
-
                   <select
                     value={item.productId || ""}
                     onChange={(e) => {
-                      const p = products.find(
-                        (p) => p.id === e.target.value
-                      );
+                      const p = products.find((p) => p.id === e.target.value);
                       if (!p) return;
 
                       const updated = [...items];
@@ -1217,12 +1528,10 @@ barcode: d.data().barcode || "",
                     ))}
                   </select>
 
-                  <button
-  type="button"
-  onClick={() =>
-    setShowScanner(true)
-  }
-  className="
+                  {/* <button
+                    type="button"
+                    onClick={() => setShowScanner(true)}
+                    className="
     bg-purple-600
     hover:bg-purple-700
     text-white
@@ -1231,47 +1540,51 @@ barcode: d.data().barcode || "",
     rounded-lg
     text-sm
   "
->
-  Scan Barcode
-</button>
-
-
-
+                  >
+                    Scan Barcode
+                  </button> */}
 
                   <input
                     type="number"
                     value={item.qty}
-                    onChange={(e) =>
-                      updateItem(i, "qty", e.target.value)
-                    }
+                    onChange={(e) => updateItem(i, "qty", e.target.value)}
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
                   />
 
                   <input
                     type="number"
                     value={item.price}
-                    onChange={(e) =>
-                      updateItem(i, "price", e.target.value)
-                    }
+                    onChange={(e) => updateItem(i, "price", e.target.value)}
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
                   />
+
+                   <button
+                    type="button"
+                    onClick={() => setShowScanner(true)}
+                    className="
+    bg-purple-600
+    hover:bg-purple-700
+    text-white
+    px-4
+    py-2
+    rounded-lg
+    text-sm
+  "
+                  >
+                    Scan Barcode
+                  </button>
                 </div>
               ))}
             </div>
 
-            <button
-              onClick={addItem}
-              className="mt-3 text-sm text-purple-600"
-            >
+            <button onClick={addItem} className="mt-3 text-sm text-purple-600">
               + Add Item
             </button>
           </div>
           {showScanner && (
-
-  <div className="mt-6">
-
-    <div
-      className="
+            <div className="mt-6">
+              <div
+                className="
         max-w-xl
         mx-auto
         bg-black
@@ -1280,71 +1593,47 @@ barcode: d.data().barcode || "",
         border-4
         border-purple-500
       "
-    >
+              >
+                <BarcodeScanner
+                  width={500}
+                  height={300}
+                  onUpdate={(err, result) => {
+                    if (result) {
+                      const text = result.getText();
 
-      <BarcodeScanner
-        width={500}
-        height={300}
-        onUpdate={(err, result) => {
+                      const found = products.find((p) => p.barcode === text);
 
-          if (result) {
+                      if (found) {
+                        toast.success(`${found.name} scanned`);
 
-           const text =
-  result.getText();
+                        setItems((prev) => [
+                          ...prev,
 
-const found =
-  products.find(
-    (p) =>
-      p.barcode === text
-  );
+                          {
+                            productId: found.id,
+                            name: found.name,
+                            qty: 1,
+                            price: found.price,
+                          },
+                        ]);
+                      } else {
+                        toast.error("Product not found");
+                      }
 
-if (found) {
+                      setShowScanner(false);
+                    }
+                  }}
+                />
+              </div>
 
-  toast.success(
-    `${found.name} scanned`
-  );
-
-  setItems((prev) => [
-
-    ...prev,
-
-    {
-      productId: found.id,
-      name: found.name,
-      qty: 1,
-      price: found.price,
-    },
-
-  ]);
-
-} else {
-
-  toast.error(
-    "Product not found"
-  );
-
-}
-
-setShowScanner(false);
-
-          }
-
-        }}
-      />
-
-    </div>
-
-    <p className="text-center text-sm text-gray-500 mt-3">
-      Point camera at barcode
-    </p>
-
-  </div>
-
-)}
+              <p className="text-center text-sm text-gray-500 mt-3">
+                Point camera at barcode
+              </p>
+            </div>
+          )}
 
           {/* DISCOUNT + STATUS */}
           <div className="grid md:grid-cols-2 gap-6">
-
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Tag size={16} className="text-purple-600" />
@@ -1366,9 +1655,7 @@ setShowScanner(false);
                 <input
                   type="number"
                   value={discountValue}
-                  onChange={(e) =>
-                    setDiscountValue(Number(e.target.value))
-                  }
+                  onChange={(e) => setDiscountValue(Number(e.target.value))}
                   className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
@@ -1382,9 +1669,7 @@ setShowScanner(false);
 
               <select
                 value={status}
-                onChange={(e) =>
-                  setStatus(e.target.value as Status)
-                }
+                onChange={(e) => setStatus(e.target.value as Status)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
               >
                 <option value="pending">Pending</option>
@@ -1407,9 +1692,7 @@ setShowScanner(false);
 
             <div className="text-right">
               <p className="text-sm text-gray-500">Total</p>
-              <p className="text-xl font-semibold">
-                ₹{calc.total}
-              </p>
+              <p className="text-xl font-semibold">₹{calc.total}</p>
             </div>
           </div>
 

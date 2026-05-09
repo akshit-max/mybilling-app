@@ -4,6 +4,10 @@ import { initializeApp } from "firebase/app";
 // https://firebase.google.com/docs/web/setup#available-libraries
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import {
+  initializeFirestore,
+  persistentLocalCache,
+} from "firebase/firestore";
 
 
 
@@ -39,4 +43,9 @@ export const app = initializeApp(firebaseConfig);
 
 // ✅ THIS is what you were missing or wrong
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+// export const db = getFirestore(app);
+export const db =
+  initializeFirestore(app, {
+    localCache:
+      persistentLocalCache(),
+  });

@@ -86,8 +86,14 @@ export const metadata: Metadata = {
     apple: "/icon-192.png",
   },
 
+  // themeColor: "#7c3aed",
+};
+
+export const viewport = {
   themeColor: "#7c3aed",
 };
+
+
 
 export default function RootLayout({
   children,
@@ -101,7 +107,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
 
-        <OfflineWatcher />
+        <OfflineWatcher enableGlobalSync />
 
         <PWAInstallButton />
 
