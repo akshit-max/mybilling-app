@@ -75,13 +75,14 @@ async (
   await runTransaction(
     db,
     async (tx) => {
+      const productSnaps = new Map();
+
       for (
         const [
           productId,
           qtyNeeded,
         ] of usage
       ) {
-
         const productRef =
           doc(
             db,
@@ -97,7 +98,6 @@ async (
         if (
           !productSnap.exists()
         ) {
-
           throw new Error(
             `Missing product ${productId}`
           );
@@ -110,18 +110,19 @@ async (
         if (
           qtyNeeded > stock
         ) {
-
           throw new Error(
             `Insufficient stock for ${productId}`
           );
         }
 
+        productSnaps.set(productId, { ref: productRef, newStock: stock - qtyNeeded });
+      }
+
+      for (const [productId, { ref, newStock }] of productSnaps) {
         tx.update(
-          productRef,
+          ref,
           {
-            stock:
-              stock -
-              qtyNeeded,
+            stock: newStock,
           }
         );
       }

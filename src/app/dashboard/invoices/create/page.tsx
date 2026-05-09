@@ -1193,147 +1193,180 @@ export default function CreateInvoice() {
 
     const now = new Date();
 
-    /* OFFLINE SAFE INVOICE NUMBER */
+    /* OFFLINE HELPER */
+    const executeOfflineSave = async () => {
+      const dateStr =
+        now.getFullYear().toString() +
+        String(now.getMonth() + 1).padStart(2, "0") +
+        String(now.getDate()).padStart(2, "0");
+      const invoiceNumber = `OFFLINE-${dateStr}-${Date.now()}`;
+      const selectedCustomer = customers.find((c) => c.name === customerName);
 
-    const invoiceNumber =
-      navigator.onLine
-        ? await generateInvoiceNumber(
-            user.uid,
-            now
-          )
-        : `OFFLINE-${Date.now()}`;
+      const offlineInvoiceData = {
+        userId: user.uid,
+        invoiceNumber,
+        customerName,
+        customerGSTIN: selectedCustomer?.gstin || "",
+        customerPhone: selectedCustomer?.phone || "",
+        items: validItems,
+        subtotal: calc.subtotal,
+        discountType,
+        discountValue,
+        discountAmount: calc.discountAmount,
+        gstEnabled,
+        cgst: calc.cgst,
+        sgst: calc.sgst,
+        total: calc.total,
+        status,
+        createdAt: now,
+        offline: true,
+      };
 
-    const selectedCustomer =
-      customers.find(
-        (c) =>
-          c.name === customerName
-      );
+      const stockUsageByProduct = new Map<string, number>();
+      for (const item of validItems) {
+        if (!item.productId) continue;
+        stockUsageByProduct.set(item.productId, (stockUsageByProduct.get(item.productId) || 0) + item.qty);
+      }
+
+      for (const [productId, requestedQty] of stockUsageByProduct) {
+        const cachedProduct = products.find((p) => p.id === productId);
+        const availableStock = cachedProduct?.stock ?? 0;
+
+        if (requestedQty > availableStock) {
+          toast.error(`Not enough offline stock for ${cachedProduct?.name || "product"} (Available: ${availableStock})`);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Delay setLoading(false) to prevent double clicks during save
+      await saveOfflineInvoice(offlineInvoiceData as any);
+
+      const updatedProducts = products.map((product) => {
+        const usedQty = stockUsageByProduct.get(product.id) || 0;
+        if (!usedQty) return product;
+        return { ...product, stock: Math.max(0, (product.stock || 0) - usedQty) };
+      });
+
+      setProducts(updatedProducts);
+      await cacheProducts(updatedProducts);
+
+      toast.success("Invoice saved offline ✅");
+      window.dispatchEvent(
+  new Event("offline-invoice-created")
+);
+
+
+      setLoading(false);
+      window.location.replace(
+  "/dashboard/invoices"
+);
+
+throw new Error(
+  "__OFFLINE_REDIRECT__"
+);
+      // return Promise.resolve();
+    };
+
+    /* OFFLINE FIRST EXECUTION */
+    // if (!navigator.onLine) {
+    //   return executeOfflineSave();
+    // }
+
+    // /* ONLINE EXECUTION BELOW */
+    // let invoiceNumber;
+    // try {
+    //   invoiceNumber = await generateInvoiceNumber(user.uid, now);
+    // } catch (err) {
+    //   console.warn("Falling back to offline invoice save", err);
+    //   return executeOfflineSave();
+    // }
+
+    /* REAL CONNECTIVITY TEST */
+
+    /* 1. INSTANT PHYSICAL DISCONNECT CHECK */
+if (!navigator.onLine) {
+  return executeOfflineSave();
+}
+
+/* 2. REAL CONNECTIVITY TEST (LIE-FI CHECK) */
+try {
+
+  await fetch(
+    `/favicon.ico?_=${Date.now()}`,
+    {
+      method: "HEAD",
+      cache: "no-store",
+    }
+  );
+
+} catch (err) {
+
+  console.warn(
+    "Internet unreachable (Lie-Fi), saving offline",
+    err
+  );
+
+  return executeOfflineSave();
+}
+// try {
+
+//   await fetch("/favicon.ico", {
+//     method: "HEAD",
+//     cache: "no-store",
+//   });
+
+// } catch (err) {
+
+//   console.warn(
+//     "Internet unreachable, saving offline",
+//     err
+//   );
+
+//   return executeOfflineSave();
+// }
+
+/* ONLINE EXECUTION BELOW */
+let invoiceNumber;
+
+try {
+
+  invoiceNumber =
+    await generateInvoiceNumber(
+      user.uid,
+      now
+    );
+
+} catch (err) {
+
+  console.warn(
+    "Falling back to offline invoice save",
+    err
+  );
+
+  return executeOfflineSave();
+}
+
+    const selectedCustomer = customers.find((c) => c.name === customerName);
 
     const invoiceData = {
       userId: user.uid,
       invoiceNumber,
-
       customerName,
-
-      customerGSTIN:
-        selectedCustomer?.gstin || "",
-
-      customerPhone:
-        selectedCustomer?.phone || "",
-
+      customerGSTIN: selectedCustomer?.gstin || "",
+      customerPhone: selectedCustomer?.phone || "",
       items: validItems,
-
       subtotal: calc.subtotal,
-
       discountType,
       discountValue,
-
-      discountAmount:
-        calc.discountAmount,
-
+      discountAmount: calc.discountAmount,
       gstEnabled,
-
       cgst: calc.cgst,
       sgst: calc.sgst,
-
       total: calc.total,
-
       status,
-
       createdAt: now,
     };
-
-    /* OFFLINE SAVE */
-
-    if (!navigator.onLine) {
-  const stockUsageByProduct = new Map<
-    string,
-    number
-  >();
-
-  for (const item of validItems) {
-    if (!item.productId) continue;
-    stockUsageByProduct.set(
-      item.productId,
-      (stockUsageByProduct.get(
-        item.productId
-      ) || 0) + item.qty
-    );
-  }
-
-  for (const [
-    productId,
-    requestedQty,
-  ] of stockUsageByProduct) {
-    const cachedProduct =
-      products.find(
-        (p) => p.id === productId
-      );
-    const availableStock =
-      cachedProduct?.stock ?? 0;
-
-    if (requestedQty > availableStock) {
-      toast.error(
-        `Not enough offline stock for ${cachedProduct?.name || "product"} (Available: ${availableStock})`
-      );
-      return;
-    }
-  }
-
-  // #region agent log
-  fetch('http://127.0.0.1:7809/ingest/8b97420f-199d-4dc5-a788-8a6b32d14476',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c7c612'},body:JSON.stringify({sessionId:'c7c612',runId:'phase2',hypothesisId:'offline-stock',location:'src/app/dashboard/invoices/create/page.tsx:1246',message:'Offline stock validation passed',data:{items:validItems.length},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-
-  setLoading(false);
-
-  await saveOfflineInvoice(
-    invoiceData
-  );
-
-  const updatedProducts =
-    products.map((product) => {
-      const usedQty =
-        stockUsageByProduct.get(
-          product.id
-        ) || 0;
-
-      if (!usedQty) {
-        return product;
-      }
-
-      return {
-        ...product,
-        stock: Math.max(
-          0,
-          (product.stock || 0) -
-            usedQty
-        ),
-      };
-    });
-
-  setProducts(updatedProducts);
-  await cacheProducts(
-    updatedProducts
-  );
-
-  // #region agent log
-  fetch('http://127.0.0.1:7809/ingest/8b97420f-199d-4dc5-a788-8a6b32d14476',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c7c612'},body:JSON.stringify({sessionId:'c7c612',runId:'phase2',hypothesisId:'offline-stock',location:'src/app/dashboard/invoices/create/page.tsx:1246',message:'Offline stock decremented locally',data:{products:updatedProducts.length},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-
-  toast.success(
-    "Invoice saved offline ✅"
-  );
-
-  router.push(
-    "/dashboard/invoices"
-  );
-
-  return Promise.resolve();
-}
-
-if (!navigator.onLine) {
-  return;
-}
 
     /* STOCK CHECK */
 
@@ -1416,15 +1449,23 @@ if (!navigator.onLine) {
 
   } catch (err) {
 
-    console.error(err);
-
-    toast.error("Failed");
-
-  } finally {
-
-    setLoading(false);
-
+  if (
+    err instanceof Error &&
+    err.message ===
+      "__OFFLINE_REDIRECT__"
+  ) {
+    return;
   }
+
+  console.error(err);
+
+  toast.error("Failed");
+
+} finally {
+
+  setLoading(false);
+
+}
 
 };
 
@@ -1699,7 +1740,12 @@ if (!navigator.onLine) {
           {/* SUBMIT */}
           <button
             onClick={handleSubmit}
-            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg"
+            disabled={loading}
+            className={`w-full py-3 rounded-lg text-white ${
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-purple-600 to-indigo-600"
+            }`}
           >
             {loading ? "Creating..." : "Create Invoice"}
           </button>

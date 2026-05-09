@@ -206,6 +206,8 @@
 
 import { useEffect, useState } from "react";
 import { db, auth } from "@/lib/firebase";
+import { getOfflineInvoices }
+from "@/lib/offlineInvoices";
 import {
   collection,
   getDocs,
@@ -249,7 +251,30 @@ export default function InvoicesPage() {
         setLoading(false);
         return;
       }
+      /* 1. ALWAYS LOAD OFFLINE INVOICES FIRST */
+      const offlineInvoices = await getOfflineInvoices();
+      const formattedOffline = offlineInvoices.map((inv: any) => ({
+        id: inv.id?.toString() || crypto.randomUUID(),
+        customerName: inv.customerName || "Unknown",
+        total: inv.total || 0,
+        status: inv.status || "pending",
+        invoiceNumber: inv.invoiceNumber,
+        createdAt: inv.createdAt,
+      }));
 
+
+      /* Show offline instantly so UI doesn't hang empty */
+      if (formattedOffline.length > 0) {
+        setInvoices(formattedOffline);
+      }
+
+      /* HARD STOP FIREBASE OFFLINE */
+if (!navigator.onLine) {
+  setLoading(false);
+  return;
+}
+
+      /* 2. ATTEMPT FIRESTORE FETCH (MERGE IF ONLINE) */
       try {
         const q = query(
           collection(db, "invoices"),
@@ -261,7 +286,6 @@ export default function InvoicesPage() {
 
         const data: Invoice[] = snapshot.docs.map((docSnap) => {
           const d = docSnap.data();
-
           return {
             id: docSnap.id,
             customerName: d.customerName || "Unknown",
@@ -272,16 +296,18 @@ export default function InvoicesPage() {
           };
         });
 
-        setInvoices(data);
+        // Merge offline + online (newest first)
+        setInvoices([...formattedOffline, ...data]);
       } catch (err) {
-        console.error(err);
-        toast.error("Failed to load invoices");
+        console.warn("Firestore fetch failed, showing offline invoices", err);
+        // Do not toast.error here because offline invoices might be perfectly fine
       } finally {
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    /* 🔥 LIVE OFFLINE REFRESH */ const refreshOfflineInvoices = async () => { if (!navigator.onLine) { const offlineInvoices = await getOfflineInvoices(); const formatted = offlineInvoices.map((inv: any) => ({ id: inv.id?.toString() || crypto.randomUUID(), customerName: inv.customerName || "Unknown", total: inv.total || 0, status: inv.status || "pending", invoiceNumber: inv.invoiceNumber, createdAt: inv.createdAt, })); setInvoices(formatted); } }; window.addEventListener( "offline-invoice-created", refreshOfflineInvoices ); /* CLEANUP */ return () => { unsubscribe(); window.removeEventListener( "offline-invoice-created", refreshOfflineInvoices ); };
+
   }, []);
 
   /* 🔹 DELETE */
