@@ -315,7 +315,64 @@ if (!navigator.onLine) {
     if (!confirm("Delete this invoice?")) return;
 
     try {
-      await deleteDoc(doc(db, "invoices", id));
+      let isOfflineMode = !navigator.onLine;
+      if (!isOfflineMode) {
+        try {
+          const testReq = await fetch(
+            "/favicon.ico?cache=" + new Date().getTime(),
+            { method: "HEAD", cache: "no-store" }
+          );
+          if (!testReq.ok) isOfflineMode = true;
+        } catch {
+          isOfflineMode = true;
+        }
+      }
+
+      let deletedOffline = false;
+
+      // Attempt to delete from local offline store first
+      const { getOfflineInvoices, deleteOfflineInvoice } = await import(
+        "@/lib/offlineInvoices"
+      );
+      const offlineInvoices = await getOfflineInvoices();
+      const offlineInv = offlineInvoices.find(
+        (inv: any) => inv.id?.toString() === id || inv.invoiceNumber === id
+      );
+
+      if (offlineInv) {
+        // Restore local stock for offline deleted invoice!
+        const { getCachedProducts, cacheProducts } = await import(
+          "@/lib/indexedDB"
+        );
+        const cachedProducts = await getCachedProducts();
+
+        for (const item of offlineInv.items || []) {
+          if (!item.productId || !item.qty) continue;
+          const pIdx = cachedProducts.findIndex(
+            (p) => p.id === item.productId
+          );
+          if (pIdx > -1) {
+            cachedProducts[pIdx].stock =
+              (cachedProducts[pIdx].stock || 0) + item.qty;
+          }
+        }
+        await cacheProducts(cachedProducts);
+
+        if ((offlineInv as any).id) {
+          await deleteOfflineInvoice((offlineInv as any).id);
+        }
+        deletedOffline = true;
+      }
+
+      if (!deletedOffline) {
+        if (isOfflineMode) {
+          toast.error("Cannot delete synced invoice while offline");
+          return;
+        }
+        // It's a firestore invoice, and we are online.
+        await deleteDoc(doc(db, "invoices", id));
+      }
+
       setInvoices((prev) => prev.filter((i) => i.id !== id));
       toast.success("Deleted");
     } catch (err) {
@@ -412,9 +469,9 @@ if (!navigator.onLine) {
 
                     {inv.createdAt && (
                       <p className="text-xs text-gray-400">
-                        {inv.createdAt
-                          .toDate()
-                          .toLocaleDateString()}
+                        {typeof (inv.createdAt as any).toDate === "function"
+                          ? (inv.createdAt as any).toDate().toLocaleDateString()
+                          : new Date(inv.createdAt as any).toLocaleDateString()}
                       </p>
                     )}
 

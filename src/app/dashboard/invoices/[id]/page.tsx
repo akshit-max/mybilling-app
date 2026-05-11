@@ -834,14 +834,32 @@ export default function ViewInvoice() {
   useEffect(() => {
     const fetchInvoice = async () => {
       try {
+        // 1. Try Firestore First
         const ref = doc(db, "invoices", id);
         const snap = await getDoc(ref);
 
         if (snap.exists()) {
           setInvoice(snap.data() as Invoice);
+        } else {
+          throw new Error("Not in Firestore");
         }
       } catch (err) {
-        console.error(err);
+        // 2. Fallback to IndexedDB
+        console.warn("Falling back to offline invoices", err);
+        try {
+          const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
+          const offlineInvoices = await getOfflineInvoices();
+          const foundOffline = offlineInvoices.find(
+            (inv: any) =>
+              inv.id?.toString() === id || inv.invoiceNumber === id
+          );
+
+          if (foundOffline) {
+            setInvoice(foundOffline as any);
+          }
+        } catch (offlineErr) {
+          console.error("Offline fetch failed", offlineErr);
+        }
       } finally {
         setLoading(false);
       }
@@ -999,7 +1017,9 @@ Thank you.
                 Date:
                 <span className="ml-1 font-semibold text-gray-900">
                   {invoice.createdAt
-                    ? invoice.createdAt.toDate().toLocaleDateString()
+                    ? typeof (invoice.createdAt as any).toDate === "function"
+                      ? (invoice.createdAt as any).toDate().toLocaleDateString()
+                      : new Date(invoice.createdAt as any).toLocaleDateString()
                     : "N/A"}
                 </span>
               </p>

@@ -483,49 +483,82 @@ export default function EditInvoice() {
       if (!user) return;
 
       try {
-        const snap = await getDoc(doc(db, "invoices", id));
-
-        if (snap.exists()) {
-          const d = snap.data();
-
-          setCustomerName(d.customerName || "");
-
-          const fetchedItems = d.items || [];
-          setItems(fetchedItems);
-          setOriginalItems(fetchedItems);
-
-          setDiscountType(d.discountType || "flat");
-          setDiscountValue(d.discountValue || 0);
-          setGstEnabled(d.gstEnabled ?? true);
-          setStatus(d.status || "pending");
+        // INVOICE
+        try {
+          const snap = await getDoc(doc(db, "invoices", id));
+          if (snap.exists()) {
+            const d = snap.data();
+            setCustomerName(d.customerName || "");
+            const fetchedItems = d.items || [];
+            setItems(fetchedItems);
+            setOriginalItems(fetchedItems);
+            setDiscountType(d.discountType || "flat");
+            setDiscountValue(d.discountValue || 0);
+            setGstEnabled(d.gstEnabled ?? true);
+            setStatus(d.status || "pending");
+          } else {
+            throw new Error("Not in Firestore");
+          }
+        } catch (err) {
+          const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
+          const offlineInvoices = await getOfflineInvoices();
+          const found = offlineInvoices.find(
+            (inv: any) =>
+              inv.id?.toString() === id || inv.invoiceNumber === id
+          );
+          if (found) {
+            const d = found as any;
+            setCustomerName(d.customerName || "");
+            const fetchedItems = d.items || [];
+            setItems(fetchedItems);
+            setOriginalItems(fetchedItems);
+            setDiscountType(d.discountType || "flat");
+            setDiscountValue(d.discountValue || 0);
+            setGstEnabled(d.gstEnabled ?? true);
+            setStatus(d.status || "pending");
+          }
         }
 
-        const cq = query(
-          collection(db, "customers"),
-          where("userId", "==", user.uid)
-        );
-        const csnap = await getDocs(cq);
+        // CUSTOMERS
+        try {
+          if (!navigator.onLine) throw new Error("Offline");
+          const cq = query(
+            collection(db, "customers"),
+            where("userId", "==", user.uid)
+          );
+          const csnap = await getDocs(cq);
+          setCustomers(
+            csnap.docs.map((docSnap) => ({
+              id: docSnap.id,
+              name: docSnap.data().name,
+            }))
+          );
+        } catch (err) {
+          const { getCachedCustomers } = await import("@/lib/indexedDB");
+          const cached = await getCachedCustomers();
+          setCustomers(cached as any);
+        }
 
-        setCustomers(
-          csnap.docs.map((docSnap) => ({
-            id: docSnap.id,
-            name: docSnap.data().name,
-          }))
-        );
-
-        const pq = query(
-          collection(db, "products"),
-          where("userId", "==", user.uid)
-        );
-        const psnap = await getDocs(pq);
-
-        setProducts(
-          psnap.docs.map((docSnap) => ({
-            id: docSnap.id,
-            name: docSnap.data().name,
-            price: docSnap.data().price,
-          }))
-        );
+        // PRODUCTS
+        try {
+          if (!navigator.onLine) throw new Error("Offline");
+          const pq = query(
+            collection(db, "products"),
+            where("userId", "==", user.uid)
+          );
+          const psnap = await getDocs(pq);
+          setProducts(
+            psnap.docs.map((docSnap) => ({
+              id: docSnap.id,
+              name: docSnap.data().name,
+              price: docSnap.data().price,
+            }))
+          );
+        } catch (err) {
+          const { getCachedProducts } = await import("@/lib/indexedDB");
+          const cached = await getCachedProducts();
+          setProducts(cached as any);
+        }
       } catch (err) {
         console.error(err);
         toast.error("Failed to load");
@@ -567,13 +600,10 @@ export default function EditInvoice() {
     setItems([...items, { name: "", qty: 1, price: 0 }]);
   };
 
-  /* 🔥 STOCK-AWARE UPDATE (UNCHANGED) */
+  /* 🔥 STOCK-AWARE UPDATE */
   const handleUpdate = async () => {
-    if (!customerName)
-      return toast.error("Select customer");
-
-    if (!validItems.length)
-      return toast.error("Add valid items");
+    if (!customerName) return toast.error("Select customer");
+    if (!validItems.length) return toast.error("Add valid items");
 
     try {
       setSaving(true);
@@ -582,24 +612,111 @@ export default function EditInvoice() {
       const newMap = new Map();
 
       originalItems.forEach((item) => {
-        if (item.productId)
-          oldMap.set(item.productId, item.qty);
+        if (item.productId) oldMap.set(item.productId, item.qty);
       });
 
       validItems.forEach((item) => {
-        if (item.productId)
-          newMap.set(item.productId, item.qty);
+        if (item.productId) newMap.set(item.productId, item.qty);
       });
 
-      const allIds = new Set([
-        ...oldMap.keys(),
-        ...newMap.keys(),
-      ]);
+      const allIds = new Set([...oldMap.keys(), ...newMap.keys()]);
 
+      // 1. Determine Connectivity
+      let isOfflineMode = !navigator.onLine;
+      if (!isOfflineMode) {
+        try {
+          const testReq = await fetch(
+            "/favicon.ico?cache=" + new Date().getTime(),
+            { method: "HEAD", cache: "no-store" }
+          );
+          if (!testReq.ok) isOfflineMode = true;
+        } catch {
+          isOfflineMode = true;
+        }
+      }
+
+      // 2. Check if invoice is an offline invoice
+      let isOfflineInvoice = false;
+      if (!isOfflineMode) {
+        try {
+          const snap = await getDoc(doc(db, "invoices", id));
+          if (!snap.exists()) isOfflineInvoice = true;
+        } catch {
+          isOfflineInvoice = true;
+        }
+      } else {
+        isOfflineInvoice = true;
+      }
+
+      const updateData = {
+        customerName,
+        items: validItems,
+        subtotal: calc.subtotal,
+        discountType,
+        discountValue,
+        discountAmount: calc.discountAmount,
+        gstEnabled,
+        cgst: calc.cgst,
+        sgst: calc.sgst,
+        total: calc.total,
+        status,
+      };
+
+      if (isOfflineMode || isOfflineInvoice) {
+        // --- OFFLINE UPDATE ---
+        const { getOfflineInvoices, updateOfflineInvoice } = await import(
+          "@/lib/offlineInvoices"
+        );
+        const { getCachedProducts, cacheProducts } = await import(
+          "@/lib/indexedDB"
+        );
+
+        const offlineInvoices = await getOfflineInvoices();
+        const existingInvoice = offlineInvoices.find(
+          (inv: any) => inv.id?.toString() === id || inv.invoiceNumber === id
+        );
+
+        if (!existingInvoice) {
+          toast.error("Offline invoice not found");
+          return;
+        }
+
+        const cachedProducts = await getCachedProducts();
+
+        for (const pid of allIds) {
+          const oldQty = oldMap.get(pid) || 0;
+          const newQty = newMap.get(pid) || 0;
+          const diff = newQty - oldQty;
+
+          if (diff === 0) continue;
+
+          const pIdx = cachedProducts.findIndex((p) => p.id === pid);
+          if (pIdx > -1) {
+            const stock = cachedProducts[pIdx].stock || 0;
+            if (diff > 0 && diff > stock) {
+              return toast.error("Not enough stock locally");
+            }
+            cachedProducts[pIdx].stock = stock - diff;
+          }
+        }
+
+        await cacheProducts(cachedProducts);
+
+        const updatedInvoice = {
+          ...existingInvoice,
+          ...updateData,
+        };
+
+        await updateOfflineInvoice(updatedInvoice as any);
+
+        toast.success("Saved offline");
+        throw new Error("__OFFLINE_REDIRECT__");
+      }
+
+      // --- ONLINE UPDATE ---
       for (const pid of allIds) {
         const oldQty = oldMap.get(pid) || 0;
         const newQty = newMap.get(pid) || 0;
-
         const diff = newQty - oldQty;
 
         if (diff === 0) continue;
@@ -620,27 +737,15 @@ export default function EditInvoice() {
         });
       }
 
-      await updateDoc(doc(db, "invoices", id), {
-        customerName,
-        items: validItems,
-
-        subtotal: calc.subtotal,
-        discountType,
-        discountValue,
-        discountAmount: calc.discountAmount,
-
-        gstEnabled,
-        cgst: calc.cgst,
-        sgst: calc.sgst,
-
-        total: calc.total,
-        status,
-      });
+      await updateDoc(doc(db, "invoices", id), updateData);
 
       toast.success("Invoice updated ✅");
       router.push("/dashboard/invoices");
-
-    } catch (err) {
+    } catch (err: any) {
+      if (err.message === "__OFFLINE_REDIRECT__") {
+        window.location.replace("/dashboard/invoices");
+        return;
+      }
       console.error(err);
       toast.error("Update failed");
     } finally {

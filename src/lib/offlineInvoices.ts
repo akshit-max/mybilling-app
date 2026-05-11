@@ -47,6 +47,11 @@ async (
 
 };
 
+export const updateOfflineInvoice = async (invoice: OfflineInvoice & { id?: number }) => {
+  const db = await dbPromise;
+  await db.put("offlineInvoices", invoice);
+};
+
 export const getOfflineInvoices =
 async (): Promise<
   OfflineInvoice[]
@@ -60,6 +65,13 @@ async (): Promise<
   );
 
 };
+
+export const deleteOfflineInvoice = async (id: number | string) => {
+  const db = await dbPromise;
+  await db.delete("offlineInvoices", Number(id));
+};
+
+
 
 export const clearOfflineInvoices =
 async () => {

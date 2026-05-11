@@ -335,29 +335,47 @@ export default function ProductsPage() {
   useEffect(() => {
     const fetchProducts = async () => {
       const user = auth.currentUser;
-
       if (!user) return;
 
-      const q = query(
-        collection(db, "products"),
-        where("userId", "==", user.uid),
-      );
+      try {
+        let isOfflineMode = !navigator.onLine;
+        if (!isOfflineMode) {
+          try {
+            const testReq = await fetch(
+              "/favicon.ico?cache=" + new Date().getTime(),
+              { method: "HEAD", cache: "no-store" }
+            );
+            if (!testReq.ok) isOfflineMode = true;
+          } catch {
+            isOfflineMode = true;
+          }
+        }
 
-      const snap = await getDocs(q);
+        if (isOfflineMode) {
+          throw new Error("Offline");
+        }
 
-      setProducts(
-        snap.docs.map((doc) => ({
-          id: doc.id,
+        const q = query(
+          collection(db, "products"),
+          where("userId", "==", user.uid)
+        );
+        const snap = await getDocs(q);
 
-          name: doc.data().name,
-
-          price: doc.data().price,
-
-          stock: doc.data().stock,
-
-          barcode: doc.data().barcode || "",
-        })),
-      );
+        setProducts(
+          snap.docs.map((doc) => ({
+            id: doc.id,
+            name: doc.data().name,
+            price: doc.data().price,
+            stock: doc.data().stock,
+            barcode: doc.data().barcode || "",
+          }))
+        );
+      } catch (err) {
+        // Fallback to local cache
+        const { getCachedProducts } = await import("@/lib/indexedDB");
+        const cached = await getCachedProducts();
+        setProducts(cached as any);
+      }
     };
 
     fetchProducts();

@@ -63,14 +63,30 @@ export default function ThermalReceipt() {
     const fetchInvoice = async () => {
       try {
         const ref = doc(db, "invoices", id);
-
         const snap = await getDoc(ref);
 
         if (snap.exists()) {
           setInvoice(snap.data() as Invoice);
+        } else {
+          throw new Error("Not in Firestore");
         }
       } catch (err) {
-        console.error(err);
+        // Fallback to IndexedDB
+        console.warn("Falling back to offline invoices", err);
+        try {
+          const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
+          const offlineInvoices = await getOfflineInvoices();
+          const foundOffline = offlineInvoices.find(
+            (inv: any) =>
+              inv.id?.toString() === id || inv.invoiceNumber === id
+          );
+
+          if (foundOffline) {
+            setInvoice(foundOffline as any);
+          }
+        } catch (offlineErr) {
+          console.error("Offline fetch failed", offlineErr);
+        }
       } finally {
         setLoading(false);
       }
@@ -210,17 +226,14 @@ export default function ThermalReceipt() {
             </div>
 
             <div className="flex justify-between items-center">
-
-              <span className="text-gray-500">
-                Date
-              </span>
-
+              <span className="text-gray-500">Date</span>
               <span className="font-medium text-gray-900">
                 {invoice.createdAt
-                  ?.toDate()
-                  .toLocaleDateString()}
+                  ? typeof (invoice.createdAt as any).toDate === "function"
+                    ? (invoice.createdAt as any).toDate().toLocaleDateString()
+                    : new Date(invoice.createdAt as any).toLocaleDateString()
+                  : "N/A"}
               </span>
-
             </div>
 
           </div>
