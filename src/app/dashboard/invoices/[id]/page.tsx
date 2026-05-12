@@ -817,6 +817,7 @@ type Invoice = {
   invoiceNumber?: string;
   createdAt?: Timestamp;
   customerPhone?: string;
+  dueDate?: string;
 };
 
 type Company = {
@@ -951,13 +952,15 @@ Thank you.
               Print
             </button>
 
-            <button
-              onClick={() => window.print()}
+            <a
+              href={`/dashboard/invoices/receipt/${id}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center gap-2 border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-100 transition"
             >
               <Download size={16} />
               PDF
-            </button>
+            </a>
             {/* <button
               onClick={handleWhatsAppShare}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
@@ -1142,6 +1145,16 @@ Thank you.
                   {invoice.status}
                 </span>
               </div>
+
+              {/* DUE DATE — only for credit invoices */}
+              {invoice.status === "credit" && invoice.dueDate && (
+                <div className="flex justify-between text-sm text-gray-500 pt-1">
+                  <span>Due Date</span>
+                  <span className="font-medium text-red-600">
+                    {new Date(invoice.dueDate).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

@@ -37,6 +37,7 @@ type Invoice = {
 
   status: string;
   gstEnabled: boolean;
+  dueDate?: string;
 
   invoiceNumber?: string;
   createdAt?: Timestamp;
@@ -407,6 +408,16 @@ export default function ThermalReceipt() {
             </span>
 
           </div>
+
+          {/* DUE DATE — credit invoices only */}
+          {invoice.status === "credit" && invoice.dueDate && (
+            <div className="flex justify-between text-xs text-gray-500 mt-2">
+              <span>Due Date</span>
+              <span className="font-medium text-red-600">
+                {new Date(invoice.dueDate).toLocaleDateString()}
+              </span>
+            </div>
+          )}
 
           {/* FOOTER */}
           <div className="mt-4 text-center">

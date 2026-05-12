@@ -429,6 +429,7 @@ import {
   Package,
   Tag,
   CheckCircle,
+  Trash2,
 } from "lucide-react";
 
 import BarcodeScanner from "react-qr-barcode-scanner";
@@ -488,6 +489,7 @@ export default function EditInvoice() {
 
   const [gstEnabled, setGstEnabled] = useState(true);
   const [status, setStatus] = useState<Status>("pending");
+  const [dueDate, setDueDate] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -514,6 +516,7 @@ export default function EditInvoice() {
             setDiscountValue(d.discountValue || 0);
             setGstEnabled(d.gstEnabled ?? true);
             setStatus(d.status || "pending");
+            setDueDate(d.dueDate || "");
           } else {
             throw new Error("Not in Firestore");
           }
@@ -534,6 +537,7 @@ export default function EditInvoice() {
             setDiscountValue(d.discountValue || 0);
             setGstEnabled(d.gstEnabled ?? true);
             setStatus(d.status || "pending");
+            setDueDate(d.dueDate || "");
           }
         }
 
@@ -668,6 +672,15 @@ const calc = calculateInvoice(
     setItems([...items, { name: "", qty: 1, price: 0 }]);
   };
 
+  const removeItem = (index: number) => {
+    if (items.length <= 1) {
+      setItems([{ name: "", qty: 1, price: 0 }]);
+      return;
+    }
+    const updated = items.filter((_, i) => i !== index);
+    setItems(updated);
+  };
+
   /* 🔥 STOCK-AWARE UPDATE */
   const handleUpdate = async () => {
     if (!customerName) return toast.error("Select customer");
@@ -730,6 +743,7 @@ const calc = calculateInvoice(
         igst: calc.igst,
         total: calc.total,
         status,
+        dueDate: status === "credit" ? dueDate : "",
       };
 
       if (isOfflineMode || isOfflineInvoice) {
@@ -901,16 +915,17 @@ const calc = calculateInvoice(
             </div>
 
             <div className="grid grid-cols-12 gap-3 mb-2 text-xs text-gray-500 px-1">
-              <p className="col-span-5">Product</p>
+              <p className="col-span-4">Product</p>
               <p className="col-span-2">Qty</p>
               <p className="col-span-3">Price</p>
               <p className="col-span-2 text-right">Amount</p>
+              <p className="col-span-1"></p>
             </div>
 
             <div className="space-y-3">
               {items.map((item, i) => (
                 <div key={i} className="grid grid-cols-12 gap-3 items-center">
-                  <div className="col-span-5">
+                  <div className="col-span-4">
                     <select
                       value={item.productId || ""}
                       onChange={(e) => {
@@ -965,6 +980,17 @@ const calc = calculateInvoice(
                   <div className="col-span-2 text-right font-medium text-sm text-gray-900">
                     ₹{(Number(item.qty) || 0) * (Number(item.price) || 0)}
                     <span className="text-xs text-gray-400 block font-normal">GST: {item.gstRate || 18}%</span>
+                  </div>
+
+                  <div className="col-span-1 text-right">
+                    <button
+                      type="button"
+                      onClick={() => removeItem(i)}
+                      className="text-red-500 hover:text-red-700 p-2 transition-colors"
+                      title="Remove Item"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -1079,6 +1105,19 @@ const calc = calculateInvoice(
                 <option value="paid">Paid</option>
                 <option value="credit">Credit</option>
               </select>
+
+              {/* DUE DATE — shown only for credit invoices */}
+              {status === "credit" && (
+                <div className="mt-3">
+                  <label className="text-xs text-gray-500 mb-1 block">Due Date</label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+              )}
             </div>
           </div>
 

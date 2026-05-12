@@ -866,7 +866,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
-import { ArrowLeft, Users, Package, Tag, CheckCircle } from "lucide-react";
+import { ArrowLeft, Users, Package, Tag, CheckCircle, Trash2 } from "lucide-react";
 import { sanitizeNumericInput } from "@/lib/sanitize";
 
 import { saveOfflineInvoice } from "@/lib/offlineInvoices";
@@ -927,6 +927,7 @@ export default function CreateInvoice() {
 
   const [gstEnabled, setGstEnabled] = useState(true);
   const [status, setStatus] = useState<Status>("pending");
+  const [dueDate, setDueDate] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [companyState, setCompanyState] = useState("");
@@ -1113,6 +1114,15 @@ const calc = calculateInvoice(
     setItems([...items, { name: "", qty: 1, price: 0 }]);
   };
 
+  const removeItem = (index: number) => {
+    if (items.length <= 1) {
+      setItems([{ name: "", qty: 1, price: 0 }]);
+      return;
+    }
+    const updated = items.filter((_, i) => i !== index);
+    setItems(updated);
+  };
+
   /* SUBMIT */
   // const handleSubmit = async () => {
   //   const user = auth.currentUser;
@@ -1291,6 +1301,7 @@ const calc = calculateInvoice(
         igst: calc.igst,
         total: calc.total,
         status,
+        dueDate: status === "credit" ? dueDate : "",
         createdAt: now,
         offline: true,
       };
@@ -1331,76 +1342,25 @@ const calc = calculateInvoice(
 
 
       setLoading(false);
-      window.location.replace(
-  "/dashboard/invoices"
-);
-
-throw new Error(
-  "__OFFLINE_REDIRECT__"
-);
-      // return Promise.resolve();
+      window.location.replace("/dashboard/invoices");
+      throw new Error("__OFFLINE_REDIRECT__");
     };
 
-    /* OFFLINE FIRST EXECUTION */
-    // if (!navigator.onLine) {
-    //   return executeOfflineSave();
-    // }
-
-    // /* ONLINE EXECUTION BELOW */
-    // let invoiceNumber;
-    // try {
-    //   invoiceNumber = await generateInvoiceNumber(user.uid, now);
-    // } catch (err) {
-    //   console.warn("Falling back to offline invoice save", err);
-    //   return executeOfflineSave();
-    // }
-
-    /* REAL CONNECTIVITY TEST */
-
     /* 1. INSTANT PHYSICAL DISCONNECT CHECK */
-if (!navigator.onLine) {
-  return executeOfflineSave();
-}
-
-/* 2. REAL CONNECTIVITY TEST (LIE-FI CHECK) */
-try {
-
-  await fetch(
-    `/favicon.ico?_=${Date.now()}`,
-    {
-      method: "HEAD",
-      cache: "no-store",
+    if (!navigator.onLine) {
+      return executeOfflineSave();
     }
-  );
 
-} catch (err) {
+    /* 2. REAL CONNECTIVITY TEST (LIE-FI CHECK) */
+    try {
+      await fetch(`/favicon.ico?_=${Date.now()}`, { method: "HEAD", cache: "no-store" });
+    } catch (err) {
+      console.warn("Internet unreachable (Lie-Fi), saving offline", err);
+      return executeOfflineSave();
+    }
 
-  console.warn(
-    "Internet unreachable (Lie-Fi), saving offline",
-    err
-  );
-
-  return executeOfflineSave();
-}
-// try {
-
-//   await fetch("/favicon.ico", {
-//     method: "HEAD",
-//     cache: "no-store",
-//   });
-
-// } catch (err) {
-
-//   console.warn(
-//     "Internet unreachable, saving offline",
-//     err
-//   );
-
-//   return executeOfflineSave();
-// }
-
-/* ONLINE EXECUTION BELOW */
-let invoiceNumber;
+    /* ONLINE EXECUTION BELOW */
+    let invoiceNumber;
 
 try {
 
@@ -1440,6 +1400,7 @@ try {
       igst: calc.igst,
       total: calc.total,
       status,
+      dueDate: status === "credit" ? dueDate : "",
       createdAt: now,
     };
 
@@ -1632,16 +1593,17 @@ try {
             </div>
 
             <div className="grid grid-cols-12 gap-3 mb-2 text-xs text-gray-500 px-1">
-              <p className="col-span-5">Product</p>
+              <p className="col-span-4">Product</p>
               <p className="col-span-2">Qty</p>
               <p className="col-span-3">Price</p>
               <p className="col-span-2 text-right">Amount</p>
+              <p className="col-span-1"></p>
             </div>
 
             <div className="space-y-3">
               {items.map((item, i) => (
                 <div key={i} className="grid grid-cols-12 gap-3 items-center">
-                  <div className="col-span-5">
+                  <div className="col-span-4">
                     <select
                       value={item.productId || ""}
                       onChange={(e) => {
@@ -1690,6 +1652,17 @@ try {
                   <div className="col-span-2 text-right font-medium text-sm text-gray-900">
                     ₹{(Number(item.qty) || 0) * (Number(item.price) || 0)}
                     <span className="text-xs text-gray-400 block font-normal">GST: {item.gstRate || 18}%</span>
+                  </div>
+
+                  <div className="col-span-1 text-right">
+                    <button
+                      type="button"
+                      onClick={() => removeItem(i)}
+                      className="text-red-500 hover:text-red-700 p-2 transition-colors"
+                      title="Remove Item"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -1806,6 +1779,19 @@ try {
                 <option value="paid">Paid</option>
                 <option value="credit">Credit</option>
               </select>
+
+              {/* DUE DATE — shown only for credit invoices */}
+              {status === "credit" && (
+                <div className="mt-3">
+                  <label className="text-xs text-gray-500 mb-1 block">Due Date</label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
