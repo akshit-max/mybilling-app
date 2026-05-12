@@ -152,7 +152,7 @@ const withPWA = withPWAInit({
     "development",
 
   fallbacks: {
-    document: "/",
+  document: "/offline",
   },
 
   runtimeCaching: [
