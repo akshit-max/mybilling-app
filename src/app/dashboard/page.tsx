@@ -23,6 +23,8 @@ type Invoice = {
   customerName: string;
   total: number;
   status: "paid" | "pending" | "credit";
+  createdAt?: { toDate?: () => Date; seconds?: number } | string | Date;
+  invoiceType?: string;
 };
 
 type Product = {
@@ -82,6 +84,8 @@ export default function Dashboard() {
           customerName: d.data().customerName,
           total: d.data().total,
           status: d.data().status || "pending",
+          createdAt: d.data().createdAt,
+          invoiceType: d.data().invoiceType || "invoice",
         }));
 
         setInvoices(invoiceData);
@@ -176,11 +180,42 @@ export default function Dashboard() {
   // }, []);
 
   /* 🔹 STATS */
-  const totalRevenue = invoices.reduce((sum, i) => sum + i.total, 0);
-  const totalInvoices = invoices.length;
+  // Helper to get a JS Date from Firestore Timestamp or ISO string
+  const toDate = (val: Invoice["createdAt"]): Date | null => {
+    if (!val) return null;
+    if (typeof (val as any).toDate === "function") return (val as any).toDate();
+    if (typeof val === "string" || val instanceof Date) return new Date(val as any);
+    if (typeof (val as any).seconds === "number") return new Date((val as any).seconds * 1000);
+    return null;
+  };
 
-  const pendingAmount = invoices
+  const realInvoices = invoices.filter((i) => (i.invoiceType || "invoice") === "invoice");
+  const totalRevenue = realInvoices.reduce((sum, i) => sum + i.total, 0);
+  const totalInvoices = realInvoices.length;
+
+  const pendingAmount = realInvoices
     .filter((i) => i.status !== "paid")
+    .reduce((sum, i) => sum + i.total, 0);
+
+  const now = new Date();
+  const todaySales = realInvoices
+    .filter((i) => {
+      const d = toDate(i.createdAt);
+      if (!d) return false;
+      return (
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()
+      );
+    })
+    .reduce((sum, i) => sum + i.total, 0);
+
+  const monthlySales = realInvoices
+    .filter((i) => {
+      const d = toDate(i.createdAt);
+      if (!d) return false;
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    })
     .reduce((sum, i) => sum + i.total, 0);
 
   const totalCustomers = customers.length;
@@ -336,17 +371,26 @@ export default function Dashboard() {
           <main className="p-6 space-y-6">
             {/* STATS */}
             {loadingData ? (
-              <div className="grid md:grid-cols-4 gap-6">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="bg-white p-6 rounded-xl animate-pulse h-24"
-                  />
+              <div className="grid md:grid-cols-3 gap-6 mb-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-white p-6 rounded-xl animate-pulse h-24" />
                 ))}
               </div>
             ) : (
-              <div className="grid md:grid-cols-4 gap-6">
-                <Card title="Revenue" value={`₹${totalRevenue.toFixed(2)}`} />
+              <div className="grid md:grid-cols-3 gap-6 mb-4">
+                <Card title="Today Sales" value={`₹${todaySales.toFixed(2)}`} highlight />
+                <Card title="Monthly Sales" value={`₹${monthlySales.toFixed(2)}`} highlight />
+                <Card title="Revenue (All)" value={`₹${totalRevenue.toFixed(2)}`} />
+              </div>
+            )}
+            {loadingData ? (
+              <div className="grid md:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-white p-6 rounded-xl animate-pulse h-24" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-3 gap-6">
                 <Card title="Invoices" value={`${totalInvoices}`} />
                 <Card title="Pending" value={`₹${pendingAmount.toFixed(2)}`} />
                 <Card title="Customers" value={`${totalCustomers}`} />
@@ -428,37 +472,16 @@ export default function Dashboard() {
 }
 
 /* CARD */
-function Card({ title, value }: { title: string; value: string }) {
+function Card({ title, value, highlight }: { title: string; value: string; highlight?: boolean }) {
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border">
-      <p className="text-sm text-gray-500">{title}</p>
-      <h3 className="text-2xl font-semibold mt-2 text-gray-800">{value}</h3>
+    <div className={`p-6 rounded-xl shadow-sm border ${highlight ? "bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-100" : "bg-white"}`}>
+      <p className={`text-sm ${highlight ? "text-purple-600" : "text-gray-500"}`}>{title}</p>
+      <h3 className={`text-2xl font-semibold mt-2 ${highlight ? "text-purple-800" : "text-gray-800"}`}>{value}</h3>
     </div>
   );
 }
 
-// "use client";
 
-// import { useEffect, useState } from "react";
-// import ProtectedRoute from "@/components/ProtectedRoute";
-// import { auth, db } from "@/lib/firebase";
-// import { signOut } from "firebase/auth";
-// import {
-//   collection,
-//   getDocs,
-//   query,
-//   where,
-// } from "firebase/firestore";
-// import { useRouter } from "next/navigation";
-// import Link from "next/link";
-// import toast from "react-hot-toast";
-
-// type Invoice = {
-//   id: string;
-//   customerName: string;
-//   total: number;
-//   status: "paid" | "pending" | "credit";
-// };
 
 // type Product = {
 //   id: string;

@@ -818,6 +818,7 @@ type Invoice = {
   createdAt?: Timestamp;
   customerPhone?: string;
   dueDate?: string;
+  invoiceType?: string;
 };
 
 type Company = {
@@ -932,7 +933,9 @@ Thank you.
           <div className="flex items-center gap-3">
             <FileText size={22} className="text-purple-600" />
 
-            <h1 className="text-2xl font-semibold text-gray-900">Invoice</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">
+              {(invoice?.invoiceType || "invoice") === "estimate" ? "Estimate" : "Invoice"}
+            </h1>
           </div>
 
           <div className="flex items-center gap-3">
@@ -1004,6 +1007,9 @@ Thank you.
 
             {/* META */}
             <div className="text-right text-sm leading-7">
+              <p className="text-xs uppercase tracking-[0.16em] font-bold text-gray-400 mb-2">
+                {(invoice.invoiceType || "invoice") === "estimate" ? "ESTIMATE" : "TAX INVOICE"}
+              </p>
               <p className="text-gray-500">
                 Invoice No:
                 <span className="ml-1 font-semibold text-gray-900">

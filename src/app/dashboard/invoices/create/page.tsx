@@ -866,7 +866,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
-import { ArrowLeft, Users, Package, Tag, CheckCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, Users, Package, Tag, CheckCircle, Trash2, FileText } from "lucide-react";
 import { sanitizeNumericInput } from "@/lib/sanitize";
 
 import { saveOfflineInvoice } from "@/lib/offlineInvoices";
@@ -928,6 +928,7 @@ export default function CreateInvoice() {
   const [gstEnabled, setGstEnabled] = useState(true);
   const [status, setStatus] = useState<Status>("pending");
   const [dueDate, setDueDate] = useState("");
+  const [invoiceType, setInvoiceType] = useState<"invoice" | "estimate">("invoice");
 
   const [loading, setLoading] = useState(false);
   const [companyState, setCompanyState] = useState("");
@@ -1176,15 +1177,19 @@ const calc = calculateInvoice(
         igst: calc.igst,
         total: calc.total,
         status,
+        invoiceType,
         dueDate: status === "credit" ? dueDate : "",
         createdAt: now,
         offline: true,
       };
 
       const stockUsageByProduct = new Map<string, number>();
-      for (const item of validItems) {
-        if (!item.productId) continue;
-        stockUsageByProduct.set(item.productId, (stockUsageByProduct.get(item.productId) || 0) + item.qty);
+      // Estimates do NOT deduct stock
+      if (invoiceType === "invoice") {
+        for (const item of validItems) {
+          if (!item.productId) continue;
+          stockUsageByProduct.set(item.productId, (stockUsageByProduct.get(item.productId) || 0) + item.qty);
+        }
       }
 
       for (const [productId, requestedQty] of stockUsageByProduct) {
@@ -1275,14 +1280,15 @@ try {
       igst: calc.igst,
       total: calc.total,
       status,
+      invoiceType,
       dueDate: status === "credit" ? dueDate : "",
       createdAt: now,
     };
 
-    /* STOCK CHECK */
+    /* STOCK CHECK — skip for estimates */
 
+    if (invoiceType === "invoice") {
     for (const item of validItems) {
-
       if (!item.productId)
         continue;
 
@@ -1339,6 +1345,8 @@ try {
       }
 
     }
+
+    } // end stock check for invoice type
 
     /* FIREBASE SAVE */
 
@@ -1618,34 +1626,19 @@ try {
             </div>
           )}
 
-          {/* DISCOUNT + STATUS */}
-          <div className="grid md:grid-cols-2 gap-6">
+          {/* DISCOUNT + STATUS + TYPE */}
+          <div className="grid md:grid-cols-3 gap-6">
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Tag size={16} className="text-purple-600" />
                 <p className="text-sm font-medium">Discount</p>
               </div>
-
               <div className="flex gap-2">
-                <select
-                  value={discountType}
-                  onChange={(e) =>
-                    setDiscountType(e.target.value as DiscountType)
-                  }
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="flat">₹</option>
+                <select value={discountType} onChange={(e) => setDiscountType(e.target.value as DiscountType)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="flat">&#8377;</option>
                   <option value="percent">%</option>
                 </select>
-
-                <input
-                  type="number"
-                  value={discountValue}
-                  onChange={(e) =>
-                    setDiscountValue(sanitizeNumericInput(e.target.value))
-                  }
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                />
+                <input type="number" value={discountValue} onChange={(e) => setDiscountValue(sanitizeNumericInput(e.target.value))} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
 
@@ -1654,28 +1647,30 @@ try {
                 <CheckCircle size={16} className="text-purple-600" />
                 <p className="text-sm font-medium">Status</p>
               </div>
-
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as Status)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              >
+              <select value={status} onChange={(e) => setStatus(e.target.value as Status)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                 <option value="pending">Pending</option>
                 <option value="paid">Paid</option>
                 <option value="credit">Credit</option>
               </select>
-
-              {/* DUE DATE — shown only for credit invoices */}
               {status === "credit" && (
                 <div className="mt-3">
                   <label className="text-xs text-gray-500 mb-1 block">Due Date</label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-                  />
+                  <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none" />
                 </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <FileText size={16} className="text-purple-600" />
+                <p className="text-sm font-medium">Type</p>
+              </div>
+              <select value={invoiceType} onChange={(e) => setInvoiceType(e.target.value as "invoice" | "estimate")} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="invoice">Tax Invoice</option>
+                <option value="estimate">Estimate</option>
+              </select>
+              {invoiceType === "estimate" && (
+                <p className="text-xs text-orange-500 mt-1">Estimates do not affect stock</p>
               )}
             </div>
           </div>

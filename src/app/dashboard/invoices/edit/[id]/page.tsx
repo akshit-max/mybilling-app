@@ -430,6 +430,7 @@ import {
   Tag,
   CheckCircle,
   Trash2,
+  FileText,
 } from "lucide-react";
 
 import BarcodeScanner from "react-qr-barcode-scanner";
@@ -490,6 +491,7 @@ export default function EditInvoice() {
   const [gstEnabled, setGstEnabled] = useState(true);
   const [status, setStatus] = useState<Status>("pending");
   const [dueDate, setDueDate] = useState("");
+  const [invoiceType, setInvoiceType] = useState<"invoice" | "estimate">("invoice");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -517,6 +519,7 @@ export default function EditInvoice() {
             setGstEnabled(d.gstEnabled ?? true);
             setStatus(d.status || "pending");
             setDueDate(d.dueDate || "");
+            setInvoiceType(d.invoiceType || "invoice");
           } else {
             throw new Error("Not in Firestore");
           }
@@ -733,6 +736,7 @@ const calc = calculateInvoice(
         igst: calc.igst,
         total: calc.total,
         status,
+        invoiceType,
         dueDate: status === "credit" ? dueDate : "",
       };
 
@@ -1052,8 +1056,8 @@ const calc = calculateInvoice(
             </div>
           )}
 
-          {/* DISCOUNT + STATUS */}
-          <div className="grid md:grid-cols-2 gap-6">
+          {/* DISCOUNT + STATUS + TYPE */}
+          <div className="grid md:grid-cols-3 gap-6">
 
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -1062,25 +1066,11 @@ const calc = calculateInvoice(
               </div>
 
               <div className="flex gap-2">
-                <select
-                  value={discountType}
-                  onChange={(e) =>
-                    setDiscountType(e.target.value as DiscountType)
-                  }
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                >
+                <select value={discountType} onChange={(e) => setDiscountType(e.target.value as DiscountType)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
                   <option value="flat">₹</option>
                   <option value="percent">%</option>
                 </select>
-
-                <input
-                  type="number"
-                  value={discountValue}
-                  onChange={(e) =>
-                    setDiscountValue(sanitizeNumericInput(e.target.value))
-                  }
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                />
+                <input type="number" value={discountValue} onChange={(e) => setDiscountValue(sanitizeNumericInput(e.target.value))} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
 
@@ -1089,30 +1079,31 @@ const calc = calculateInvoice(
                 <CheckCircle size={16} className="text-purple-600" />
                 <p className="text-sm font-medium">Status</p>
               </div>
-
-              <select
-                value={status}
-                onChange={(e) =>
-                  setStatus(e.target.value as Status)
-                }
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              >
+              <select value={status} onChange={(e) => setStatus(e.target.value as Status)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                 <option value="pending">Pending</option>
                 <option value="paid">Paid</option>
                 <option value="credit">Credit</option>
               </select>
-
               {/* DUE DATE — shown only for credit invoices */}
               {status === "credit" && (
                 <div className="mt-3">
                   <label className="text-xs text-gray-500 mb-1 block">Due Date</label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-                  />
+                  <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none" />
                 </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <FileText size={16} className="text-purple-600" />
+                <p className="text-sm font-medium">Type</p>
+              </div>
+              <select value={invoiceType} onChange={(e) => setInvoiceType(e.target.value as "invoice" | "estimate")} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="invoice">Tax Invoice</option>
+                <option value="estimate">Estimate</option>
+              </select>
+              {invoiceType === "estimate" && (
+                <p className="text-xs text-orange-500 mt-1">Estimates do not affect stock</p>
               )}
             </div>
           </div>

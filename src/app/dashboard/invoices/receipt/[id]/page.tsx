@@ -41,6 +41,7 @@ type Invoice = {
 
   invoiceNumber?: string;
   createdAt?: Timestamp;
+  invoiceType?: string;
 };
 
 type Company = {
@@ -218,8 +219,8 @@ export default function ThermalReceipt() {
 
             <div className="flex justify-between items-start gap-3">
 
-              <span className="text-gray-500">
-                Invoice
+              <span className="text-gray-500 font-bold">
+                {(invoice.invoiceType || "invoice") === "estimate" ? "ESTIMATE" : "TAX INVOICE"}
               </span>
 
               <span className="font-semibold text-right text-gray-900 break-all">

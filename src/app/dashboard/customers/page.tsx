@@ -491,18 +491,21 @@ type Customer = {
 
   totalSales?: number;
   pendingAmount?: number;
+  totalInvoices?: number;
 };
 
 type Invoice = {
   customerName?: string;
   total: number;
   status: "paid" | "pending" | "credit";
+  invoiceType?: string;
 };
 
 type Stats = {
   [key: string]: {
     total: number;
     pending: number;
+    count: number;
   };
 };
 
@@ -571,6 +574,8 @@ export default function CustomersPage() {
               status:
                 docSnap.data().status ||
                 "pending",
+
+              invoiceType: docSnap.data().invoiceType || "invoice",
             }));
 
 
@@ -579,6 +584,8 @@ export default function CustomersPage() {
           const stats: Stats = {};
 
           invoiceData.forEach((inv) => {
+            // Exclude estimates from sales totals
+            if ((inv.invoiceType || "invoice") !== "invoice") return;
 
             const name =
               inv.customerName || "Unknown";
@@ -588,10 +595,12 @@ export default function CustomersPage() {
               stats[name] = {
                 total: 0,
                 pending: 0,
+                count: 0,
               };
             }
 
             stats[name].total += inv.total;
+            stats[name].count += 1;
 
             if (
               inv.status === "pending" ||
@@ -614,6 +623,9 @@ export default function CustomersPage() {
 
               pendingAmount:
                 stats[customer.name]?.pending || 0,
+
+              totalInvoices:
+                stats[customer.name]?.count || 0,
             }));
 
 
@@ -823,57 +835,24 @@ export default function CustomersPage() {
 
                     {/* ANALYTICS */}
 
-                    <div className="grid sm:grid-cols-2 gap-3 mt-3">
+                    <div className="flex flex-wrap gap-3 mt-3">
 
-                      {/* TOTAL SALES */}
-
-                      <div
-                        className="
-                          bg-green-50
-                          border border-green-100
-                          rounded-xl
-                          px-4 py-3
-                          min-w-[180px]
-                        "
-                      >
-
-                        <p className="text-xs text-green-700 mb-1">
-                          Total Sales
-                        </p>
-
-                        <h3 className="text-lg font-bold text-green-900">
-
-                          ₹
-                          {c.totalSales?.toFixed(2)}
-
-                        </h3>
-
+                      {/* TOTAL INVOICES */}
+                      <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 min-w-[120px]">
+                        <p className="text-xs text-gray-500 mb-1">Total Invoices</p>
+                        <h3 className="text-lg font-bold text-gray-800">{c.totalInvoices ?? 0}</h3>
                       </div>
 
+                      {/* TOTAL SALES */}
+                      <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3 min-w-[150px]">
+                        <p className="text-xs text-green-700 mb-1">Total Spent</p>
+                        <h3 className="text-lg font-bold text-green-900">₹{(c.totalSales ?? 0).toFixed(2)}</h3>
+                      </div>
 
                       {/* PENDING */}
-
-                      <div
-                        className="
-                          bg-yellow-50
-                          border border-yellow-100
-                          rounded-xl
-                          px-4 py-3
-                          min-w-[180px]
-                        "
-                      >
-
-                        <p className="text-xs text-yellow-700 mb-1">
-                          Pending Amount
-                        </p>
-
-                        <h3 className="text-lg font-bold text-yellow-800">
-
-                          ₹
-                          {c.pendingAmount?.toFixed(2)}
-
-                        </h3>
-
+                      <div className="bg-yellow-50 border border-yellow-100 rounded-xl px-4 py-3 min-w-[150px]">
+                        <p className="text-xs text-yellow-700 mb-1">Pending Amount</p>
+                        <h3 className="text-lg font-bold text-yellow-800">₹{(c.pendingAmount ?? 0).toFixed(2)}</h3>
                       </div>
 
                     </div>
