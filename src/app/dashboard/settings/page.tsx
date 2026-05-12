@@ -99,6 +99,7 @@ import { db, auth } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { INDIAN_STATES } from "@/lib/indianStates";
 
 import {
   Settings,
@@ -109,6 +110,7 @@ export default function SettingsPage() {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [gstin, setGstin] = useState("");
+  const [state, setState] = useState("");
 
   const user = auth.currentUser;
 
@@ -125,6 +127,7 @@ export default function SettingsPage() {
         setName(data.name || "");
         setAddress(data.address || "");
         setGstin(data.gstin || "");
+        setState(data.state || "");
       }
     };
 
@@ -140,6 +143,7 @@ export default function SettingsPage() {
         name,
         address,
         gstin,
+        state,
       });
 
       toast.success("Saved ✅");
@@ -205,6 +209,23 @@ export default function SettingsPage() {
                 onChange={(e) => setAddress(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
               />
+            </div>
+
+            {/* STATE */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">
+                State
+              </label>
+              <select
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+              >
+                <option value="">Select State</option>
+                {INDIAN_STATES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
             </div>
 
             {/* GSTIN */}

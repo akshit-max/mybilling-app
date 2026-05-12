@@ -126,6 +126,7 @@ import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { ArrowLeft, Users, Phone, MapPin, FileText } from "lucide-react";
+import { INDIAN_STATES } from "@/lib/indianStates";
 
 export default function EditCustomer() {
   const { id } = useParams() as { id: string };
@@ -135,6 +136,7 @@ export default function EditCustomer() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [gstin, setGstin] = useState("");
+  const [state, setState] = useState("");
   const [loading, setLoading] = useState(true);
 
   /* FETCH CUSTOMER (UNCHANGED) */
@@ -150,6 +152,7 @@ export default function EditCustomer() {
           setPhone(data.phone || "");
           setAddress(data.address || "");
           setGstin(data.gstin || "");
+          setState(data.state || "");
         }
       } catch (err) {
         console.error(err);
@@ -209,6 +212,7 @@ export default function EditCustomer() {
         phone: phone.trim(),
         address: address.trim(),
         gstin: gstin.trim(),
+        state: state.trim(),
       });
 
       toast.success("Customer updated ✅");
@@ -297,6 +301,26 @@ export default function EditCustomer() {
               placeholder="Enter address"
               className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
             />
+          </div>
+
+          {/* STATE */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <MapPin size={16} className="text-purple-600" />
+              <label className="text-sm font-medium text-gray-700">
+                State
+              </label>
+            </div>
+            <select
+              value={state}
+              onChange={(e) => setState(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+            >
+              <option value="">Select State</option>
+              {INDIAN_STATES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
           </div>
 
           {/* GSTIN */}

@@ -567,11 +567,17 @@
 //     if (!validItems.length)
 //       return toast.error("Add valid items");
 
+//     const cleanItems = validItems.map(i => ({
+//       ...i,
+//       qty: Number(i.qty),
+//       price: Number(i.price)
+//     }));
+
 //     try {
 //       setLoading(true);
 
 //       /* 🔥 STOCK CHECK */
-//       for (const item of validItems) {
+//       for (const item of cleanItems) {
 //         if (!item.productId) continue;
 
 //         const productRef = doc(db, "products", item.productId);
@@ -861,6 +867,7 @@ import toast from "react-hot-toast";
 import Link from "next/link";
 
 import { ArrowLeft, Users, Package, Tag, CheckCircle } from "lucide-react";
+import { sanitizeNumericInput } from "@/lib/sanitize";
 
 import { saveOfflineInvoice } from "@/lib/offlineInvoices";
 import {
@@ -876,15 +883,18 @@ import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 type Item = {
   productId?: string;
   name: string;
-  qty: number;
-  price: number;
+  qty: number | "";
+  price: number | "";
+  gstRate?: number;
 };
 
 type Customer = {
   id: string;
   name: string;
-  gstin?: string; // ✅ ADDED
+  gstin?: string;
   phone?: string;
+  address?: string;
+  state?: string;
 };
 
 type Product = {
@@ -893,6 +903,7 @@ type Product = {
   price: number;
   barcode?: string;
   stock?: number;
+  gst?: number;
 };
 
 type Status = "paid" | "pending" | "credit";
@@ -912,12 +923,13 @@ export default function CreateInvoice() {
   const [items, setItems] = useState<Item[]>([{ name: "", qty: 1, price: 0 }]);
 
   const [discountType, setDiscountType] = useState<DiscountType>("flat");
-  const [discountValue, setDiscountValue] = useState(0);
+  const [discountValue, setDiscountValue] = useState<number | string>(0);
 
   const [gstEnabled, setGstEnabled] = useState(true);
   const [status, setStatus] = useState<Status>("pending");
 
   const [loading, setLoading] = useState(false);
+  const [companyState, setCompanyState] = useState("");
 
   /* FETCH */
   useEffect(() => {
@@ -935,6 +947,8 @@ export default function CreateInvoice() {
           name: d.data().name,
           gstin: d.data().gstin || "",
           phone: d.data().phone || "",
+          address: d.data().address || "",
+          state: d.data().state || "",
         }));
         setCustomers(customerList);
         await cacheCustomers(customerList);
@@ -950,6 +964,7 @@ export default function CreateInvoice() {
           price: d.data().price,
           barcode: d.data().barcode || "",
           stock: d.data().stock || 0,
+          gst: d.data().gst || 18,
         }));
         setProducts(productList);
         await cacheProducts(productList);
@@ -964,6 +979,19 @@ export default function CreateInvoice() {
         } else {
           toast("Loaded cached customers/products for offline mode.");
         }
+      }
+
+      /* COMPANY SETTINGS — fetched independently so a customer/product
+         error never prevents companyState from loading */
+      try {
+        const settingsSnap = await getDoc(doc(db, "settings", user.uid));
+        if (settingsSnap.exists()) {
+          setCompanyState((settingsSnap.data().state || "").trim());
+        }
+        // If doc doesn't exist, companyState stays "" → defaults to CGST+SGST
+      } catch (err) {
+        console.warn("[Settings] Could not load company state:", err);
+        // companyState stays "" — GST will default to CGST+SGST
       }
     };
 
@@ -1015,14 +1043,53 @@ export default function CreateInvoice() {
   };
 
   /* CALC */
-  const validItems = items.filter((i) => i.name && i.qty > 0 && i.price > 0);
+  // const validItems = items
+  //   .filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0)
+  //   .map((i) => ({ ...i, qty: Number(i.qty), price: Number(i.price) }));
 
-  const calc = calculateInvoice(
-    validItems,
-    discountType,
-    discountValue,
-    gstEnabled,
-  );
+  // const calc = calculateInvoice(
+  //   validItems,
+  //   discountType,
+  //   Number(discountValue),
+  //   gstEnabled,
+  // );
+
+
+  /* CALC */
+const validItems = items
+  .filter(
+    (i) =>
+      i.name &&
+      Number(i.qty) > 0 &&
+      Number(i.price) > 0
+  )
+  .map((i) => ({
+    ...i,
+    qty: Number(i.qty),
+    price: Number(i.price),
+  }));
+
+const selectedCustomer = customers.find(
+  (c) => c.name === customerName
+);
+
+/* GST MODE — case-insensitive, trimmed comparison */
+const customerStateSanitized = (selectedCustomer?.state || "").trim().toUpperCase();
+const companyStateSanitized = companyState.trim().toUpperCase();
+
+const isInterstate =
+  !!customerStateSanitized &&
+  !!companyStateSanitized &&
+  customerStateSanitized !== companyStateSanitized;
+
+
+const calc = calculateInvoice(
+  validItems,
+  discountType,
+  Number(discountValue),
+  gstEnabled,
+  isInterstate
+);
 
   /* UPDATE ITEM */
   const updateItem = (
@@ -1031,9 +1098,13 @@ export default function CreateInvoice() {
     value: string | number,
   ) => {
     const updated = [...items];
+    let parsedValue: string | number = value;
+    if (field === "qty" || field === "price") {
+      parsedValue = sanitizeNumericInput(value);
+    }
     updated[index] = {
       ...updated[index],
-      [field]: field === "name" ? value : Number(value),
+      [field]: field === "name" ? value : parsedValue,
     };
     setItems(updated);
   };
@@ -1104,7 +1175,7 @@ export default function CreateInvoice() {
   //       subtotal: calc.subtotal,
 
   //       discountType,
-  //       discountValue,
+  //       discountValue: Number(discountValue),
 
   //       discountAmount: calc.discountAmount,
 
@@ -1132,7 +1203,7 @@ export default function CreateInvoice() {
 
   //     //   subtotal: calc.subtotal,
   //     //   discountType,
-  //     //   discountValue,
+  //     //   discountValue: Number(discountValue),
   //     //   discountAmount: calc.discountAmount,
 
   //     //   gstEnabled,
@@ -1211,11 +1282,13 @@ export default function CreateInvoice() {
         items: validItems,
         subtotal: calc.subtotal,
         discountType,
-        discountValue,
+        discountValue: Number(discountValue),
         discountAmount: calc.discountAmount,
         gstEnabled,
+        isInterstate,
         cgst: calc.cgst,
         sgst: calc.sgst,
+        igst: calc.igst,
         total: calc.total,
         status,
         createdAt: now,
@@ -1358,11 +1431,13 @@ try {
       items: validItems,
       subtotal: calc.subtotal,
       discountType,
-      discountValue,
+      discountValue: Number(discountValue),
       discountAmount: calc.discountAmount,
       gstEnabled,
+      isInterstate,
       cgst: calc.cgst,
       sgst: calc.sgst,
+      igst: calc.igst,
       total: calc.total,
       status,
       createdAt: now,
@@ -1526,6 +1601,27 @@ try {
                 </option>
               ))}
             </select>
+
+            {/* CUSTOMER DETAILS (Auto-fill) */}
+            {customerName && (() => {
+               const selectedCustomer = customers.find(c => c.name === customerName);
+               if (!selectedCustomer) return null;
+               return (
+                 <div className="bg-gray-50 rounded-lg p-4 mt-3 text-sm text-gray-700 grid grid-cols-2 gap-4 border border-gray-100">
+                   <div>
+                     <span className="font-medium">Phone:</span> {selectedCustomer.phone || "N/A"}
+                   </div>
+                   <div>
+                     <span className="font-medium">GSTIN:</span> {selectedCustomer.gstin || "N/A"}
+                   </div>
+                   {selectedCustomer.address && (
+                     <div className="col-span-2">
+                       <span className="font-medium">Address:</span> {selectedCustomer.address}
+                     </div>
+                   )}
+                 </div>
+               )
+            })()}
           </div>
 
           {/* ITEMS */}
@@ -1535,106 +1631,96 @@ try {
               <p className="text-sm font-medium">Items</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mb-2 text-xs text-gray-500">
-              <p>Product</p>
-              <p>Qty</p>
-              <p>Price</p>
+            <div className="grid grid-cols-12 gap-3 mb-2 text-xs text-gray-500 px-1">
+              <p className="col-span-5">Product</p>
+              <p className="col-span-2">Qty</p>
+              <p className="col-span-3">Price</p>
+              <p className="col-span-2 text-right">Amount</p>
             </div>
 
             <div className="space-y-3">
               {items.map((item, i) => (
-                <div key={i} className="grid grid-cols-3 gap-3">
-                  <select
-                    value={item.productId || ""}
-                    onChange={(e) => {
-                      const p = products.find((p) => p.id === e.target.value);
-                      if (!p) return;
+                <div key={i} className="grid grid-cols-12 gap-3 items-center">
+                  <div className="col-span-5">
+                    <select
+                      value={item.productId || ""}
+                      onChange={(e) => {
+                        const p = products.find((p) => p.id === e.target.value);
+                        if (!p) return;
 
-                      const updated = [...items];
-                      updated[i] = {
-                        productId: p.id,
-                        name: p.name,
-                        qty: 1,
-                        price: p.price,
-                      };
-                      setItems(updated);
-                    }}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  >
-                    <option value="">Select product</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
+                        const updated = [...items];
+                        updated[i] = {
+                          productId: p.id,
+                          name: p.name,
+                          qty: 1,
+                          price: p.price,
+                          gstRate: p.gst || 18,
+                        };
+                        setItems(updated);
+                      }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none"
+                    >
+                      <option value="">Select product</option>
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                  {/* <button
-                    type="button"
-                    onClick={() => setShowScanner(true)}
-                    className="
-    bg-purple-600
-    hover:bg-purple-700
-    text-white
-    px-4
-    py-2
-    rounded-lg
-    text-sm
-  "
-                  >
-                    Scan Barcode
-                  </button> */}
+                  <div className="col-span-2">
+                    <input
+                      type="number"
+                      value={item.qty}
+                      onChange={(e) => updateItem(i, "qty", e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none"
+                    />
+                  </div>
 
-                  <input
-                    type="number"
-                    value={item.qty}
-                    onChange={(e) => updateItem(i, "qty", e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  />
+                  <div className="col-span-3">
+                    <input
+                      type="number"
+                      value={item.price}
+                      onChange={(e) => updateItem(i, "price", e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none"
+                    />
+                  </div>
 
-                  <input
-                    type="number"
-                    value={item.price}
-                    onChange={(e) => updateItem(i, "price", e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  />
-
-                   <button
-                    type="button"
-                    onClick={() => setShowScanner(true)}
-                    className="
-    bg-purple-600
-    hover:bg-purple-700
-    text-white
-    px-4
-    py-2
-    rounded-lg
-    text-sm
-  "
-                  >
-                    Scan Barcode
-                  </button>
+                  <div className="col-span-2 text-right font-medium text-sm text-gray-900">
+                    ₹{(Number(item.qty) || 0) * (Number(item.price) || 0)}
+                    <span className="text-xs text-gray-400 block font-normal">GST: {item.gstRate || 18}%</span>
+                  </div>
                 </div>
               ))}
             </div>
 
-            <button onClick={addItem} className="mt-3 text-sm text-purple-600">
-              + Add Item
-            </button>
+            <div className="flex items-center gap-4 mt-4">
+              <button onClick={addItem} className="text-sm font-medium text-purple-600 hover:text-purple-700">
+                + Add Item
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setShowScanner(true)}
+                className="flex items-center gap-2 bg-purple-50 text-purple-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-purple-100 transition-colors border border-purple-200"
+              >
+                📷 Scan Barcode
+              </button>
+
+              
+            </div>
           </div>
           {showScanner && (
             <div className="mt-6">
-              <div
-                className="
-        max-w-xl
-        mx-auto
-        bg-black
-        rounded-2xl
-        overflow-hidden
-        border-4
-        border-purple-500
-      "
-              >
+              <div className="max-w-xl mx-auto bg-black rounded-2xl overflow-hidden border-4 border-purple-500 relative">
+                <button
+                  type="button"
+                  onClick={() => setShowScanner(false)}
+                  className="absolute top-3 right-3 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium z-10"
+                >
+                  Close
+                </button>
                 <BarcodeScanner
                   width={500}
                   height={300}
@@ -1655,6 +1741,7 @@ try {
                             name: found.name,
                             qty: 1,
                             price: found.price,
+                            gstRate: found.gst || 18,
                           },
                         ]);
                       } else {
@@ -1696,7 +1783,9 @@ try {
                 <input
                   type="number"
                   value={discountValue}
-                  onChange={(e) => setDiscountValue(Number(e.target.value))}
+                  onChange={(e) =>
+                    setDiscountValue(sanitizeNumericInput(e.target.value))
+                  }
                   className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
@@ -1728,13 +1817,42 @@ try {
                 checked={gstEnabled}
                 onChange={() => setGstEnabled(!gstEnabled)}
               />
-              Apply GST (18%)
+            
+              Apply Dynamic GST
             </label>
+            <p className="text-xs text-gray-500 mt-1">
+  GST Mode:
+  {isInterstate
+    ? " Interstate (IGST)"
+    : " Local (CGST + SGST)"}
+</p>
 
-            <div className="text-right">
+
+<div className="text-right">
+  <div className="text-sm text-gray-600 mb-1">
+    {isInterstate ? (
+      <p>IGST: ₹{calc.igst.toFixed(2)}</p>
+    ) : (
+      <>
+        <p>CGST: ₹{calc.cgst.toFixed(2)}</p>
+        <p>SGST: ₹{calc.sgst.toFixed(2)}</p>
+      </>
+    )}
+  </div>
+
+  <p className="text-sm text-gray-500">
+    Total
+  </p>
+
+  <p className="text-xl font-semibold">
+    ₹{calc.total.toFixed(2)}
+  </p>
+</div>
+
+            {/* <div className="text-right">
               <p className="text-sm text-gray-500">Total</p>
               <p className="text-xl font-semibold">₹{calc.total}</p>
-            </div>
+            </div> */}
           </div>
 
           {/* SUBMIT */}

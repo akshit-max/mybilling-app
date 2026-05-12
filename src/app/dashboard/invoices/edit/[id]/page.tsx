@@ -431,26 +431,42 @@ import {
   CheckCircle,
 } from "lucide-react";
 
+import BarcodeScanner from "react-qr-barcode-scanner";
+import { sanitizeNumericInput } from "@/lib/sanitize";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 
 /* TYPES */
 type Item = {
   productId?: string;
   name: string;
-  qty: number;
-  price: number;
+  qty: number | "";
+  price: number | "";
+  gstRate?: number;
 };
+
+// type Customer = {
+//   id: string;
+//   name: string;
+//   gstin?: string;
+//   phone?: string;
+//   address?: string;
+// };
 
 type Customer = {
   id: string;
   name: string;
   gstin?: string;
+  phone?: string;
+  address?: string;
+  state?: string;
 };
 
 type Product = {
   id: string;
   name: string;
   price: number;
+  barcode?: string;
+  gst?: number;
 };
 
 type Status = "paid" | "pending" | "credit";
@@ -468,13 +484,15 @@ export default function EditInvoice() {
 
   const [discountType, setDiscountType] =
     useState<DiscountType>("flat");
-  const [discountValue, setDiscountValue] = useState(0);
+  const [discountValue, setDiscountValue] = useState<number | string>(0);
 
   const [gstEnabled, setGstEnabled] = useState(true);
   const [status, setStatus] = useState<Status>("pending");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [companyState, setCompanyState] = useState("");
 
   /* 🔥 FETCH ALL DATA */
   useEffect(() => {
@@ -531,6 +549,10 @@ export default function EditInvoice() {
             csnap.docs.map((docSnap) => ({
               id: docSnap.id,
               name: docSnap.data().name,
+              gstin: docSnap.data().gstin || "",
+              phone: docSnap.data().phone || "",
+              address: docSnap.data().address || "",
+              state: docSnap.data().state || "",
             }))
           );
         } catch (err) {
@@ -552,6 +574,8 @@ export default function EditInvoice() {
               id: docSnap.id,
               name: docSnap.data().name,
               price: docSnap.data().price,
+              barcode: docSnap.data().barcode || "",
+              gst: docSnap.data().gst || 18,
             }))
           );
         } catch (err) {
@@ -565,22 +589,62 @@ export default function EditInvoice() {
       } finally {
         setLoading(false);
       }
+
+      /* COMPANY STATE — independent fetch so product/customer errors don't block it */
+      try {
+        const settingsSnap = await getDoc(doc(db, "settings", user.uid));
+        if (settingsSnap.exists()) {
+          setCompanyState((settingsSnap.data().state || "").trim());
+        }
+      } catch {
+        // companyState stays "" → defaults to CGST+SGST
+      }
     };
 
     fetchData();
   }, [id]);
 
   /* CALC */
-  const validItems = items.filter(
-    (i) => i.name && i.qty > 0 && i.price > 0
-  );
+  // const validItems = items
+  //   .filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0)
+  //   .map((i) => ({ ...i, qty: Number(i.qty), price: Number(i.price) }));
 
-  const calc = calculateInvoice(
-    validItems,
-    discountType,
-    discountValue,
-    gstEnabled
-  );
+  // const calc = calculateInvoice(
+  //   validItems,
+  //   discountType,
+  //   Number(discountValue),
+  //   gstEnabled
+  // );
+
+/* CALC */
+const validItems = items
+  .filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0)
+  .map((i) => ({
+    ...i,
+    qty: Number(i.qty),
+    price: Number(i.price),
+  }));
+
+const selectedCustomer = customers.find(
+  (c) => c.name === customerName
+);
+
+/* GST MODE — case-insensitive, trimmed comparison */
+const customerStateSanitized = (selectedCustomer?.state || "").trim().toUpperCase();
+const companyStateSanitized = companyState.trim().toUpperCase();
+
+const isInterstate =
+  !!customerStateSanitized &&
+  !!companyStateSanitized &&
+  customerStateSanitized !== companyStateSanitized;
+
+const calc = calculateInvoice(
+  validItems,
+  discountType,
+  Number(discountValue),
+  gstEnabled,
+  isInterstate
+);
 
   /* UPDATE ITEM */
   const updateItem = (
@@ -589,9 +653,13 @@ export default function EditInvoice() {
     value: string | number
   ) => {
     const updated = [...items];
+    let parsedValue: string | number = value;
+    if (field === "qty" || field === "price") {
+      parsedValue = sanitizeNumericInput(value);
+    }
     updated[index] = {
       ...updated[index],
-      [field]: field === "name" ? value : Number(value),
+      [field]: field === "name" ? value : parsedValue,
     };
     setItems(updated);
   };
@@ -653,11 +721,13 @@ export default function EditInvoice() {
         items: validItems,
         subtotal: calc.subtotal,
         discountType,
-        discountValue,
+        discountValue: Number(discountValue),
         discountAmount: calc.discountAmount,
         gstEnabled,
+        isInterstate,
         cgst: calc.cgst,
         sgst: calc.sgst,
+        igst: calc.igst,
         total: calc.total,
         status,
       };
@@ -796,6 +866,31 @@ export default function EditInvoice() {
                 </option>
               ))}
             </select>
+
+            {/* CUSTOMER DETAILS (Auto-fill) */}
+            {customerName && (() => {
+               const selectedCustomer = customers.find(c => c.name === customerName);
+               if (!selectedCustomer) return null;
+               return (
+                 <div className="bg-gray-50 rounded-lg p-4 mt-3 text-sm text-gray-700 grid grid-cols-2 gap-4 border border-gray-100">
+                   <div>
+                     <span className="font-medium">Phone:</span> {selectedCustomer.phone || "N/A"}
+                   </div>
+                   <div>
+                     <span className="font-medium">GSTIN:</span> {selectedCustomer.gstin || "N/A"}
+                   </div>
+                   {selectedCustomer.address && (
+                     <div className="col-span-2">
+                       <span className="font-medium">Address:</span> {selectedCustomer.address}
+                     </div>
+                   )}
+                   <div className="col-span-2">
+                     <span className="font-medium">State:</span>{" "}
+                     {selectedCustomer.state || <span className="text-gray-400 italic">Not set</span>}
+                   </div>
+                 </div>
+               )
+            })()}
           </div>
 
           {/* ITEMS */}
@@ -805,71 +900,135 @@ export default function EditInvoice() {
               <p className="text-sm font-medium">Items</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mb-2 text-xs text-gray-500">
-              <p>Product</p>
-              <p>Qty</p>
-              <p>Price</p>
+            <div className="grid grid-cols-12 gap-3 mb-2 text-xs text-gray-500 px-1">
+              <p className="col-span-5">Product</p>
+              <p className="col-span-2">Qty</p>
+              <p className="col-span-3">Price</p>
+              <p className="col-span-2 text-right">Amount</p>
             </div>
 
             <div className="space-y-3">
               {items.map((item, i) => (
-                <div key={i} className="grid grid-cols-3 gap-3">
+                <div key={i} className="grid grid-cols-12 gap-3 items-center">
+                  <div className="col-span-5">
+                    <select
+                      value={item.productId || ""}
+                      onChange={(e) => {
+                        const selected = products.find(
+                          (p) => p.id === e.target.value
+                        );
+                        if (!selected) return;
 
-                  <select
-                    value={item.productId || ""}
-                    onChange={(e) => {
-                      const selected = products.find(
-                        (p) => p.id === e.target.value
-                      );
-                      if (!selected) return;
+                        const updated = [...items];
+                        updated[i] = {
+                          ...updated[i],
+                          productId: selected.id,
+                          name: selected.name,
+                          price: selected.price,
+                          gstRate: selected.gst || 18,
+                        };
+                        setItems(updated);
+                      }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none"
+                    >
+                      <option value="">Select Product</option>
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                      const updated = [...items];
-                      updated[i] = {
-                        ...updated[i],
-                        productId: selected.id,
-                        name: selected.name,
-                        price: selected.price,
-                      };
-                      setItems(updated);
-                    }}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  >
-                    <option value="">Select Product</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="col-span-2">
+                    <input
+                      type="number"
+                      value={item.qty}
+                      onChange={(e) =>
+                        updateItem(i, "qty", e.target.value)
+                      }
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none"
+                    />
+                  </div>
 
-                  <input
-                    type="number"
-                    value={item.qty}
-                    onChange={(e) =>
-                      updateItem(i, "qty", e.target.value)
-                    }
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  />
+                  <div className="col-span-3">
+                    <input
+                      type="number"
+                      value={item.price}
+                      onChange={(e) =>
+                        updateItem(i, "price", e.target.value)
+                      }
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none"
+                    />
+                  </div>
 
-                  <input
-                    type="number"
-                    value={item.price}
-                    onChange={(e) =>
-                      updateItem(i, "price", e.target.value)
-                    }
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  />
+                  <div className="col-span-2 text-right font-medium text-sm text-gray-900">
+                    ₹{(Number(item.qty) || 0) * (Number(item.price) || 0)}
+                    <span className="text-xs text-gray-400 block font-normal">GST: {item.gstRate || 18}%</span>
+                  </div>
                 </div>
               ))}
             </div>
 
-            <button
-              onClick={addItem}
-              className="mt-3 text-sm text-purple-600"
-            >
-              + Add Item
-            </button>
+            <div className="flex items-center gap-4 mt-4">
+              <button
+                onClick={addItem}
+                className="text-sm font-medium text-purple-600 hover:text-purple-700"
+              >
+                + Add Item
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setShowScanner(true)}
+                className="flex items-center gap-2 bg-purple-50 text-purple-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-purple-100 transition-colors border border-purple-200"
+              >
+                📷 Scan Barcode
+              </button>
+            </div>
           </div>
+
+          {showScanner && (
+            <div className="mt-6">
+              <div className="max-w-xl mx-auto bg-black rounded-2xl overflow-hidden border-4 border-purple-500 relative">
+                <button
+                  type="button"
+                  onClick={() => setShowScanner(false)}
+                  className="absolute top-3 right-3 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium z-10"
+                >
+                  Close
+                </button>
+                <BarcodeScanner
+                  width={500}
+                  height={300}
+                  onUpdate={(err, result) => {
+                    if (result) {
+                      const text = result.getText();
+                      const found = products.find((p) => p.barcode === text);
+
+                      if (found) {
+                        toast.success(`${found.name} scanned`);
+                        setItems((prev) => [
+                          ...prev,
+                          {
+                            productId: found.id,
+                            name: found.name,
+                            qty: 1,
+                            price: found.price,
+                            gstRate: found.gst || 18,
+                          },
+                        ]);
+                        setShowScanner(false);
+                      } else {
+                        toast.error("Product not found");
+                        setShowScanner(false);
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* DISCOUNT + STATUS */}
           <div className="grid md:grid-cols-2 gap-6">
@@ -896,7 +1055,7 @@ export default function EditInvoice() {
                   type="number"
                   value={discountValue}
                   onChange={(e) =>
-                    setDiscountValue(Number(e.target.value))
+                    setDiscountValue(sanitizeNumericInput(e.target.value))
                   }
                   className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 />
@@ -925,19 +1084,37 @@ export default function EditInvoice() {
 
           {/* GST + TOTAL */}
           <div className="flex items-center justify-between border-t pt-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={gstEnabled}
-                onChange={(e) => setGstEnabled(e.target.checked)}
-              />
-              Apply GST (18%)
-            </label>
+            <div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={gstEnabled}
+                  onChange={(e) => setGstEnabled(e.target.checked)}
+                />
+                Apply Dynamic GST
+              </label>
+              <p className="text-xs text-gray-500 mt-1">
+                GST Mode:
+                {isInterstate ? " Interstate (IGST)" : " Local (CGST + SGST)"}
+              </p>
+            </div>
 
             <div className="text-right">
+              <div className="text-sm text-gray-600 mb-1">
+                {gstEnabled && (
+                  isInterstate ? (
+                    <p>IGST: ₹{calc.igst.toFixed(2)}</p>
+                  ) : (
+                    <>
+                      <p>CGST: ₹{calc.cgst.toFixed(2)}</p>
+                      <p>SGST: ₹{calc.sgst.toFixed(2)}</p>
+                    </>
+                  )
+                )}
+              </div>
               <p className="text-sm text-gray-500">Total</p>
               <p className="text-xl font-semibold">
-                ₹{calc.total}
+                ₹{calc.total.toFixed(2)}
               </p>
             </div>
           </div>

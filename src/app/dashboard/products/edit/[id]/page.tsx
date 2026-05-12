@@ -160,15 +160,16 @@ import {
   Package,
   ArrowLeft,
 } from "lucide-react";
+import { sanitizeNumericInput } from "@/lib/sanitize";
 
 export default function EditProduct() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
 
   const [name, setName] = useState("");
-  const [price, setPrice] = useState(0);
-  const [gst, setGst] = useState(18);
-  const [stock, setStock] = useState(0);
+  const [price, setPrice] = useState<number | string>(0);
+  const [gst, setGst] = useState<number | string>(18);
+  const [stock, setStock] = useState<number | string>(0);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -289,7 +290,7 @@ export default function EditProduct() {
               <input
                 type="number"
                 value={price}
-                onChange={(e) => setPrice(Number(e.target.value))}
+                onChange={(e) => setPrice(sanitizeNumericInput(e.target.value))}
                 className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
               />
             </div>
@@ -302,7 +303,7 @@ export default function EditProduct() {
               <input
                 type="number"
                 value={gst}
-                onChange={(e) => setGst(Number(e.target.value))}
+                onChange={(e) => setGst(sanitizeNumericInput(e.target.value))}
                 className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
               />
             </div>
@@ -315,7 +316,7 @@ export default function EditProduct() {
               <input
                 type="number"
                 value={stock}
-                onChange={(e) => setStock(Number(e.target.value))}
+                onChange={(e) => setStock(sanitizeNumericInput(e.target.value))}
                 className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
               />
             </div>

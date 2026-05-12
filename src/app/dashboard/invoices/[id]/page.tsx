@@ -809,6 +809,8 @@ type Invoice = {
   discountAmount: number;
   cgst: number;
   sgst: number;
+  igst?: number;
+  isInterstate?: boolean;
   total: number;
   status: string;
   gstEnabled: boolean;
@@ -1091,23 +1093,29 @@ Thank you.
               </div>
 
               {invoice.gstEnabled && (
-                <>
+                invoice.isInterstate ? (
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-500">CGST</span>
-
+                    <span className="text-gray-500">IGST</span>
                     <span className="font-medium text-gray-900 tabular-nums">
-                      ₹{invoice.cgst.toFixed(2)}
+                      ₹{(invoice.igst ?? 0).toFixed(2)}
                     </span>
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">SGST</span>
-
-                    <span className="font-medium text-gray-900 tabular-nums">
-                      ₹{invoice.sgst.toFixed(2)}
-                    </span>
-                  </div>
-                </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-500">CGST</span>
+                      <span className="font-medium text-gray-900 tabular-nums">
+                        ₹{invoice.cgst.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-500">SGST</span>
+                      <span className="font-medium text-gray-900 tabular-nums">
+                        ₹{invoice.sgst.toFixed(2)}
+                      </span>
+                    </div>
+                  </>
+                )
               )}
 
               {/* TOTAL */}
