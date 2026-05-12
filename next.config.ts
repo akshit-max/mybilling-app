@@ -152,7 +152,7 @@ const withPWA = withPWAInit({
     "development",
 
   fallbacks: {
-    document: "/offline",
+    document: "/",
   },
 
   runtimeCaching: [
@@ -167,7 +167,7 @@ const withPWA = withPWAInit({
           url.search.includes("_rsc=");
         return !!isRSC;
       },
-      handler: "NetworkFirst",
+      handler: "StaleWhileRevalidate",
       method: "GET",
       options: {
         cacheName: "next-rsc-payloads",
@@ -224,11 +224,10 @@ const withPWA = withPWAInit({
     // Dashboard navigation cache
     {
       urlPattern: /\/dashboard(?:\/.*)?$/i,
-      handler: "NetworkFirst",
+      handler: "StaleWhileRevalidate",
       method: "GET",
       options: {
         cacheName: "dashboard-navigation",
-        networkTimeoutSeconds: 5,
         expiration: {
           maxEntries: 64,
           maxAgeSeconds: 7 * 24 * 60 * 60,
