@@ -608,17 +608,7 @@ export default function EditInvoice() {
     fetchData();
   }, [id]);
 
-  /* CALC */
-  // const validItems = items
-  //   .filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0)
-  //   .map((i) => ({ ...i, qty: Number(i.qty), price: Number(i.price) }));
 
-  // const calc = calculateInvoice(
-  //   validItems,
-  //   discountType,
-  //   Number(discountValue),
-  //   gstEnabled
-  // );
 
 /* CALC */
 const validItems = items
@@ -915,9 +905,10 @@ const calc = calculateInvoice(
             </div>
 
             <div className="grid grid-cols-12 gap-3 mb-2 text-xs text-gray-500 px-1">
-              <p className="col-span-4">Product</p>
-              <p className="col-span-2">Qty</p>
-              <p className="col-span-3">Price</p>
+              <p className="col-span-4">Item</p>
+              <p className="col-span-1">Qty</p>
+              <p className="col-span-2">Rate</p>
+              <p className="col-span-2">GST %</p>
               <p className="col-span-2 text-right">Amount</p>
               <p className="col-span-1"></p>
             </div>
@@ -955,31 +946,36 @@ const calc = calculateInvoice(
                     </select>
                   </div>
 
-                  <div className="col-span-2">
+                  <div className="col-span-1">
                     <input
                       type="number"
                       value={item.qty}
                       onChange={(e) =>
                         updateItem(i, "qty", e.target.value)
                       }
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none"
+                      className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm outline-none"
                     />
                   </div>
 
-                  <div className="col-span-3">
+                  <div className="col-span-2">
                     <input
                       type="number"
                       value={item.price}
                       onChange={(e) =>
                         updateItem(i, "price", e.target.value)
                       }
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none"
+                      className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm outline-none"
                     />
                   </div>
 
+                  <div className="col-span-2">
+                    <div className="w-full border border-gray-100 bg-gray-50 rounded-lg px-2 py-2 text-sm text-gray-600">
+                      {item.gstRate || 18}%
+                    </div>
+                  </div>
+
                   <div className="col-span-2 text-right font-medium text-sm text-gray-900">
-                    ₹{(Number(item.qty) || 0) * (Number(item.price) || 0)}
-                    <span className="text-xs text-gray-400 block font-normal">GST: {item.gstRate || 18}%</span>
+                    ₹{((Number(item.qty) || 0) * (Number(item.price) || 0)).toFixed(2)}
                   </div>
 
                   <div className="col-span-1 text-right">

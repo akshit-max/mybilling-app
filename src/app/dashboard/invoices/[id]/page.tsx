@@ -961,13 +961,6 @@ Thank you.
               <Download size={16} />
               PDF
             </a>
-            {/* <button
-              onClick={handleWhatsAppShare}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
-            >
-              <MessageCircle size={16} />
-              WhatsApp
-            </button> */}
 
             <button
               onClick={handleWhatsAppShare}

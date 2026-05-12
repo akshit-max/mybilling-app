@@ -1124,131 +1124,6 @@ const calc = calculateInvoice(
   };
 
   /* SUBMIT */
-  // const handleSubmit = async () => {
-  //   const user = auth.currentUser;
-  //   if (!user) return toast.error("Not logged in");
-
-  //   if (!customerName) return toast.error("Select customer");
-
-  //   if (!validItems.length) return toast.error("Add valid items");
-
-  //   try {
-  //     setLoading(true);
-
-  //     /* STOCK CHECK */
-  //     for (const item of validItems) {
-  //       if (!item.productId) continue;
-
-  //       const productRef = doc(db, "products", item.productId);
-  //       const snap = await getDoc(productRef);
-
-  //       if (!snap.exists()) {
-  //         toast.error(`Product not found: ${item.name}`);
-  //         return;
-  //       }
-
-  //       const stock = snap.data()?.stock || 0;
-
-  //       if (item.qty > stock) {
-  //         toast.error(
-  //           `Not enough stock for ${item.name} (Available: ${stock})`,
-  //         );
-  //         return;
-  //       }
-
-  //       await updateDoc(productRef, {
-  //         stock: stock - item.qty,
-  //       });
-
-  //       if (stock - item.qty <= 2) {
-  //         toast(`Low stock: ${item.name}`);
-  //       }
-  //     }
-
-  //     const now = new Date();
-
-  //     const invoiceNumber = await generateInvoiceNumber(user.uid, now);
-
-  //     const selectedCustomer = customers.find((c) => c.name === customerName);
-
-  //     const invoiceData = {
-  //       userId: user.uid,
-  //       invoiceNumber,
-
-  //       customerName,
-  //       customerGSTIN: selectedCustomer?.gstin || "",
-
-  //       customerPhone: selectedCustomer?.phone || "",
-
-  //       items: validItems,
-
-  //       subtotal: calc.subtotal,
-
-  //       discountType,
-  //       discountValue: Number(discountValue),
-
-  //       discountAmount: calc.discountAmount,
-
-  //       gstEnabled,
-
-  //       cgst: calc.cgst,
-  //       sgst: calc.sgst,
-
-  //       total: calc.total,
-
-  //       status,
-
-  //       createdAt: now,
-  //     };
-
-  //     // await addDoc(collection(db, "invoices"), {
-  //     //   userId: user.uid,
-  //     //   invoiceNumber,
-
-  //     //   customerName,
-  //     //   customerGSTIN: selectedCustomer?.gstin || "", // ✅ ONLY ADDITION
-  //     //   customerPhone: selectedCustomer?.phone || "",
-
-  //     //   items: validItems,
-
-  //     //   subtotal: calc.subtotal,
-  //     //   discountType,
-  //     //   discountValue: Number(discountValue),
-  //     //   discountAmount: calc.discountAmount,
-
-  //     //   gstEnabled,
-  //     //   cgst: calc.cgst,
-  //     //   sgst: calc.sgst,
-
-  //     //   total: calc.total,
-  //     //   status,
-
-  //     //   createdAt: now,
-  //     // });
-
-  //     if (!navigator.onLine) {
-  //       await saveOfflineInvoice(invoiceData);
-
-  //       toast.success("Invoice saved offline ✅");
-
-  //       router.push("/dashboard/invoices");
-
-  //       return;
-  //     }
-
-  //     await addDoc(collection(db, "invoices"), invoiceData);
-  //     toast.success("Invoice created ✅");
-  //     router.push("/dashboard/invoices");
-  //   } catch (err) {
-  //     console.error(err);
-  //     toast.error("Failed");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-
-
   const handleSubmit = async () => {
 
   const user = auth.currentUser;
@@ -1580,6 +1455,10 @@ try {
                        <span className="font-medium">Address:</span> {selectedCustomer.address}
                      </div>
                    )}
+                   <div className="col-span-2">
+                     <span className="font-medium">State:</span>{" "}
+                     {selectedCustomer.state || <span className="text-gray-400 italic">Not set</span>}
+                   </div>
                  </div>
                )
             })()}
@@ -1593,9 +1472,10 @@ try {
             </div>
 
             <div className="grid grid-cols-12 gap-3 mb-2 text-xs text-gray-500 px-1">
-              <p className="col-span-4">Product</p>
-              <p className="col-span-2">Qty</p>
-              <p className="col-span-3">Price</p>
+              <p className="col-span-4">Item</p>
+              <p className="col-span-1">Qty</p>
+              <p className="col-span-2">Rate</p>
+              <p className="col-span-2">GST %</p>
               <p className="col-span-2 text-right">Amount</p>
               <p className="col-span-1"></p>
             </div>
@@ -1631,27 +1511,32 @@ try {
                     </select>
                   </div>
 
-                  <div className="col-span-2">
+                  <div className="col-span-1">
                     <input
                       type="number"
                       value={item.qty}
                       onChange={(e) => updateItem(i, "qty", e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none"
+                      className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm outline-none"
                     />
                   </div>
 
-                  <div className="col-span-3">
+                  <div className="col-span-2">
                     <input
                       type="number"
                       value={item.price}
                       onChange={(e) => updateItem(i, "price", e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none"
+                      className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm outline-none"
                     />
                   </div>
 
+                  <div className="col-span-2">
+                    <div className="w-full border border-gray-100 bg-gray-50 rounded-lg px-2 py-2 text-sm text-gray-600">
+                      {item.gstRate || 18}%
+                    </div>
+                  </div>
+
                   <div className="col-span-2 text-right font-medium text-sm text-gray-900">
-                    ₹{(Number(item.qty) || 0) * (Number(item.price) || 0)}
-                    <span className="text-xs text-gray-400 block font-normal">GST: {item.gstRate || 18}%</span>
+                    ₹{((Number(item.qty) || 0) * (Number(item.price) || 0)).toFixed(2)}
                   </div>
 
                   <div className="col-span-1 text-right">
@@ -1797,21 +1682,23 @@ try {
 
           {/* GST + TOTAL */}
           <div className="flex items-center justify-between border-t pt-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={gstEnabled}
-                onChange={() => setGstEnabled(!gstEnabled)}
-              />
-            
-              Apply Dynamic GST
-            </label>
-            <p className="text-xs text-gray-500 mt-1">
-  GST Mode:
-  {isInterstate
-    ? " Interstate (IGST)"
-    : " Local (CGST + SGST)"}
-</p>
+            <div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={gstEnabled}
+                  onChange={() => setGstEnabled(!gstEnabled)}
+                />
+              
+                Apply Dynamic GST
+              </label>
+              <p className="text-xs text-gray-500 mt-1">
+                GST Mode:
+                {isInterstate
+                  ? " Interstate (IGST)"
+                  : " Local (CGST + SGST)"}
+              </p>
+            </div>
 
 
 <div className="text-right">
@@ -1833,13 +1720,8 @@ try {
   <p className="text-xl font-semibold">
     ₹{calc.total.toFixed(2)}
   </p>
-</div>
-
-            {/* <div className="text-right">
-              <p className="text-sm text-gray-500">Total</p>
-              <p className="text-xl font-semibold">₹{calc.total}</p>
-            </div> */}
           </div>
+        </div>
 
           {/* SUBMIT */}
           <button
