@@ -14,7 +14,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useParams } from "next/navigation";
-import { ArrowLeft, FileText, User } from "lucide-react";
+import { ArrowLeft, FileText, User, Download } from "lucide-react";
 
 type Invoice = {
   id: string;
@@ -47,6 +47,10 @@ export default function CustomerDetailsPage() {
   const [pendingAmount, setPendingAmount] = useState(0);
   const [totalInvoicesCount, setTotalInvoicesCount] = useState(0);
   const [lastPurchaseDate, setLastPurchaseDate] = useState<Date | null>(null);
+
+  const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -102,34 +106,7 @@ export default function CustomerDetailsPage() {
           return dateB.getTime() - dateA.getTime();
         });
 
-        setInvoices(fetchedInvoices);
-
-        // 3. Calculate Stats
-        let tSales = 0;
-        let pAmount = 0;
-        let count = 0;
-        let lastDate: Date | null = null;
-
-        fetchedInvoices.forEach((inv) => {
-          if (inv.invoiceType === "estimate") return; // skip estimates
-          tSales += inv.total;
-          count += 1;
-          if (inv.status === "pending" || inv.status === "credit") {
-            pAmount += inv.total;
-          }
-
-          if (inv.createdAt) {
-            const invDate = inv.createdAt.toDate ? inv.createdAt.toDate() : new Date(inv.createdAt);
-            if (!lastDate || invDate > lastDate) {
-              lastDate = invDate;
-            }
-          }
-        });
-
-        setTotalSales(tSales);
-        setPendingAmount(pAmount);
-        setTotalInvoicesCount(count);
-        setLastPurchaseDate(lastDate);
+        setAllInvoices(fetchedInvoices);
       } catch (err) {
         console.error(err);
         toast.error("Failed to load customer details");
@@ -141,6 +118,210 @@ export default function CustomerDetailsPage() {
     return () => unsub();
   }, [id]);
 
+  // Derived state: filter by date range and recalculate stats
+  useEffect(() => {
+    let filtered = allInvoices;
+
+    if (fromDate) {
+      filtered = filtered.filter((inv) => {
+        const d = inv.createdAt?.toDate ? inv.createdAt.toDate() : new Date(inv.createdAt || 0);
+        return d >= new Date(fromDate);
+      });
+    }
+
+    if (toDate) {
+      filtered = filtered.filter((inv) => {
+        const d = inv.createdAt?.toDate ? inv.createdAt.toDate() : new Date(inv.createdAt || 0);
+        const end = new Date(toDate);
+        end.setHours(23, 59, 59, 999);
+        return d <= end;
+      });
+    }
+
+    setInvoices(filtered);
+
+    let tSales = 0;
+    let pAmount = 0;
+    let count = 0;
+    let lastDate: Date | null = null;
+
+    filtered.forEach((inv) => {
+      if (inv.invoiceType === "estimate") return;
+      tSales += inv.total;
+      count += 1;
+      if (inv.status === "pending" || inv.status === "credit") {
+        pAmount += inv.total;
+      }
+      if (inv.createdAt) {
+        const invDate = inv.createdAt.toDate ? inv.createdAt.toDate() : new Date(inv.createdAt);
+        if (!lastDate || invDate > lastDate) lastDate = invDate;
+      }
+    });
+
+    setTotalSales(tSales);
+    setPendingAmount(pAmount);
+    setTotalInvoicesCount(count);
+    setLastPurchaseDate(lastDate);
+  }, [allInvoices, fromDate, toDate]);
+
+  // ─── PDF Export: open a pre-rendered popup and print it ──────────────────
+  const handleExportPDF = () => {
+    if (!customer) {
+      toast.error("Customer data not loaded yet");
+      return;
+    }
+
+    const dateRangeStr =
+      fromDate || toDate
+        ? `${fromDate || "—"} to ${toDate || "—"}`
+        : "All time";
+
+    const rowsHtml = invoices.length === 0
+      ? `<tr><td colspan="5" style="padding:16px;text-align:center;color:#6b7280;border:1px solid #e5e7eb;">No invoices in selected period</td></tr>`
+      : invoices.map((inv, idx) => {
+          const dateStr = inv.createdAt?.toDate
+            ? inv.createdAt.toDate().toLocaleDateString()
+            : inv.createdAt
+              ? new Date(inv.createdAt).toLocaleDateString()
+              : "N/A";
+          const statusColor =
+            inv.status === "paid"
+              ? { bg: "#dcfce7", color: "#166534" }
+              : inv.status === "pending"
+                ? { bg: "#fef9c3", color: "#92400e" }
+                : { bg: "#fee2e2", color: "#991b1b" };
+          const rowBg = idx % 2 === 0 ? "#ffffff" : "#f9fafb";
+          return `
+            <tr style="background:${rowBg};">
+              <td style="padding:7px 10px;border:1px solid #e5e7eb;font-weight:600;">${inv.invoiceNumber}</td>
+              <td style="padding:7px 10px;border:1px solid #e5e7eb;">${dateStr}</td>
+              <td style="padding:7px 10px;border:1px solid #e5e7eb;">${inv.invoiceType === "estimate" ? "Estimate" : "Invoice"}</td>
+              <td style="padding:7px 10px;border:1px solid #e5e7eb;font-weight:600;">&#8377;${inv.total.toFixed(2)}</td>
+              <td style="padding:7px 10px;border:1px solid #e5e7eb;">
+                <span style="padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:${statusColor.bg};color:${statusColor.color};">
+                  ${inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
+                </span>
+              </td>
+            </tr>`;
+        }).join("");
+
+    const footerRow = invoices.length > 0
+      ? `<tr style="background:#f3f4f6;">
+           <td colspan="3" style="padding:8px 10px;font-weight:700;border:1px solid #e5e7eb;">Total</td>
+           <td style="padding:8px 10px;font-weight:700;border:1px solid #e5e7eb;">&#8377;${totalSales.toFixed(2)}</td>
+           <td style="border:1px solid #e5e7eb;"></td>
+         </tr>`
+      : "";
+
+    const infoRows = [
+      ["Customer Name", customer.name],
+      ["Phone", customer.phone || "N/A"],
+      ["GSTIN", customer.gstin || "N/A"],
+      ["State", customer.state || "N/A"],
+      ["Address", customer.address || "N/A"],
+    ].map(([label, value]) => `
+      <div style="padding:8px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:8px;">
+        <p style="margin:0;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">${label}</p>
+        <p style="margin:2px 0 0;font-weight:600;color:#111827;">${value}</p>
+      </div>`).join("");
+
+    const statCards = [
+      { label: "Total Invoices", value: String(totalInvoicesCount), color: "#1d4ed8", bg: "#eff6ff" },
+      { label: "Total Sales", value: `&#8377;${totalSales.toFixed(2)}`, color: "#065f46", bg: "#ecfdf5" },
+      { label: "Paid Amount", value: `&#8377;${(totalSales - pendingAmount).toFixed(2)}`, color: "#166534", bg: "#f0fdf4" },
+      { label: "Pending", value: `&#8377;${pendingAmount.toFixed(2)}`, color: "#92400e", bg: "#fffbeb" },
+    ].map(s => `
+      <div style="padding:12px;background:${s.bg};border:1px solid ${s.color}33;border-radius:8px;">
+        <p style="margin:0;font-size:10px;color:${s.color};text-transform:uppercase;letter-spacing:0.05em;">${s.label}</p>
+        <p style="margin:4px 0 0;font-weight:700;font-size:18px;color:${s.color};">${s.value}</p>
+      </div>`).join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${customer.name} – Customer Summary</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 13px; color: #111827; background: #fff; padding: 24px; }
+    @page { size: A4; margin: 18mm 15mm; }
+    @media print {
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div style="border-bottom:2px solid #7c3aed;padding-bottom:12px;margin-bottom:20px;">
+    <h1 style="font-size:22px;font-weight:700;color:#7c3aed;">Customer Summary</h1>
+    <p style="margin-top:4px;color:#6b7280;font-size:12px;">
+      Generated on ${new Date().toLocaleDateString()} &nbsp;&middot;&nbsp; Period: ${dateRangeStr}
+    </p>
+  </div>
+
+  <!-- Customer Info -->
+  <div style="margin-bottom:20px;">
+    ${infoRows}
+  </div>
+
+  <!-- Stats -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
+    ${statCards}
+  </div>
+
+  <!-- Last Purchase -->
+  <p style="margin-bottom:20px;color:#6b7280;font-size:12px;">
+    Last Purchase: <strong style="color:#111827;">${lastPurchaseDate ? lastPurchaseDate.toLocaleDateString() : "Never"}</strong>
+  </p>
+
+  <!-- Invoice Table -->
+  <h2 style="font-size:14px;font-weight:700;margin-bottom:10px;border-bottom:1px solid #e5e7eb;padding-bottom:6px;">Invoice History</h2>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead>
+      <tr style="background:#f3f4f6;">
+        <th style="padding:8px 10px;text-align:left;font-weight:600;color:#374151;border:1px solid #e5e7eb;">Invoice No</th>
+        <th style="padding:8px 10px;text-align:left;font-weight:600;color:#374151;border:1px solid #e5e7eb;">Date</th>
+        <th style="padding:8px 10px;text-align:left;font-weight:600;color:#374151;border:1px solid #e5e7eb;">Type</th>
+        <th style="padding:8px 10px;text-align:left;font-weight:600;color:#374151;border:1px solid #e5e7eb;">Amount</th>
+        <th style="padding:8px 10px;text-align:left;font-weight:600;color:#374151;border:1px solid #e5e7eb;">Status</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+    <tfoot>${footerRow}</tfoot>
+  </table>
+
+  <!-- Footer -->
+  <p style="margin-top:32px;text-align:center;font-size:10px;color:#9ca3af;">
+    This report was generated automatically &nbsp;&middot;&nbsp; ${new Date().toLocaleString()}
+  </p>
+
+  <script>
+    window.onload = function() {
+      window.print();
+      window.onafterprint = function() { window.close(); };
+    };
+  </script>
+</body>
+</html>`;
+
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) {
+      toast.error("Pop-up blocked. Please allow pop-ups for this site and try again.");
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────
+  const getDateStr = (createdAt: any) => {
+    if (!createdAt) return "N/A";
+    if (createdAt?.toDate) return createdAt.toDate().toLocaleDateString();
+    return new Date(createdAt).toLocaleDateString();
+  };
+
+  // ─── Loading / not-found guards ──────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6 flex justify-center pt-20">
@@ -160,141 +341,161 @@ export default function CustomerDetailsPage() {
     );
   }
 
+
   return (
     <div className="min-h-screen bg-[#F9FAFB] p-6 lg:p-10">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* HEADER */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <User className="text-purple-600" size={24} />
-            <h1 className="text-2xl font-bold text-gray-900">{customer.name}</h1>
-          </div>
-          <Link
-            href="/dashboard/customers"
-            className="flex items-center gap-2 border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition"
-          >
-            <ArrowLeft size={16} />
-            Back
-          </Link>
-        </div>
-
-        {/* TOP SECTION: CUSTOMER INFO & STATS */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* CUSTOMER INFO */}
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm col-span-1">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-              Customer Info
-            </h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Phone:</span>
-                <span className="font-medium text-gray-900">{customer.phone || "N/A"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">GSTIN:</span>
-                <span className="font-medium text-gray-900">{customer.gstin || "N/A"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">State:</span>
-                <span className="font-medium text-gray-900">{customer.state || "N/A"}</span>
-              </div>
-              <div className="pt-2 border-t mt-2">
-                <span className="text-gray-500 block mb-1">Address:</span>
-                <p className="font-medium text-gray-900 whitespace-pre-wrap leading-relaxed">
-                  {customer.address || "No address provided."}
-                </p>
-              </div>
+        <div className="max-w-6xl mx-auto space-y-6">
+          {/* HEADER */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <User className="text-purple-600" size={24} />
+              <h1 className="text-2xl font-bold text-gray-900">{customer.name}</h1>
             </div>
-            <div className="mt-6">
-              <Link
-                href={`/dashboard/customers/edit/${customer.id}`}
-                className="block w-full text-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition"
-              >
-                Edit Customer
-              </Link>
-            </div>
+            <Link
+              href="/dashboard/customers"
+              className="flex items-center gap-2 border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition"
+            >
+              <ArrowLeft size={16} />
+              Back
+            </Link>
           </div>
 
-          {/* STATS OVERVIEW */}
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm col-span-1 lg:col-span-2">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-              Sales Overview
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                <p className="text-xs text-gray-500 mb-1">Total Invoices</p>
-                <p className="text-xl font-bold text-gray-900">{totalInvoicesCount}</p>
+          {/* TOP SECTION: CUSTOMER INFO & STATS */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* CUSTOMER INFO */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm col-span-1">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                Customer Info
+              </h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Phone:</span>
+                  <span className="font-medium text-gray-900">{customer.phone || "N/A"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">GSTIN:</span>
+                  <span className="font-medium text-gray-900">{customer.gstin || "N/A"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">State:</span>
+                  <span className="font-medium text-gray-900">{customer.state || "N/A"}</span>
+                </div>
+                <div className="pt-2 border-t mt-2">
+                  <span className="text-gray-500 block mb-1">Address:</span>
+                  <p className="font-medium text-gray-900 whitespace-pre-wrap leading-relaxed">
+                    {customer.address || "No address provided."}
+                  </p>
+                </div>
               </div>
-              <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                <p className="text-xs text-blue-700 mb-1">Total Sales</p>
-                <p className="text-xl font-bold text-blue-900">₹{totalSales.toFixed(2)}</p>
-              </div>
-              <div className="p-4 bg-green-50 rounded-xl border border-green-100">
-                <p className="text-xs text-green-700 mb-1">Paid Amount</p>
-                <p className="text-xl font-bold text-green-900">₹{(totalSales - pendingAmount).toFixed(2)}</p>
-              </div>
-              <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-100">
-                <p className="text-xs text-yellow-700 mb-1">Pending Amount</p>
-                <p className="text-xl font-bold text-yellow-800">₹{pendingAmount.toFixed(2)}</p>
+              <div className="mt-6">
+                <Link
+                  href={`/dashboard/customers/edit/${customer.id}`}
+                  className="block w-full text-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition"
+                >
+                  Edit Customer
+                </Link>
               </div>
             </div>
-            <div className="mt-4 p-4 bg-purple-50 rounded-xl border border-purple-100 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-purple-700 mb-1">Last Purchase Date</p>
-                <p className="text-sm font-semibold text-purple-900">
-                  {lastPurchaseDate ? lastPurchaseDate.toLocaleDateString() : "Never"}
-                </p>
-              </div>
-              <Link
-                href="/dashboard/invoices/create"
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition shadow-sm"
-              >
-                + New Invoice
-              </Link>
-            </div>
-          </div>
-        </div>
 
-        {/* INVOICES LIST */}
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <FileText size={18} className="text-gray-500" />
-              Recent Invoices
-            </h3>
-          </div>
-          
-          {invoices.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <p>No invoices found for this customer.</p>
+            {/* STATS OVERVIEW */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm col-span-1 lg:col-span-2">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                Sales Overview
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-xs text-gray-500 mb-1">Total Invoices</p>
+                  <p className="text-xl font-bold text-gray-900">{totalInvoicesCount}</p>
+                </div>
+                <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                  <p className="text-xs text-blue-700 mb-1">Total Sales</p>
+                  <p className="text-xl font-bold text-blue-900">₹{totalSales.toFixed(2)}</p>
+                </div>
+                <div className="p-4 bg-green-50 rounded-xl border border-green-100">
+                  <p className="text-xs text-green-700 mb-1">Paid Amount</p>
+                  <p className="text-xl font-bold text-green-900">₹{(totalSales - pendingAmount).toFixed(2)}</p>
+                </div>
+                <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-100">
+                  <p className="text-xs text-yellow-700 mb-1">Pending Amount</p>
+                  <p className="text-xl font-bold text-yellow-800">₹{pendingAmount.toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="mt-4 p-4 bg-purple-50 rounded-xl border border-purple-100 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-purple-700 mb-1">Last Purchase Date</p>
+                  <p className="text-sm font-semibold text-purple-900">
+                    {lastPurchaseDate ? lastPurchaseDate.toLocaleDateString() : "Never"}
+                  </p>
+                </div>
+                <Link
+                  href="/dashboard/invoices/create"
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition shadow-sm"
+                >
+                  + New Invoice
+                </Link>
+              </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-gray-600">
-                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                  <tr>
-                    <th className="px-6 py-4 font-medium">Invoice No</th>
-                    <th className="px-6 py-4 font-medium">Date</th>
-                    <th className="px-6 py-4 font-medium">Type</th>
-                    <th className="px-6 py-4 font-medium">Amount</th>
-                    <th className="px-6 py-4 font-medium">Status</th>
-                    <th className="px-6 py-4 font-medium text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {invoices.map((inv) => {
-                    const dateStr = inv.createdAt?.toDate 
-                      ? inv.createdAt.toDate().toLocaleDateString() 
-                      : inv.createdAt 
-                        ? new Date(inv.createdAt).toLocaleDateString() 
-                        : "N/A";
-                    
-                    return (
+          </div>
+
+          {/* INVOICES LIST */}
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <FileText size={18} className="text-gray-500" />
+                Invoice History
+              </h3>
+
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                {/* FROM DATE */}
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="px-3 py-2 border rounded-lg text-sm text-gray-700 outline-none focus:border-purple-500 w-full sm:w-auto"
+                  title="From Date"
+                />
+                <span className="text-gray-400 hidden sm:block">–</span>
+                {/* TO DATE */}
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="px-3 py-2 border rounded-lg text-sm text-gray-700 outline-none focus:border-purple-500 w-full sm:w-auto"
+                  title="To Date"
+                />
+                {/* EXPORT PDF */}
+                <button
+                  onClick={handleExportPDF}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-semibold transition whitespace-nowrap w-full sm:w-auto justify-center shadow-sm"
+                >
+                  <Download size={16} />
+                  Export PDF
+                </button>
+              </div>
+            </div>
+
+            {invoices.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <p>No invoices found{fromDate || toDate ? " in selected period" : " for this customer"}.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-gray-600">
+                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                    <tr>
+                      <th className="px-6 py-4 font-medium">Invoice No</th>
+                      <th className="px-6 py-4 font-medium">Date</th>
+                      <th className="px-6 py-4 font-medium">Type</th>
+                      <th className="px-6 py-4 font-medium">Amount</th>
+                      <th className="px-6 py-4 font-medium">Status</th>
+                      <th className="px-6 py-4 font-medium text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {invoices.map((inv) => (
                       <tr key={inv.id} className="hover:bg-gray-50 transition">
-                        <td className="px-6 py-4 font-medium text-gray-900">
-                          {inv.invoiceNumber}
-                        </td>
-                        <td className="px-6 py-4">{dateStr}</td>
+                        <td className="px-6 py-4 font-medium text-gray-900">{inv.invoiceNumber}</td>
+                        <td className="px-6 py-4">{getDateStr(inv.createdAt)}</td>
                         <td className="px-6 py-4">
                           {inv.invoiceType === "estimate" ? (
                             <span className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">Estimate</span>
@@ -302,9 +503,7 @@ export default function CustomerDetailsPage() {
                             <span className="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-medium">Invoice</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 font-semibold text-gray-900">
-                          ₹{inv.total.toFixed(2)}
-                        </td>
+                        <td className="px-6 py-4 font-semibold text-gray-900">₹{inv.total.toFixed(2)}</td>
                         <td className="px-6 py-4">
                           {inv.status === "paid" && (
                             <span className="text-green-600 bg-green-50 px-2.5 py-1 rounded-full text-xs font-medium">Paid</span>
@@ -325,14 +524,20 @@ export default function CustomerDetailsPage() {
                           </Link>
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-50 border-t border-gray-200">
+                    <tr>
+                      <td colSpan={3} className="px-6 py-4 font-semibold text-gray-800 text-sm">Total</td>
+                      <td className="px-6 py-4 font-bold text-gray-900 text-sm">₹{totalSales.toFixed(2)}</td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
   );
 }

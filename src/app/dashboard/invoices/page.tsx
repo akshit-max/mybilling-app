@@ -458,7 +458,7 @@ if (!navigator.onLine) {
                     </p>
 
                     <p className="text-sm text-gray-600">
-                      ₹{inv.total}
+                      ₹{inv.total.toFixed(2)}
                     </p>
 
                     {inv.invoiceNumber && (

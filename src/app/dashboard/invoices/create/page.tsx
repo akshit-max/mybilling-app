@@ -848,7 +848,7 @@
 // }
 
 "use client";
-import BarcodeScanner from "react-qr-barcode-scanner";
+
 import { useEffect, useState } from "react";
 import { db, auth } from "@/lib/firebase";
 import {
@@ -866,7 +866,19 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
-import { ArrowLeft, Users, Package, Tag, CheckCircle, Trash2, FileText } from "lucide-react";
+import {
+  ArrowLeft,
+  Users,
+  Package,
+  Tag,
+  CheckCircle,
+  Trash2,
+  FileText,
+} from "lucide-react";
+
+import BarcodeScanner from "react-qr-barcode-scanner";
+import { v4 as uuidv4 } from "uuid";
+import { INDIAN_STATES } from "@/lib/indianStates";
 import { sanitizeNumericInput } from "@/lib/sanitize";
 
 import { saveOfflineInvoice } from "@/lib/offlineInvoices";
@@ -1137,27 +1149,53 @@ const calc = calculateInvoice(
 
   const handleAddCustomer = async () => {
     if (!newCustomer.name.trim()) return toast.error("Name is required");
+    
+    // Validation: Phone
+    const cleanPhone = newCustomer.phone.replace(/\D/g, "");
+    if (cleanPhone && cleanPhone.length !== 10) {
+      return toast.error("Phone number must be exactly 10 digits");
+    }
+
+    // Validation: GSTIN
+    if (newCustomer.gstin.trim()) {
+      const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{3}$/;
+      if (!gstRegex.test(newCustomer.gstin.trim().toUpperCase())) {
+        return toast.error("Invalid GSTIN format");
+      }
+    }
+
     const user = auth.currentUser;
     if (!user) return toast.error("Not logged in");
 
     try {
       setAddingCustomer(true);
-      const docRef = await addDoc(collection(db, "customers"), {
+
+      const customerId = uuidv4();
+      const customerData = {
         userId: user.uid,
-        ...newCustomer,
+        name: newCustomer.name.trim(),
+        phone: cleanPhone,
+        address: newCustomer.address.trim(),
+        gstin: newCustomer.gstin.trim().toUpperCase(),
+        state: newCustomer.state.trim(),
         createdAt: new Date(),
+      };
+
+      // Non-blocking save for offline safety
+      import("firebase/firestore").then(({ setDoc, doc }) => {
+        setDoc(doc(db, "customers", customerId), customerData).catch(console.error);
       });
       
-      const addedCustomer = { id: docRef.id, ...newCustomer };
+      const addedCustomer = { id: customerId, ...customerData };
       
       const updatedCustomers = [...customers, addedCustomer];
       setCustomers(updatedCustomers);
       await cacheCustomers(updatedCustomers);
       
-      setCustomerName(newCustomer.name);
+      setCustomerName(addedCustomer.name);
       setShowAddCustomer(false);
       setNewCustomer({ name: "", phone: "", address: "", gstin: "", state: "" });
-      toast.success("Customer added");
+      toast.success("Customer added locally");
     } catch (err) {
       console.error(err);
       toast.error("Failed to add customer");
@@ -1536,12 +1574,16 @@ try {
                     </div>
                     <div>
                       <label className="text-xs text-gray-500 mb-1 block">State (For GST Calculation)</label>
-                      <input 
+                      <select 
                         value={newCustomer.state} 
                         onChange={(e) => setNewCustomer({...newCustomer, state: e.target.value})} 
                         className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-500" 
-                        placeholder="e.g. Maharashtra"
-                      />
+                      >
+                        <option value="">Select State</option>
+                        {INDIAN_STATES.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="text-xs text-gray-500 mb-1 block">Billing Address</label>
