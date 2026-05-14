@@ -419,6 +419,7 @@ import {
   getDocs,
   query,
   where,
+  addDoc,
 } from "firebase/firestore";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -674,10 +675,58 @@ const calc = calculateInvoice(
     setItems(updated);
   };
 
+  /* QUICK ADD CUSTOMER */
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    gstin: "",
+    state: "",
+  });
+  const [addingCustomer, setAddingCustomer] = useState(false);
+
+  const handleAddCustomer = async () => {
+    if (!newCustomer.name.trim()) return toast.error("Name is required");
+    const user = auth.currentUser;
+    if (!user) return toast.error("Not logged in");
+
+    try {
+      setAddingCustomer(true);
+      const docRef = await addDoc(collection(db, "customers"), {
+        userId: user.uid,
+        ...newCustomer,
+        createdAt: new Date(),
+      });
+      
+      const addedCustomer = { id: docRef.id, ...newCustomer };
+      
+      const updatedCustomers = [...customers, addedCustomer];
+      setCustomers(updatedCustomers);
+      
+      const { cacheCustomers } = await import("@/lib/indexedDB");
+      await cacheCustomers(updatedCustomers);
+      
+      setCustomerName(newCustomer.name);
+      setShowAddCustomer(false);
+      setNewCustomer({ name: "", phone: "", address: "", gstin: "", state: "" });
+      toast.success("Customer added");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to add customer");
+    } finally {
+      setAddingCustomer(false);
+    }
+  };
+
   /* 🔥 STOCK-AWARE UPDATE */
   const handleUpdate = async () => {
     if (!customerName) return toast.error("Select customer");
     if (!validItems.length) return toast.error("Add valid items");
+
+    if (calc.discountAmount > calc.subtotal) {
+      return toast.error("Discount cannot exceed subtotal");
+    }
 
     try {
       setSaving(true);
@@ -864,16 +913,98 @@ const calc = calculateInvoice(
 
             <select
               value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
+              onChange={(e) => {
+                if (e.target.value === "ADD_NEW") {
+                  setShowAddCustomer(true);
+                  setCustomerName("");
+                } else {
+                  setCustomerName(e.target.value);
+                }
+              }}
               className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
             >
               <option value="">Select Customer</option>
+              <option value="ADD_NEW" className="font-semibold text-purple-600">+ Add New Customer</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.name}>
                   {c.name}
                 </option>
               ))}
             </select>
+
+            {/* QUICK ADD CUSTOMER MODAL */}
+            {showAddCustomer && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+                <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative">
+                  <h2 className="text-xl font-semibold mb-4 text-gray-900">Add New Customer</h2>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">Customer Name *</label>
+                      <input 
+                        value={newCustomer.name} 
+                        onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})} 
+                        className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-500" 
+                        placeholder="John Doe"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">Phone Number</label>
+                      <input 
+                        value={newCustomer.phone} 
+                        onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})} 
+                        className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-500" 
+                        placeholder="9876543210"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">GSTIN</label>
+                      <input 
+                        value={newCustomer.gstin} 
+                        onChange={(e) => setNewCustomer({...newCustomer, gstin: e.target.value})} 
+                        className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-500" 
+                        placeholder="22AAAAA0000A1Z5"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">State (For GST Calculation)</label>
+                      <input 
+                        value={newCustomer.state} 
+                        onChange={(e) => setNewCustomer({...newCustomer, state: e.target.value})} 
+                        className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-500" 
+                        placeholder="e.g. Maharashtra"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">Billing Address</label>
+                      <textarea 
+                        value={newCustomer.address} 
+                        onChange={(e) => setNewCustomer({...newCustomer, address: e.target.value})} 
+                        className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-500" 
+                        rows={2}
+                        placeholder="123 Street Name..."
+                      ></textarea>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 mt-6">
+                    <button 
+                      onClick={() => setShowAddCustomer(false)}
+                      className="flex-1 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={handleAddCustomer}
+                      disabled={addingCustomer}
+                      className="flex-1 px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:bg-purple-400"
+                    >
+                      {addingCustomer ? "Saving..." : "Save Customer"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* CUSTOMER DETAILS (Auto-fill) */}
             {customerName && (() => {

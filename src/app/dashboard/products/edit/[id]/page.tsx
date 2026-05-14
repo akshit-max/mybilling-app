@@ -167,12 +167,25 @@ export default function EditProduct() {
   const router = useRouter();
 
   const [name, setName] = useState("");
+  const [costPrice, setCostPrice] = useState<number | string>("");
   const [price, setPrice] = useState<number | string>(0);
+  const [discountPrice, setDiscountPrice] = useState<number | string>("");
+  const [itemCode, setItemCode] = useState("");
+  const [barcode, setBarcode] = useState("");
   const [gst, setGst] = useState<number | string>(18);
   const [stock, setStock] = useState<number | string>(0);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Auto-sync barcode with itemCode if barcode is empty or matches itemCode
+  const handleItemCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (barcode === itemCode) {
+      setBarcode(val);
+    }
+    setItemCode(val);
+  };
 
   /* FETCH PRODUCT */
   useEffect(() => {
@@ -185,7 +198,11 @@ export default function EditProduct() {
           const data = snap.data();
 
           setName(data.name || "");
+          setCostPrice(data.costPrice || "");
           setPrice(data.price || 0);
+          setDiscountPrice(data.discountPrice || "");
+          setItemCode(data.itemCode || "");
+          setBarcode(data.barcode || "");
           setGst(data.gst || 18);
           setStock(data.stock || 0);
         }
@@ -212,7 +229,11 @@ export default function EditProduct() {
 
       await updateDoc(doc(db, "products", id), {
         name: name.trim(),
-        price: Number(price),
+        costPrice: Number(costPrice) || 0,
+        price: Number(price) || 0,
+        discountPrice: Number(discountPrice) || 0,
+        itemCode,
+        barcode: barcode || itemCode,
         gst: Number(gst),
         stock: Number(stock),
       });
@@ -282,17 +303,58 @@ export default function EditProduct() {
               />
             </div>
 
-            {/* PRICE */}
+            {/* ITEM CODE */}
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">
-                Price (₹)
+                Item Code
               </label>
               <input
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(sanitizeNumericInput(e.target.value))}
+                value={itemCode}
+                onChange={handleItemCodeChange}
                 className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                placeholder="e.g. ITM-001"
               />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              {/* COST PRICE */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">
+                  Cost Price (₹)
+                </label>
+                <input
+                  type="number"
+                  value={costPrice}
+                  onChange={(e) => setCostPrice(sanitizeNumericInput(e.target.value))}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+              </div>
+
+              {/* SELLING PRICE */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">
+                  Selling Price (₹)
+                </label>
+                <input
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(sanitizeNumericInput(e.target.value))}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+              </div>
+
+              {/* DISCOUNT PRICE */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">
+                  Discount Price (₹)
+                </label>
+                <input
+                  type="number"
+                  value={discountPrice}
+                  onChange={(e) => setDiscountPrice(sanitizeNumericInput(e.target.value))}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+              </div>
             </div>
 
             {/* GST */}

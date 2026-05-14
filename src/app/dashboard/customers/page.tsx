@@ -492,6 +492,7 @@ type Customer = {
   totalSales?: number;
   pendingAmount?: number;
   totalInvoices?: number;
+  lastPurchaseDate?: Date | null;
 };
 
 type Invoice = {
@@ -499,6 +500,7 @@ type Invoice = {
   total: number;
   status: "paid" | "pending" | "credit";
   invoiceType?: string;
+  createdAt?: any;
 };
 
 type Stats = {
@@ -506,6 +508,7 @@ type Stats = {
     total: number;
     pending: number;
     count: number;
+    lastPurchaseDate: Date | null;
   };
 };
 
@@ -576,6 +579,7 @@ export default function CustomersPage() {
                 "pending",
 
               invoiceType: docSnap.data().invoiceType || "invoice",
+              createdAt: docSnap.data().createdAt,
             }));
 
 
@@ -596,6 +600,7 @@ export default function CustomersPage() {
                 total: 0,
                 pending: 0,
                 count: 0,
+                lastPurchaseDate: null,
               };
             }
 
@@ -607,6 +612,13 @@ export default function CustomersPage() {
               inv.status === "credit"
             ) {
               stats[name].pending += inv.total;
+            }
+
+            if (inv.createdAt) {
+              const invDate = inv.createdAt.toDate ? inv.createdAt.toDate() : new Date(inv.createdAt);
+              if (!stats[name].lastPurchaseDate || invDate > stats[name].lastPurchaseDate!) {
+                stats[name].lastPurchaseDate = invDate;
+              }
             }
           });
 
@@ -626,6 +638,9 @@ export default function CustomersPage() {
 
               totalInvoices:
                 stats[customer.name]?.count || 0,
+                
+              lastPurchaseDate:
+                stats[customer.name]?.lastPurchaseDate || null,
             }));
 
 
@@ -844,15 +859,29 @@ export default function CustomersPage() {
                       </div>
 
                       {/* TOTAL SALES */}
+                      <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 min-w-[150px]">
+                        <p className="text-xs text-blue-700 mb-1">Total Sales</p>
+                        <h3 className="text-lg font-bold text-blue-900">₹{(c.totalSales ?? 0).toFixed(2)}</h3>
+                      </div>
+
+                      {/* PAID AMOUNT */}
                       <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3 min-w-[150px]">
-                        <p className="text-xs text-green-700 mb-1">Total Spent</p>
-                        <h3 className="text-lg font-bold text-green-900">₹{(c.totalSales ?? 0).toFixed(2)}</h3>
+                        <p className="text-xs text-green-700 mb-1">Paid Amount</p>
+                        <h3 className="text-lg font-bold text-green-900">₹{((c.totalSales ?? 0) - (c.pendingAmount ?? 0)).toFixed(2)}</h3>
                       </div>
 
                       {/* PENDING */}
                       <div className="bg-yellow-50 border border-yellow-100 rounded-xl px-4 py-3 min-w-[150px]">
                         <p className="text-xs text-yellow-700 mb-1">Pending Amount</p>
                         <h3 className="text-lg font-bold text-yellow-800">₹{(c.pendingAmount ?? 0).toFixed(2)}</h3>
+                      </div>
+
+                      {/* LAST PURCHASE */}
+                      <div className="bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 min-w-[150px]">
+                        <p className="text-xs text-purple-700 mb-1">Last Purchase</p>
+                        <h3 className="text-sm font-semibold text-purple-900 mt-1">
+                          {c.lastPurchaseDate ? c.lastPurchaseDate.toLocaleDateString() : "N/A"}
+                        </h3>
                       </div>
 
                     </div>
@@ -862,7 +891,14 @@ export default function CustomersPage() {
 
                   {/* ACTIONS */}
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+
+                    <Link
+                      href={`/dashboard/customers/${c.id}`}
+                      className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium transition"
+                    >
+                      View Details
+                    </Link>
 
                     <Link
                       href={`/dashboard/customers/edit/${c.id}`}
