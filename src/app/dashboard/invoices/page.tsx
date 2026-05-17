@@ -1,528 +1,470 @@
-
-
-
-
-// "use client";
-
-// import { useEffect, useState } from "react";
-// import { db, auth } from "@/lib/firebase";
-// import {
-//   collection,
-//   getDocs,
-//   query,
-//   where,
-//   deleteDoc,
-//   doc,
-//   Timestamp,
-// } from "firebase/firestore";
-// import { onAuthStateChanged } from "firebase/auth";
-// import Link from "next/link";
-// import toast from "react-hot-toast";
-// import { orderBy } from "firebase/firestore";
-
-// /* 🔹 TYPE */
-// type Invoice = {
-//   id: string;
-//   customerName: string;
-//   total: number;
-//   status: "paid" | "pending" | "credit";
-//   invoiceNumber?: string;
-//   createdAt?: Timestamp;
-// };
-
-// export default function InvoicesPage() {
-//   const [invoices, setInvoices] = useState<Invoice[]>([]);
-//   const [loading, setLoading] = useState(true);
-
-//   useEffect(() => {
-//     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-//       if (!user) {
-//         setLoading(false);
-//         return;
-//       }
-
-//       try {
-//         const q = query(
-//           collection(db, "invoices"),
-//           where("userId", "==", user.uid),
-//           orderBy("createdAt", "desc") // 🔥 newest first
-//         );
-
-//         const snapshot = await getDocs(q);
-
-//         const data: Invoice[] = snapshot.docs.map((docSnap) => {
-//           const d = docSnap.data();
-
-//           return {
-//             id: docSnap.id,
-//             customerName: d.customerName || "Unknown",
-//             total: d.total || 0,
-//             status: d.status || "pending",
-//             invoiceNumber: d.invoiceNumber,
-//             createdAt: d.createdAt,
-//           };
-//         });
-
-//         setInvoices(data);
-//       } catch (err) {
-//         console.error(err);
-//         toast.error("Failed to load invoices");
-//       } finally {
-//         setLoading(false);
-//       }
-//     });
-
-//     return () => unsubscribe();
-//   }, []);
-
-//   const handleDelete = async (id: string) => {
-//     if (!confirm("Delete this invoice?")) return;
-
-//     try {
-//       await deleteDoc(doc(db, "invoices", id));
-//       setInvoices((prev) => prev.filter((i) => i.id !== id));
-//       toast.success("Deleted");
-//     } catch (err) {
-//       toast.error("Delete failed");
-//     }
-//   };
-
-//   const getStatusStyle = (status: string) => {
-//     if (status === "paid") return "bg-green-100 text-green-600";
-//     if (status === "pending") return "bg-yellow-100 text-yellow-600";
-//     return "bg-red-100 text-red-600";
-//   };
-
-//   return (
-//     <div className="min-h-screen bg-gray-100 p-6">
-//       <div className="max-w-5xl mx-auto space-y-6">
-
-//         {/* HEADER */}
-//         <div className="flex justify-between items-center">
-//           <h1 className="text-2xl font-semibold">Invoices</h1>
-
-//           <Link
-//             href="/dashboard/invoices/create"
-//             className="px-4 py-2 bg-purple-600 text-white rounded-lg"
-//           >
-//             + Create Invoice
-//           </Link>
-//         </div>
-
-//         {/* LIST */}
-//         <div className="bg-white rounded-xl border shadow-sm">
-
-//           {loading ? (
-//             <p className="p-6">Loading...</p>
-//           ) : invoices.length === 0 ? (
-//             <p className="p-6 text-gray-500">No invoices found</p>
-//           ) : (
-//             <div className="divide-y">
-
-//               {invoices.map((inv) => (
-//                 <div
-//                   key={inv.id}
-//                   className="p-4 flex justify-between items-center"
-//                 >
-
-//                   {/* LEFT */}
-//                   <div>
-//                     <p className="font-medium">{inv.customerName}</p>
-
-//                     <p className="text-sm text-gray-500">
-//                       ₹{inv.total}
-//                     </p>
-
-//                     {/* OPTIONAL: Invoice Number */}
-//                     {inv.invoiceNumber && (
-//                       <p className="text-xs text-gray-400">
-//                         {inv.invoiceNumber}
-//                       </p>
-//                     )}
-
-//                     {/* OPTIONAL: Date */}
-//                     {inv.createdAt && (
-//                       <p className="text-xs text-gray-400">
-//                         {inv.createdAt.toDate().toLocaleDateString()}
-//                       </p>
-//                     )}
-//                   </div>
-
-//                   {/* ACTIONS */}
-//                   <div className="flex items-center gap-4 text-sm">
-
-//                     <span
-//                       className={`px-2 py-1 rounded text-xs ${getStatusStyle(
-//                         inv.status
-//                       )}`}
-//                     >
-//                       {inv.status}
-//                     </span>
-
-//                     <Link
-//                       href={`/dashboard/invoices/${inv.id}`}
-//                       className="text-blue-600 hover:underline"
-//                     >
-//                       View
-//                     </Link>
-
-//                     <Link
-//                       href={`/dashboard/invoices/edit/${inv.id}`}
-//                       className="text-purple-600 hover:underline"
-//                     >
-//                       Edit
-//                     </Link>
-
-//                     <button
-//                       onClick={() => handleDelete(inv.id)}
-//                       className="text-red-500 hover:underline"
-//                     >
-//                       Delete
-//                     </button>
-
-                   
-
-//                   </div>
-//                 </div>
-//               ))}
-
-//             </div>
-//           )}
-
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-
-
-
-
-
-
-
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Search, ChevronDown, Plus, FileText, Pencil, Trash2, Eye, MoreVertical, Calendar, Filter, Download } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { getOfflineInvoices }
-from "@/lib/offlineInvoices";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  deleteDoc,
-  doc,
-  Timestamp,
-  orderBy,
-} from "firebase/firestore";
+import { collection, getDocs, query, where, deleteDoc, doc, orderBy, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import {
-  ArrowLeft,
-  Plus,
-  Eye,
-  Pencil,
-  Trash2,
-  FileText,
-} from "lucide-react";
 
-/* 🔹 TYPE */
+type InvoiceItem = {
+  name: string;
+  qty: number;
+  price: number;
+  total?: number;
+};
+
 type Invoice = {
   id: string;
   customerName: string;
   total: number;
-  status: "paid" | "pending" | "credit";
-  invoiceNumber?: string;
-  createdAt?: Timestamp;
+  status: "paid" | "pending" | "credit" | "cancelled" | string;
+  invoiceNumber: string;
+  invoiceType?: "invoice" | "estimate";
+  date?: string;
+  dueDate?: string;
+  createdAt?: any;
+  items?: InvoiceItem[];
+  isOffline?: boolean;
 };
 
-export default function InvoicesPage() {
+export default function SalesInvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
-  /* 🔹 FETCH WITH AUTH */
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      /* 1. ALWAYS LOAD OFFLINE INVOICES FIRST */
-      const offlineInvoices = await getOfflineInvoices();
-      const formattedOffline = offlineInvoices.map((inv: any) => ({
-        id: inv.id?.toString() || crypto.randomUUID(),
-        customerName: inv.customerName || "Unknown",
-        total: inv.total || 0,
-        status: inv.status || "pending",
-        invoiceNumber: inv.invoiceNumber,
-        createdAt: inv.createdAt,
-      }));
+  // Filters & State
+  const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState<"365" | "today" | "all">("365");
+  const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending" | "credit" | "cancelled">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "invoice" | "estimate">("all");
+  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
 
-
-      /* Show offline instantly so UI doesn't hang empty */
-      if (formattedOffline.length > 0) {
-        setInvoices(formattedOffline);
-      }
-
-      /* HARD STOP FIREBASE OFFLINE */
-if (!navigator.onLine) {
-  setLoading(false);
-  return;
-}
-
-      /* 2. ATTEMPT FIRESTORE FETCH (MERGE IF ONLINE) */
+  const fetchInvoicesList = async (userId: string) => {
+    try {
+      setLoading(true);
+      
+      // 1. Fetch Online from Firestore
+      let onlineData: Invoice[] = [];
       try {
         const q = query(
           collection(db, "invoices"),
-          where("userId", "==", user.uid),
-          orderBy("createdAt", "desc") // newest first
+          where("userId", "==", userId),
+          orderBy("createdAt", "desc")
         );
-
         const snapshot = await getDocs(q);
-
-        const data: Invoice[] = snapshot.docs.map((docSnap) => {
+        onlineData = snapshot.docs.map((docSnap) => {
           const d = docSnap.data();
           return {
             id: docSnap.id,
-            customerName: d.customerName || "Unknown",
-            total: d.total || 0,
+            customerName: d.customerName || d.partyName || "Cash Sale",
+            total: Number(d.total || 0),
             status: d.status || "pending",
-            invoiceNumber: d.invoiceNumber,
-            createdAt: d.createdAt,
+            invoiceNumber: d.invoiceNumber || docSnap.id.substring(0, 8).toUpperCase(),
+            invoiceType: d.invoiceType || "invoice",
+            date: d.date || (d.createdAt ? new Date(d.createdAt.toDate ? d.createdAt.toDate() : d.createdAt).toISOString().split("T")[0] : ""),
+            dueDate: d.dueDate || "",
+            isOffline: false,
           };
         });
-
-        // Merge offline + online (newest first)
-        setInvoices([...formattedOffline, ...data]);
       } catch (err) {
-        console.warn("Firestore fetch failed, showing offline invoices", err);
-        // Do not toast.error here because offline invoices might be perfectly fine
-      } finally {
+        console.warn("Firestore fetch offline fallback:", err);
+      }
+
+      // 2. Fetch Offline from IndexedDB
+      let offlineData: Invoice[] = [];
+      try {
+        const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
+        const cached = await getOfflineInvoices();
+        offlineData = cached.map((c: any) => ({
+          id: c.id?.toString() || c.invoiceNumber,
+          customerName: c.customerName || "Cash Sale",
+          total: Number(c.total || 0),
+          status: c.status || "pending",
+          invoiceNumber: c.invoiceNumber,
+          invoiceType: c.invoiceType || "invoice",
+          date: c.date || new Date().toISOString().split("T")[0],
+          dueDate: c.dueDate || "",
+          isOffline: true,
+        }));
+      } catch (err) {
+        console.error("IndexedDB fetch error:", err);
+      }
+
+      // Combine both sources
+      const combined = [...offlineData, ...onlineData];
+      
+      // Remove duplicate IDs just in case
+      const uniqueMap = new Map<string, Invoice>();
+      combined.forEach(inv => {
+        uniqueMap.set(inv.id, inv);
+      });
+
+      setInvoices(Array.from(uniqueMap.values()));
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load invoice records");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        fetchInvoicesList(user.uid);
+      } else {
         setLoading(false);
       }
     });
 
-    /* 🔥 LIVE OFFLINE REFRESH */ const refreshOfflineInvoices = async () => { if (!navigator.onLine) { const offlineInvoices = await getOfflineInvoices(); const formatted = offlineInvoices.map((inv: any) => ({ id: inv.id?.toString() || crypto.randomUUID(), customerName: inv.customerName || "Unknown", total: inv.total || 0, status: inv.status || "pending", invoiceNumber: inv.invoiceNumber, createdAt: inv.createdAt, })); setInvoices(formatted); } }; window.addEventListener( "offline-invoice-created", refreshOfflineInvoices ); /* CLEANUP */ return () => { unsubscribe(); window.removeEventListener( "offline-invoice-created", refreshOfflineInvoices ); };
-
+    return () => unsubscribe();
   }, []);
 
-  /* 🔹 DELETE */
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this invoice?")) return;
-
+  const handleDelete = async (invoice: Invoice) => {
+    if (!confirm(`Are you sure you want to delete invoice ${invoice.invoiceNumber}?`)) return;
     try {
-      let isOfflineMode = !navigator.onLine;
-      if (!isOfflineMode) {
-        try {
-          const testReq = await fetch(
-            "/favicon.ico?cache=" + new Date().getTime(),
-            { method: "HEAD", cache: "no-store" }
-          );
-          if (!testReq.ok) isOfflineMode = true;
-        } catch {
-          isOfflineMode = true;
-        }
+      if (invoice.isOffline) {
+        const { deleteOfflineInvoice } = await import("@/lib/offlineInvoices");
+        await deleteOfflineInvoice(invoice.id);
+      } else {
+        await deleteDoc(doc(db, "invoices", invoice.id));
       }
-
-      let deletedOffline = false;
-
-      // Attempt to delete from local offline store first
-      const { getOfflineInvoices, deleteOfflineInvoice } = await import(
-        "@/lib/offlineInvoices"
-      );
-      const offlineInvoices = await getOfflineInvoices();
-      const offlineInv = offlineInvoices.find(
-        (inv: any) => inv.id?.toString() === id || inv.invoiceNumber === id
-      );
-
-      if (offlineInv) {
-        // Restore local stock for offline deleted invoice!
-        const { getCachedProducts, cacheProducts } = await import(
-          "@/lib/indexedDB"
-        );
-        const cachedProducts = await getCachedProducts();
-
-        for (const item of offlineInv.items || []) {
-          if (!item.productId || !item.qty) continue;
-          const pIdx = cachedProducts.findIndex(
-            (p) => p.id === item.productId
-          );
-          if (pIdx > -1) {
-            cachedProducts[pIdx].stock =
-              (cachedProducts[pIdx].stock || 0) + item.qty;
-          }
-        }
-        await cacheProducts(cachedProducts);
-
-        if ((offlineInv as any).id) {
-          await deleteOfflineInvoice((offlineInv as any).id);
-        }
-        deletedOffline = true;
-      }
-
-      if (!deletedOffline) {
-        if (isOfflineMode) {
-          toast.error("Cannot delete synced invoice while offline");
-          return;
-        }
-        // It's a firestore invoice, and we are online.
-        await deleteDoc(doc(db, "invoices", id));
-      }
-
-      setInvoices((prev) => prev.filter((i) => i.id !== id));
-      toast.success("Deleted");
+      setInvoices((prev) => prev.filter((i) => i.id !== invoice.id));
+      toast.success("Invoice deleted successfully");
     } catch (err) {
       console.error(err);
       toast.error("Delete failed");
+    } finally {
+      setActiveDropdownId(null);
     }
   };
 
-  /* 🔹 STATUS STYLE */
-  const getStatusStyle = (status: string) => {
-    if (status === "paid") return "bg-green-100 text-green-600";
-    if (status === "pending") return "bg-yellow-100 text-yellow-600";
-    return "bg-red-100 text-red-600";
+  const handleCancelInvoice = async (invoice: Invoice) => {
+    if (invoice.isOffline) {
+      toast.error("Offline invoice drafts cannot be cancelled directly");
+      return;
+    }
+    if (!confirm(`Cancel invoice ${invoice.invoiceNumber}?`)) return;
+    try {
+      await updateDoc(doc(db, "invoices", invoice.id), {
+        status: "cancelled",
+      });
+      setInvoices(prev => prev.map(inv => inv.id === invoice.id ? { ...inv, status: "cancelled" } : inv));
+      toast.success("Invoice cancelled");
+    } catch (err) {
+      console.error(err);
+      toast.error("Cancel operation failed");
+    } finally {
+      setActiveDropdownId(null);
+    }
   };
 
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleOutsideClick = () => setActiveDropdownId(null);
+    window.addEventListener("click", handleOutsideClick);
+    return () => window.removeEventListener("click", handleOutsideClick);
+  }, []);
+
+  const getStatusStyle = (status: string) => {
+    const s = status.toLowerCase();
+    if (s === "paid") return "bg-green-50 text-green-700 border border-green-100";
+    if (s === "pending" || s === "credit") return "bg-amber-50 text-amber-700 border border-amber-100";
+    if (s === "cancelled") return "bg-gray-100 text-gray-500 border border-gray-200";
+    return "bg-gray-50 text-gray-700 border border-gray-200";
+  };
+
+  // Real aggregations (excluding cancelled and estimates from active sales calculations)
+  const activeInvoices = invoices.filter(i => i.status !== "cancelled" && i.invoiceType !== "estimate");
+  const totalSales = activeInvoices.reduce((acc, curr) => acc + curr.total, 0);
+  const totalPaid = activeInvoices.filter(i => i.status === "paid").reduce((acc, curr) => acc + curr.total, 0);
+  const totalUnpaid = activeInvoices.filter(i => i.status === "pending" || i.status === "credit").reduce((acc, curr) => acc + curr.total, 0);
+  const estimateCount = invoices.filter(i => i.invoiceType === "estimate").length;
+
+  // Apply filters
+  const filteredInvoices = invoices.filter((inv) => {
+    // 1. Search Query
+    const searchMatch = 
+      inv.customerName.toLowerCase().includes(search.toLowerCase()) ||
+      inv.invoiceNumber.toLowerCase().includes(search.toLowerCase());
+
+    // 2. Status Filter
+    const statusMatch = statusFilter === "all" || inv.status.toLowerCase() === statusFilter;
+
+    // 3. Invoice Type Filter
+    const typeMatch = typeFilter === "all" || (inv.invoiceType || "invoice") === typeFilter;
+
+    // 4. Date Filter
+    if (dateFilter === "today") {
+      const todayStr = new Date().toISOString().split("T")[0];
+      if (inv.date !== todayStr) return false;
+    } else if (dateFilter === "365") {
+      const yearAgo = new Date();
+      yearAgo.setDate(yearAgo.getDate() - 365);
+      const invDate = new Date(inv.date || "");
+      if (invDate < yearAgo) return false;
+    }
+
+    return searchMatch && statusMatch && typeMatch;
+  });
+
   return (
-    <div className="min-h-screen bg-[#F9FAFB] p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-
-        {/* 🔥 HEADER */}
-        <div className="flex items-center justify-between">
-
-          <div className="flex items-center gap-3">
-            <FileText className="text-purple-600" size={20} />
-            <h1 className="text-2xl font-semibold text-gray-900">
-              Invoices
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-3">
-
-            {/* BACK */}
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2 border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition"
-            >
-              <ArrowLeft size={16} />
-              Dashboard
-            </Link>
-
-            {/* CREATE */}
-            <Link
-              href="/dashboard/invoices/create"
-              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition"
-            >
-              <Plus size={16} />
-              Create Invoice
-            </Link>
-
-          </div>
+    <div className="space-y-6 max-w-full mx-auto pb-12 font-sans relative">
+      
+      {/* HEADER ACTION BAR */}
+      <div className="flex justify-between items-center bg-white px-6 py-4 border-b border-gray-200 shadow-sm">
+        <div className="space-y-1">
+          <h1 className="text-base font-bold text-gray-800">Sales Invoices</h1>
+          <p className="text-[11px] text-gray-400 font-medium">Create, track and generate professional tax invoices & estimates</p>
         </div>
-
-        {/* 📦 CARD */}
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-
-          {loading ? (
-            <div className="p-6 space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-12 bg-gray-100 rounded animate-pulse"
-                />
-              ))}
-            </div>
-          ) : invoices.length === 0 ? (
-            <p className="p-6 text-gray-500 text-sm">
-              No invoices found
-            </p>
-          ) : (
-            <div className="divide-y">
-
-              {invoices.map((inv) => (
-                <div
-                  key={inv.id}
-                  className="p-5 flex justify-between items-center hover:bg-gray-50 transition"
-                >
-
-                  {/* LEFT */}
-                  <div className="space-y-1">
-
-                    <p className="font-medium text-gray-900">
-                      {inv.customerName}
-                    </p>
-
-                    <p className="text-sm text-gray-600">
-                      ₹{inv.total.toFixed(2)}
-                    </p>
-
-                    {inv.invoiceNumber && (
-                      <p className="text-xs text-gray-400">
-                        {inv.invoiceNumber}
-                      </p>
-                    )}
-
-                    {inv.createdAt && (
-                      <p className="text-xs text-gray-400">
-                        {typeof (inv.createdAt as any).toDate === "function"
-                          ? (inv.createdAt as any).toDate().toLocaleDateString()
-                          : new Date(inv.createdAt as any).toLocaleDateString()}
-                      </p>
-                    )}
-
-                  </div>
-
-                  {/* RIGHT */}
-                  <div className="flex items-center gap-3">
-
-                    {/* STATUS */}
-                    <span
-                      className={`px-2.5 py-1 rounded text-xs font-medium ${getStatusStyle(
-                        inv.status
-                      )}`}
-                    >
-                      {inv.status}
-                    </span>
-
-                    {/* VIEW */}
-                    <Link
-                      href={`/dashboard/invoices/${inv.id}`}
-                      className="p-2 rounded hover:bg-gray-100 transition"
-                    >
-                      <Eye size={16} />
-                    </Link>
-
-                    {/* EDIT */}
-                    <Link
-                      href={`/dashboard/invoices/edit/${inv.id}`}
-                      className="p-2 rounded hover:bg-gray-100 text-purple-600 transition"
-                    >
-                      <Pencil size={16} />
-                    </Link>
-
-                    {/* DELETE */}
-                    <button
-                      onClick={() => handleDelete(inv.id)}
-                      className="p-2 rounded hover:bg-red-100 text-red-500 transition"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-
-                  </div>
-                </div>
-              ))}
-
-            </div>
-          )}
+        <div className="flex items-center gap-2">
+          <button className="flex items-center gap-1.5 text-xs text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded bg-white hover:bg-indigo-50 font-semibold transition-colors">
+            <FileText size={13} />
+            <span>Reports</span>
+            <ChevronDown size={12} />
+          </button>
+          <button className="p-2 text-gray-400 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center shrink-0">
+            <Filter size={13} />
+          </button>
         </div>
       </div>
+
+      {/* METRIC SUMMARY CARDS GROUP */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 px-6">
+        
+        {/* Total Sales */}
+        <div className="bg-indigo-50/40 border border-indigo-100 rounded-lg p-4 flex flex-col justify-center h-22 shadow-xs">
+          <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider mb-1">Total Sales</span>
+          <span className="text-xl font-bold text-gray-800 font-mono">₹ {totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+        </div>
+
+        {/* Paid */}
+        <div className="bg-green-50/40 border border-green-100 rounded-lg p-4 flex flex-col justify-center h-22 shadow-xs">
+          <span className="text-[10px] text-green-600 font-bold uppercase tracking-wider mb-1">Paid</span>
+          <span className="text-xl font-bold text-gray-800 font-mono">₹ {totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+        </div>
+
+        {/* Pending / Unpaid */}
+        <div className="bg-amber-50/40 border border-amber-100 rounded-lg p-4 flex flex-col justify-center h-22 shadow-xs">
+          <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider mb-1">Unpaid</span>
+          <span className="text-xl font-bold text-gray-800 font-mono">₹ {totalUnpaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+        </div>
+
+        {/* Estimates / Quotations */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col justify-center h-22 shadow-xs">
+          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Estimates</span>
+          <span className="text-xl font-bold text-gray-800 font-mono">{estimateCount} Drafts</span>
+        </div>
+
+      </div>
+
+      {/* SEARCH AND FILTERS BAR */}
+      <div className="bg-white border border-gray-200 rounded-lg mx-6 shadow-sm overflow-hidden flex flex-col min-h-[520px]">
+        
+        <div className="p-3 border-b border-gray-200 flex flex-wrap gap-3 justify-between items-center bg-gray-50/50">
+          
+          {/* Left Filters */}
+          <div className="flex flex-wrap items-center gap-3">
+            
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
+              <input 
+                type="text" 
+                placeholder="Search party or invoice no..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 pr-4 py-1.5 border border-gray-200 rounded text-xs w-56 focus:outline-none focus:border-indigo-500 bg-white"
+              />
+            </div>
+
+            {/* Date Range Selector */}
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value as any)}
+              className="border border-gray-200 rounded text-xs px-2.5 py-1.5 focus:outline-none bg-white font-semibold text-gray-600"
+            >
+              <option value="365">Last 365 Days</option>
+              <option value="today">Today</option>
+              <option value="all">All Time</option>
+            </select>
+
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="border border-gray-200 rounded text-xs px-2.5 py-1.5 focus:outline-none bg-white font-semibold text-gray-600"
+            >
+              <option value="all">All Statuses</option>
+              <option value="paid">Paid</option>
+              <option value="pending">Pending</option>
+              <option value="credit">Credit</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+
+            {/* Type Filter */}
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as any)}
+              className="border border-gray-200 rounded text-xs px-2.5 py-1.5 focus:outline-none bg-white font-semibold text-gray-600"
+            >
+              <option value="all">All Types</option>
+              <option value="invoice">Tax Invoice</option>
+              <option value="estimate">Estimate</option>
+            </select>
+
+          </div>
+
+          {/* Right Create Button */}
+          <div>
+            <Link href="/dashboard/invoices/create" className="bg-indigo-600 text-white hover:bg-indigo-700 text-xs px-4 py-1.5 rounded font-semibold transition-colors flex items-center gap-1 shadow-sm">
+              <Plus size={13} />
+              <span>Create Sales Invoice</span>
+            </Link>
+          </div>
+
+        </div>
+
+        {/* DENSE SaaS TABLE WORKSPACE */}
+        <div className="flex-1 overflow-x-auto">
+          {loading ? (
+            <div className="flex items-center justify-center p-12 text-gray-400 gap-2 text-xs">
+              <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              <span>Loading invoice logs...</span>
+            </div>
+          ) : filteredInvoices.length === 0 ? (
+            <div className="text-center py-20 text-gray-400 space-y-2">
+              <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto text-xl shadow-xs">
+                📄
+              </div>
+              <p className="text-xs font-semibold text-gray-700">No invoices or estimates found</p>
+              <p className="text-[11px] text-gray-400 max-w-xs mx-auto">Create a new sales invoice or quotation draft to populate the records.</p>
+            </div>
+          ) : (
+            <table className="w-full text-left text-xs text-gray-600 border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 text-gray-400 uppercase tracking-wider text-[10px] font-semibold">
+                  <th className="px-5 py-3 w-10 text-center">
+                    <input type="checkbox" className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                  </th>
+                  <th className="px-4 py-3 font-semibold">Date</th>
+                  <th className="px-4 py-3 font-semibold">Invoice Number</th>
+                  <th className="px-4 py-3 font-semibold">Party Name</th>
+                  <th className="px-4 py-3 font-semibold">Due In</th>
+                  <th className="px-4 py-3 font-semibold">Amount</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold text-center w-12">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-150">
+                {filteredInvoices.map((inv) => {
+                  const isOverdue = inv.dueDate && new Date(inv.dueDate) < new Date() && inv.status !== "paid" && inv.status !== "cancelled";
+                  
+                  return (
+                    <tr key={inv.id} className="hover:bg-gray-50/45 transition-colors">
+                      <td className="px-5 py-3 w-10 text-center">
+                        <input type="checkbox" className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 font-mono">{inv.date || "-"}</td>
+                      <td className="px-4 py-3 font-bold font-mono text-gray-700">
+                        {inv.invoiceType === "estimate" ? (
+                          <span className="text-orange-600 bg-orange-50 border border-orange-100 rounded-sm text-[9px] px-1 py-0.5 mr-1 font-bold">EST</span>
+                        ) : null}
+                        {inv.isOffline ? (
+                          <span className="text-gray-500 bg-gray-50 border border-gray-200 rounded-sm text-[9px] px-1 py-0.5 mr-1 font-bold">DRAFT</span>
+                        ) : null}
+                        <Link href={`/dashboard/invoices/${inv.id}`} className="hover:text-indigo-600 hover:underline">
+                          {inv.invoiceNumber}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 font-bold text-gray-800">{inv.customerName}</td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {inv.status === "paid" ? (
+                          <span className="text-gray-400 font-medium">-</span>
+                        ) : isOverdue ? (
+                          <span className="text-red-500 font-semibold font-mono">Overdue</span>
+                        ) : inv.dueDate ? (
+                          <span className="text-gray-600 font-mono font-medium">{inv.dueDate}</span>
+                        ) : (
+                          <span className="text-gray-400 font-medium">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-bold font-mono text-gray-800">
+                        ₹ {inv.total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold uppercase ${getStatusStyle(inv.status)}`}>
+                          {inv.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center relative">
+                        
+                        {/* Vertical menu toggle */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDropdownId(activeDropdownId === inv.id ? null : inv.id);
+                          }}
+                          className="p-1 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-700"
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+
+                        {/* Interactive Dropdown Box */}
+                        {activeDropdownId === inv.id && (
+                          <div 
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute right-12 top-2 z-30 bg-white border border-gray-200 rounded-md shadow-lg w-40 py-1 text-left"
+                          >
+                            <Link 
+                              href={`/dashboard/invoices/${inv.id}`}
+                              className="px-3 py-1.5 hover:bg-gray-50 text-xs text-gray-700 font-medium flex items-center gap-1.5 transition-colors"
+                            >
+                              <Eye size={12} className="text-gray-400" />
+                              <span>View / Print</span>
+                            </Link>
+
+                            <Link 
+                              href={`/dashboard/invoices/edit/${inv.id}`}
+                              className="px-3 py-1.5 hover:bg-gray-50 text-xs text-gray-700 font-medium flex items-center gap-1.5 transition-colors"
+                            >
+                              <Pencil size={12} className="text-indigo-500" />
+                              <span>Edit</span>
+                            </Link>
+
+                            {inv.status !== "cancelled" && (
+                              <button 
+                                onClick={() => handleCancelInvoice(inv)}
+                                className="w-full px-3 py-1.5 hover:bg-gray-50 text-xs text-gray-700 font-medium flex items-center gap-1.5 transition-colors text-left"
+                              >
+                                <span className="text-gray-400">✕</span>
+                                <span>Cancel Invoice</span>
+                              </button>
+                            )}
+
+                            <button 
+                              onClick={() => handleDelete(inv)}
+                              className="w-full px-3 py-1.5 hover:bg-gray-50 text-xs text-red-600 font-medium flex items-center gap-1.5 transition-colors text-left border-t border-gray-50"
+                            >
+                              <Trash2 size={12} className="text-red-500" />
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        )}
+
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+      </div>
+
     </div>
   );
 }
-
-
