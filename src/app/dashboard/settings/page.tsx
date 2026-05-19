@@ -15,8 +15,6 @@ import {
   Upload,
   MessageSquare,
   Search,
-  Check,
-  ChevronDown
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -32,7 +30,7 @@ export default function SettingsPage() {
 
   // Business state fields
   const [businessName, setBusinessName] = useState("self");
-  const [phone, setPhone] = useState("7505371139");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [stateName, setStateName] = useState("");
@@ -44,6 +42,11 @@ export default function SettingsPage() {
   const [industryType, setIndustryType] = useState("");
   const [registrationType, setRegistrationType] = useState("Private Limited Company");
   const [website, setWebsite] = useState("www.website.com");
+  const [logoUrl, setLogoUrl] = useState("");
+  
+  // Verification Credentials toggles
+  const [eInvoicing, setEInvoicing] = useState(true);
+  const [tallyExport, setTallyExport] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -53,7 +56,7 @@ export default function SettingsPage() {
           if (snap.exists()) {
             const data = snap.data();
             setBusinessName(data.businessName || "self");
-            setPhone(data.phone || "7505371139");
+            setPhone(data.phone || "");
             setEmail(data.email || "");
             setAddress(data.address || "");
             setStateName(data.state || "");
@@ -65,6 +68,9 @@ export default function SettingsPage() {
             setIndustryType(data.industryType || "");
             setRegistrationType(data.registrationType || "Private Limited Company");
             setWebsite(data.website || "www.website.com");
+            setLogoUrl(data.logoUrl || "");
+            if (data.eInvoicing !== undefined) setEInvoicing(data.eInvoicing);
+            if (data.tallyExport !== undefined) setTallyExport(data.tallyExport);
           }
         } catch (err) {
           console.error("Error loading business settings:", err);
@@ -88,6 +94,12 @@ export default function SettingsPage() {
     const user = auth.currentUser;
     if (!user) return toast.error("Not logged in");
 
+    if (!businessName.trim()) return toast.error("Business Name is required");
+    if (phone.trim() && phone.replace(/\D/g, "").length !== 10) return toast.error("Company Phone Number must be exactly 10 digits");
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast.error("Invalid Company E-Mail address");
+    if (pincode.trim() && !/^\d{6}$/.test(pincode)) return toast.error("Pincode must be exactly 6 digits");
+    if (pan.trim() && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan.toUpperCase())) return toast.error("Invalid PAN format (e.g. ABCDE1234F)");
+
     try {
       setSaving(true);
       await setDoc(doc(db, "settings", user.uid), {
@@ -104,6 +116,9 @@ export default function SettingsPage() {
         industryType,
         registrationType,
         website,
+        logoUrl,
+        eInvoicing,
+        tallyExport,
         updatedAt: new Date()
       }, { merge: true });
 
@@ -114,6 +129,36 @@ export default function SettingsPage() {
       toast.error("Failed to save changes");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      return toast.error("Please upload a valid image file");
+    }
+    
+    if (file.size > 2 * 1024 * 1024) {
+      return toast.error("Image size must be less than 2MB");
+    }
+
+    const user = auth.currentUser;
+    if (!user) return toast.error("Not logged in");
+
+    const toastId = toast.loading("Processing logo...");
+    try {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoUrl(reader.result as string);
+        setHasChanges(true);
+        toast.success("Logo uploaded successfully", { id: toastId });
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Logo upload error:", err);
+      toast.error("Failed to process logo", { id: toastId });
     }
   };
 
@@ -170,10 +215,22 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 
                 <div className="flex gap-4">
-                  <div className="w-20 h-20 border border-dashed border-indigo-300 rounded-lg bg-indigo-50/20 flex flex-col items-center justify-center text-indigo-500 cursor-pointer hover:bg-indigo-50/50 transition-all shrink-0">
-                    <Upload size={18} className="mb-1" />
-                    <span className="text-[9px] font-bold text-center uppercase tracking-wider">Logo</span>
-                  </div>
+                  <label className="w-20 h-20 border border-dashed border-indigo-300 rounded-lg bg-indigo-50/20 flex flex-col items-center justify-center text-indigo-500 cursor-pointer hover:bg-indigo-50/50 transition-all shrink-0 overflow-hidden relative group">
+                    <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
+                    ) : (
+                      <>
+                        <Upload size={18} className="mb-1" />
+                        <span className="text-[9px] font-bold text-center uppercase tracking-wider">Logo</span>
+                      </>
+                    )}
+                    {logoUrl && (
+                      <div className="absolute inset-0 bg-black/40 hidden group-hover:flex items-center justify-center text-white">
+                        <Upload size={16} />
+                      </div>
+                    )}
+                  </label>
                   <div className="flex-1">
                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Business Name *</label>
                     <input 
@@ -356,20 +413,30 @@ export default function SettingsPage() {
           <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-xs max-w-5xl">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-4">Verification Credentials</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="border border-indigo-100 bg-indigo-50/20 rounded px-4 py-3 flex justify-between items-center">
-                <span className="text-xs font-bold text-indigo-700 flex items-center gap-1.5">
+              <div 
+                className={`border rounded px-4 py-3 flex justify-between items-center transition-colors ${eInvoicing ? "border-indigo-100 bg-indigo-50/20" : "border-gray-200 bg-gray-50/20"}`}
+              >
+                <span className={`text-xs font-bold flex items-center gap-1.5 ${eInvoicing ? "text-indigo-700" : "text-gray-600"}`}>
                   Enable e-Invoicing 
-                  <span className="bg-indigo-100 text-indigo-600 text-[8px] px-1 rounded uppercase font-bold">New</span>
+                  <span className={`${eInvoicing ? "bg-indigo-100 text-indigo-600" : "bg-gray-200 text-gray-500"} text-[8px] px-1 rounded uppercase font-bold`}>New</span>
                 </span>
-                <div className="w-8 h-4.5 bg-indigo-600 rounded-full relative cursor-pointer flex items-center justify-end px-0.5">
-                  <div className="w-3.5 h-3.5 bg-white rounded-full"></div>
+                <div 
+                  onClick={() => handleChange(setEInvoicing, !eInvoicing)}
+                  className={`w-8 h-4.5 rounded-full relative cursor-pointer flex items-center px-0.5 transition-colors ${eInvoicing ? "bg-indigo-600 justify-end" : "bg-gray-300 justify-start"}`}
+                >
+                  <div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm"></div>
                 </div>
               </div>
               
-              <div className="border border-gray-200 bg-gray-50/20 rounded px-4 py-3 flex justify-between items-center">
-                <span className="text-xs font-bold text-gray-600">Enable Tally Auto-Export</span>
-                <div className="w-8 h-4.5 bg-gray-200 rounded-full relative cursor-pointer flex items-center justify-start px-0.5">
-                  <div className="w-3.5 h-3.5 bg-white rounded-full border border-gray-300"></div>
+              <div 
+                className={`border rounded px-4 py-3 flex justify-between items-center transition-colors ${tallyExport ? "border-indigo-100 bg-indigo-50/20" : "border-gray-200 bg-gray-50/20"}`}
+              >
+                <span className={`text-xs font-bold ${tallyExport ? "text-indigo-700" : "text-gray-600"}`}>Enable Tally Auto-Export</span>
+                <div 
+                  onClick={() => handleChange(setTallyExport, !tallyExport)}
+                  className={`w-8 h-4.5 rounded-full relative cursor-pointer flex items-center px-0.5 transition-colors ${tallyExport ? "bg-indigo-600 justify-end" : "bg-gray-300 justify-start"}`}
+                >
+                  <div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm"></div>
                 </div>
               </div>
             </div>

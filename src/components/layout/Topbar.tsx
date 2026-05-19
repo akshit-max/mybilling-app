@@ -1,14 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import ChatBot from "../ui/ChatBot";
+import ShortcutsPanel from "../ui/ShortcutsPanel";
 import { 
   Monitor, 
-  Headphones, 
   Gift, 
-  Users, 
-  FileText, 
-  Search,
+  Megaphone, 
+  User,
+  MessagesSquare, 
+  Keyboard,
   X
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -17,6 +20,20 @@ export function Topbar() {
   const pathname = usePathname();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallModal, setShowInstallModal] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Listen to keyboard shortcuts
+  useEffect(() => {
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Alt") {
+        e.preventDefault();
+        setShowShortcuts(prev => !prev);
+      }
+    };
+    window.addEventListener("keyup", handleKeyUp);
+    return () => window.removeEventListener("keyup", handleKeyUp);
+  }, []);
 
   // Listen to PWA install prompt event
   useEffect(() => {
@@ -88,25 +105,55 @@ export function Topbar() {
         <div className="flex items-center gap-3 text-gray-500">
           <button 
             onClick={() => setShowInstallModal(true)}
-            className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center" 
+            className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center relative" 
             title="Download Desktop App"
           >
-            <Monitor size={20} strokeWidth={1.5} className="text-indigo-600 hover:scale-105 transition-transform" />
+            <Monitor size={20} strokeWidth={1.5} className="text-gray-500 hover:text-indigo-600 transition-colors" />
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
           </button>
-          <button className="p-2 hover:bg-gray-50 rounded-full transition-colors" title="Help & Support">
-            <Headphones size={20} strokeWidth={1.5} />
+          
+          <a 
+            href="https://mybillbook.featurebase.app/changelog" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center" 
+            title="Announcements"
+          >
+            <Megaphone size={20} strokeWidth={1.5} className="hover:text-indigo-600 transition-colors" />
+          </a>
+
+          <Link 
+            href="/dashboard/settings/refer-and-earn" 
+            className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center" 
+            title="Refer a friend"
+          >
+            <Gift size={20} strokeWidth={1.5} className="hover:text-indigo-600 transition-colors" />
+          </Link>
+
+          <a 
+            href="https://mybillbook.featurebase.app/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center" 
+            title="Share a suggestion"
+          >
+            <User size={20} strokeWidth={1.5} className="hover:text-indigo-600 transition-colors" />
+          </a>
+
+          <button 
+            onClick={() => setShowChat(!showChat)}
+            className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center" 
+            title="Chat Support"
+          >
+            <MessagesSquare size={20} strokeWidth={1.5} className="hover:text-blue-600 transition-colors" />
           </button>
-          <button className="p-2 hover:bg-gray-50 rounded-full transition-colors" title="Offers">
-            <Gift size={20} strokeWidth={1.5} />
-          </button>
-          <button className="p-2 hover:bg-gray-50 rounded-full transition-colors" title="Manage Users">
-            <Users size={20} strokeWidth={1.5} />
-          </button>
-          <button className="p-2 hover:bg-gray-50 rounded-full transition-colors" title="Shortcuts">
-            <FileText size={20} strokeWidth={1.5} />
-          </button>
-          <button className="p-2 hover:bg-gray-50 rounded-full transition-colors" title="Search">
-            <Search size={20} strokeWidth={1.5} />
+
+          <button 
+            onClick={() => setShowShortcuts(!showShortcuts)}
+            className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center" 
+            title="Press ALT to open or close the shortcuts panel"
+          >
+            <Keyboard size={20} strokeWidth={1.5} className="hover:text-indigo-600 transition-colors" />
           </button>
         </div>
 
@@ -155,6 +202,9 @@ export function Topbar() {
           </div>
         </div>
       )}
+
+      {showChat && <ChatBot onClose={() => setShowChat(false)} />}
+      {showShortcuts && <ShortcutsPanel onClose={() => setShowShortcuts(false)} />}
     </header>
   );
 }

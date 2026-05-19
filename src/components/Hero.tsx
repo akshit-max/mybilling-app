@@ -133,16 +133,16 @@ import { CheckCircle } from "lucide-react";
 
 export default function Hero() {
   return (
-    <section className="relative bg-white text-gray-900 py-16 md:py-24 overflow-hidden select-none">
+    <section className="relative bg-[#3E2ED2] text-white py-16 md:py-24 overflow-hidden select-none">
       
       {/* 1. TOPOGRAPHY LINES SVG BACKGROUND PATTERN */}
-      <div className="absolute inset-0 z-0 opacity-[0.25] pointer-events-none select-none">
+      <div className="absolute inset-0 z-0 opacity-[0.06] pointer-events-none select-none">
         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="waves" width="200" height="200" patternUnits="userSpaceOnUse">
-              <path d="M 0 100 Q 50 50, 100 100 T 200 100" fill="none" stroke="#E2E8F0" strokeWidth="2"/>
-              <path d="M 0 150 Q 50 100, 100 150 T 200 150" fill="none" stroke="#F1F5F9" strokeWidth="1"/>
-              <path d="M 0 50 Q 50 0, 100 50 T 200 50" fill="none" stroke="#F1F5F9" strokeWidth="1"/>
+              <path d="M 0 100 Q 50 50, 100 100 T 200 100" fill="none" stroke="white" strokeWidth="2"/>
+              <path d="M 0 150 Q 50 100, 100 150 T 200 150" fill="none" stroke="white" strokeWidth="1"/>
+              <path d="M 0 50 Q 50 0, 100 50 T 200 50" fill="none" stroke="white" strokeWidth="1"/>
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#waves)"/>
@@ -156,8 +156,8 @@ export default function Hero() {
         <div className="md:col-span-7 flex flex-col text-left space-y-8">
           
           {/* HEADING */}
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold leading-[1.15] tracking-tight text-slate-900 max-w-xl">
-            Best <span className="bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">GST Billing Software</span> for Small Business in India
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold leading-[1.15] tracking-tight text-white max-w-xl">
+            Best GST Billing Software for Small Business in India
           </h1>
 
           {/* GREEN CHECK BULLET POINTS */}
@@ -167,7 +167,7 @@ export default function Hero() {
               { text: "Increase stock rotation ", bold: "2.8x faster" },
               { text: "Collect ", bold: "97% payments on time" }
             ].map((bullet, idx) => (
-              <div key={idx} className="flex items-center gap-3 text-sm sm:text-base font-semibold text-slate-700">
+              <div key={idx} className="flex items-center gap-3 text-sm sm:text-base font-semibold text-white/90">
                 {/* Custom Green Checkmark */}
                 <div className="bg-[#22C55E] text-white rounded-full p-1 flex items-center justify-center shadow-md">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
@@ -175,7 +175,7 @@ export default function Hero() {
                   </svg>
                 </div>
                 <span>
-                  {bullet.text}<strong className="text-slate-950 font-bold">{bullet.bold}</strong>
+                  {bullet.text}<strong>{bullet.bold}</strong>
                 </span>
               </div>
             ))}
@@ -185,22 +185,22 @@ export default function Hero() {
           <div className="flex flex-wrap gap-4 pt-2">
             <Link
               href="/signup"
-              className="px-8 py-3 bg-[#7C3AED] hover:bg-[#6D28D9] active:scale-[0.98] text-white font-extrabold rounded-lg shadow-lg hover:shadow-xl transition-all text-sm flex items-center gap-2 select-none border border-transparent"
+              className="px-8 py-3 bg-[#E2770D] hover:bg-[#C96608] active:scale-[0.98] text-white font-extrabold rounded-lg shadow-lg hover:shadow-xl transition-all text-sm flex items-center gap-2 select-none border border-transparent"
             >
               Start Free Billing →
             </Link>
 
             <Link
               href="/demo"
-              className="px-8 py-3 border border-slate-200 text-slate-700 font-extrabold rounded-lg hover:bg-slate-50 transition-all text-sm select-none shadow-sm"
+              className="px-8 py-3 border border-white/40 hover:border-white/70 text-white font-extrabold rounded-lg hover:bg-white/10 transition-all text-sm select-none shadow-sm"
             >
               Book Free Demo
             </Link>
           </div>
 
           {/* TRUST BADGES ROW SECTION */}
-          <div className="flex flex-col space-y-3 pt-6 border-t border-slate-100 max-w-lg">
-            <p className="text-xs sm:text-sm font-extrabold text-slate-400 uppercase tracking-widest">
+          <div className="flex flex-col space-y-3 pt-6 border-t border-white/10 max-w-lg">
+            <p className="text-xs sm:text-sm font-extrabold text-white/80 uppercase tracking-widest">
               Trusted by 1 Crore+ Businesses
             </p>
             
@@ -211,13 +211,13 @@ export default function Hero() {
                 { title: "4.7 ★", subtitle: "GOOGLE PLAY" },
                 { title: "100% DATA PRIVACY", subtitle: "GCA TRUSTED" }
               ].map((badge, idx) => (
-                <div key={idx} className="flex flex-col items-center text-center p-1.5 border border-slate-100 rounded-lg bg-slate-50 select-none">
+                <div key={idx} className="flex flex-col items-center text-center p-1.5 border border-white/15 rounded-lg bg-white/5 backdrop-blur-sm select-none">
                   {/* Decorative laurel leaf SVG path */}
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-yellow-500 opacity-90 mb-1">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-yellow-400 opacity-90 mb-1">
                     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                   </svg>
-                  <span className="text-[8px] font-extrabold leading-tight text-slate-800">{badge.title}</span>
-                  <span className="text-[7px] font-semibold text-slate-400 leading-none">{badge.subtitle}</span>
+                  <span className="text-[8px] font-extrabold leading-tight text-white">{badge.title}</span>
+                  <span className="text-[7px] font-semibold text-white/60 leading-none">{badge.subtitle}</span>
                 </div>
               ))}
             </div>
@@ -225,23 +225,17 @@ export default function Hero() {
 
         </div>
 
-        {/* RIGHT COLUMN - ADJUSTED ORIGINAL HEROO.PNG IMAGE */}
+        {/* RIGHT COLUMN - ORIGINAL REAL HERO.PNG IMAGE */}
         <div className="md:col-span-5 flex justify-center relative">
-          <div className="relative group w-full max-w-[480px] sm:max-w-[500px]">
-            {/* Soft ambient purple glow behind image */}
-            <div className="absolute -inset-10 bg-purple-100/40 rounded-full blur-3xl opacity-75"></div>
-            
-            {/* Main Mockup container */}
-            <div className="relative overflow-hidden rounded-2xl border border-slate-100 shadow-xl bg-slate-50/50 p-2 transition-transform hover:scale-[1.02] duration-300">
-              <Image
-                src="/heroo.png"
-                alt="myBillBook Billing & Inventory Dashboard preview"
-                width={500}
-                height={350}
-                priority
-                className="w-full h-auto object-contain select-none rounded-xl"
-              />
-            </div>
+          <div className="relative w-full max-w-[480px] sm:max-w-[500px] overflow-hidden rounded-2xl shadow-2xl transition-transform hover:scale-[1.02] duration-300">
+            <Image
+              src="/hero.png"
+              alt="myBillBook Product Tour Video Preview"
+              width={500}
+              height={350}
+              priority
+              className="w-full h-auto object-cover select-none"
+            />
           </div>
         </div>
 

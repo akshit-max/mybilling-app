@@ -48,7 +48,7 @@ type Product = {
   unit?: string;
 };
 
-export default function CreateSalesInvoice() {
+export default function CreateQuotation() {
   const router = useRouter();
 
   // Invoice state
@@ -61,7 +61,7 @@ export default function CreateSalesInvoice() {
   const [gstEnabled, setGstEnabled] = useState(true);
   const [status, setStatus] = useState<"paid" | "pending" | "credit">("paid");
   const [dueDate, setDueDate] = useState("");
-  const [invoiceType, setInvoiceType] = useState<"invoice" | "estimate">("invoice");
+  const [invoiceType, setInvoiceType] = useState<"invoice" | "estimate">("estimate");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
   const [paymentTerms, setPaymentTerms] = useState("30");
@@ -142,40 +142,6 @@ export default function CreateSalesInvoice() {
       if (!user) return;
 
       try {
-
-        // Check URL for fromQuote
-        const params = new URLSearchParams(window.location.search);
-        const fromQuoteId = params.get("fromQuote");
-        if (fromQuoteId) {
-          try {
-            const snap = await getDoc(doc(db, "invoices", fromQuoteId));
-            if (snap.exists()) {
-              const qData = snap.data();
-              if (qData.customerName) setCustomerName(qData.customerName);
-              if (qData.items && qData.items.length) {
-                // Ensure gstRate fallback is there
-                const mappedItems = qData.items.map((i: any) => ({...i, gstRate: i.gstRate || 18}));
-                setItems(mappedItems);
-              }
-              if (qData.shippingAddress) setShippingAddress(qData.shippingAddress);
-              if (qData.notes) {
-                 setNotes(qData.notes);
-                 setShowNotes(true);
-              }
-              if (qData.discountType) setDiscountType(qData.discountType);
-              if (qData.discountValue) {
-                setDiscountValue(qData.discountValue);
-                setShowDiscountInput(true);
-              }
-              if (qData.additionalChargeName) setAdditionalChargeName(qData.additionalChargeName);
-              if (qData.additionalChargeValue) setAdditionalChargeValue(qData.additionalChargeValue);
-              toast.success("Converted Quotation data loaded! Review and Save as Invoice.");
-            }
-          } catch (e) {
-            console.error("Failed to load quote", e);
-          }
-        }
-
         // Fetch Customers
         try {
           if (!navigator.onLine) throw new Error("Offline");
@@ -600,8 +566,8 @@ export default function CreateSalesInvoice() {
         }
 
         await saveOfflineInvoice(invoiceData as any);
-        toast.success("Invoice saved offline draft ✅");
-        router.push("/dashboard/invoices");
+        toast.success("Quotation saved offline draft ✅");
+        router.push("/dashboard/quotations");
         return;
       }
 
@@ -626,12 +592,12 @@ export default function CreateSalesInvoice() {
       }
 
       await addDoc(collection(db, "invoices"), invoiceData);
-      toast.success("Sales Invoice created successfully! ✅");
-      router.push("/dashboard/invoices");
+      toast.success("Quotation created successfully! ✅");
+      router.push("/dashboard/quotations");
 
     } catch (err) {
       console.error(err);
-      toast.error("Failed to save Sales Invoice");
+      toast.error("Failed to save Quotation");
     } finally {
       setSaving(false);
     }
@@ -652,11 +618,11 @@ export default function CreateSalesInvoice() {
       {/* ENTERPRISE ACTION HEADER */}
       <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-20 shadow-xs">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/invoices" className="text-gray-400 hover:text-gray-700 transition-colors">
+          <Link href="/dashboard/quotations" className="text-gray-400 hover:text-gray-700 transition-colors">
             <ArrowLeft size={18} />
           </Link>
           <div className="space-y-0.5">
-            <h1 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Create Sales Invoice</h1>
+            <h1 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Create Quotation / Estimate</h1>
             <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">New Transaction</span>
           </div>
         </div>
@@ -674,7 +640,7 @@ export default function CreateSalesInvoice() {
             disabled={saving}
             className="text-xs text-white bg-indigo-600 border border-indigo-600 px-5 py-1.5 rounded hover:bg-indigo-700 font-bold shadow-sm transition-all disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save Invoice"}
+            {saving ? "Saving..." : "Save Quotation"}
           </button>
         </div>
       </header>
@@ -699,6 +665,25 @@ export default function CreateSalesInvoice() {
         {/* INVOICE ENTRY DESK SHEET */}
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
           
+          
+          {/* BUSINESS HEADER & LOGO PROFILE */}
+          <div className="p-6 flex items-start gap-6 border-b border-gray-100 bg-white">
+            <button className="w-32 h-24 border-2 border-dashed border-indigo-200 rounded flex flex-col items-center justify-center text-indigo-500 hover:bg-indigo-50/50 transition-colors shrink-0">
+              <span className="text-xs font-bold text-center leading-snug">Add Company<br/>Logo</span>
+            </button>
+            <div className="flex-1 space-y-1 mt-1">
+              <h2 className="text-lg font-bold text-gray-800">My Business Profile</h2>
+              <div className="text-[11px] text-gray-500 font-medium flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                <p>Address: <span className="text-gray-700">Set your business address</span></p>
+                <p>Phone Number: <span className="text-gray-700">Not set</span></p>
+                <p>Email: <span className="text-gray-700">Not set</span></p>
+                <p>GSTIN: <span className="text-gray-700">Not set</span></p>
+                <p>PAN: <span className="text-gray-700">Not set</span></p>
+              </div>
+            </div>
+            <button className="text-xs font-bold text-indigo-600 hover:underline">Hide Details</button>
+          </div>
+
           {/* BILL TO & SHIP TO SPLIT PANELS */}
           <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 border-b border-gray-100 bg-gray-50/20">
             
@@ -805,10 +790,21 @@ export default function CreateSalesInvoice() {
             </div>
 
             {/* Meta Details Panel */}
-            <div className="bg-white border border-gray-200 rounded-lg p-4 grid grid-cols-2 gap-x-4 gap-y-3 shadow-xs">
+            <div className="bg-white border border-gray-200 rounded-lg p-4 grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 shadow-xs">
+              
               
               <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Invoice No.</label>
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Invoice Prefix</label>
+                <input 
+                  type="text"
+                  value={"RM/QO/23-24/"}
+                  readOnly
+                  className="w-full border-b border-gray-200 py-1 text-xs text-gray-500 bg-gray-50 font-mono font-medium" 
+                />
+              </div>
+    
+              <div>
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Quotation No.</label>
                 <input 
                   type="text"
                   value={invoiceNumber}
@@ -818,7 +814,7 @@ export default function CreateSalesInvoice() {
               </div>
 
               <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Invoice Date</label>
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Quotation Date</label>
                 <input 
                   type="date"
                   value={invoiceDate}
@@ -828,7 +824,7 @@ export default function CreateSalesInvoice() {
               </div>
 
               <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Payment Terms</label>
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Valid For</label>
                 <div className="flex items-center gap-1 border-b border-gray-200 py-1">
                   <input
                     type="number"
@@ -843,7 +839,7 @@ export default function CreateSalesInvoice() {
               </div>
 
               <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Due Date</label>
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Validity Date</label>
                 <input 
                   type="date"
                   value={dueDate}

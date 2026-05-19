@@ -114,7 +114,7 @@ export function Sidebar() {
           hasSubmenu: true,
           subItems: [
             { name: "All Parties", href: "/dashboard/customers" },
-            { name: "Shared Ledger", href: "#", badge: "New" },
+            { name: "Shared Ledger", href: "/dashboard/customers/shared-ledger", badge: "New" },
           ],
         },
         {
@@ -124,7 +124,7 @@ export function Sidebar() {
           hasSubmenu: true,
           subItems: [
             { name: "Inventory", href: "/dashboard/products" },
-            { name: "Godown (Warehouse)", href: "#" },
+            { name: "Godown (Warehouse)", href: "/dashboard/products/godown" },
           ],
         },
         {
@@ -134,7 +134,7 @@ export function Sidebar() {
           hasSubmenu: true,
           subItems: [
             { name: "Sales Invoices", href: "/dashboard/invoices" },
-            { name: "Quotation / Estimate", href: "#" },
+            { name: "Quotation / Estimate", href: "/dashboard/quotations" },
             { name: "Payment In", href: "#" },
             { name: "Sales Return", href: "#" },
             { name: "Credit Note", href: "#" },
@@ -220,7 +220,7 @@ export function Sidebar() {
                   <FileText size={16} className="text-indigo-600" />
                   <span>Sales Invoice</span>
                 </Link>
-                <Link href="#" onClick={() => setIsCreateDropdownOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-indigo-600 font-medium border-b border-gray-100 transition-colors">
+                <Link href="/dashboard/quotations/create" onClick={() => setIsCreateDropdownOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-indigo-600 font-medium border-b border-gray-100 transition-colors">
                   <FileCheck2 size={16} className="text-emerald-600" />
                   <span>Quotation / Estimate</span>
                 </Link>

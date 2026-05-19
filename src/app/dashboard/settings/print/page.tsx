@@ -292,7 +292,7 @@ export default function PrintSettingsPage() {
                      <div className="text-center space-y-0.5">
                        <p className="font-bold text-xs uppercase tracking-wider text-black">TAX INVOICE</p>
                        <p className="font-bold text-[10px]">self</p>
-                       <p className="text-gray-500">Phone No: 7505371139</p>
+                       <p className="text-gray-500">Phone No: 98XXXXXXXX</p>
                      </div>
 
                      <div className="border-t border-dashed border-gray-300 pt-2 space-y-0.5">

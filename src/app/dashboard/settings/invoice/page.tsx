@@ -192,7 +192,7 @@ export default function InvoiceSettingsPage() {
                <div className="flex justify-between items-start mb-6">
                   <div>
                      <h1 style={{ color: accentColor }} className="text-2xl font-bold uppercase tracking-wider">self</h1>
-                     {showPhone && <p className="text-[10px] text-gray-500 mt-1">Mobile: 7505371139</p>}
+                     {showPhone && <p className="text-[10px] text-gray-500 mt-1">Mobile: 98XXXXXXXX</p>}
                      {showTime && <p className="text-[9px] text-gray-400">Generated: {new Date().toLocaleTimeString()}</p>}
                   </div>
                   <div className="text-right">

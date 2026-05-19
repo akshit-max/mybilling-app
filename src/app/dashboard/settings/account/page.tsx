@@ -28,7 +28,7 @@ export default function AccountSettingsPage() {
 
   // Account states
   const [displayName, setDisplayName] = useState("self");
-  const [phone, setPhone] = useState("7505371139");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [referralCode, setReferralCode] = useState("");
 
@@ -67,6 +67,20 @@ export default function AccountSettingsPage() {
 
     try {
       setSaving(true);
+      
+      if (!displayName.trim()) {
+        setSaving(false);
+        return toast.error("Name is required");
+      }
+      if (phone.trim() && phone.replace(/\D/g, "").length !== 10) {
+        setSaving(false);
+        return toast.error("Mobile Number must be exactly 10 digits");
+      }
+      if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setSaving(false);
+        return toast.error("Invalid email address");
+      }
+
       await setDoc(doc(db, "settings", user.uid), {
         businessName: displayName,
         phone,

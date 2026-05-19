@@ -95,7 +95,7 @@ function numberToWords(num: number): string {
   return cleanNum.toString(); 
 }
 
-export default function ViewInvoice() {
+export default function ViewQuotation() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
 
@@ -229,7 +229,7 @@ export default function ViewInvoice() {
     );
   }
 
-  const invoiceTypeTitle = (invoice.invoiceType || "invoice") === "estimate" ? "Estimate" : "Sales Invoice";
+  const invoiceTypeTitle = (invoice.invoiceType || "invoice") === "estimate" ? "Estimate" : "Quotation";
   const formattedDate = invoice.createdAt
     ? typeof (invoice.createdAt as any).toDate === "function"
       ? (invoice.createdAt as any).toDate().toLocaleDateString()
@@ -569,7 +569,7 @@ export default function ViewInvoice() {
                           style={{ color: invoiceTheme === "tally" ? "#000000" : accentColor }} 
                           className="text-[12px] font-extrabold uppercase tracking-widest"
                         >
-                          {(invoice.invoiceType || "invoice") === "estimate" ? "ESTIMATE" : "TAX INVOICE"}
+                          {(invoice.invoiceType || "invoice") === "estimate" ? "ESTIMATE" : "QUOTATION"}
                         </span>
                         <span className="text-[9px] border border-gray-400 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase">
                           {activeLabel}
@@ -600,8 +600,8 @@ export default function ViewInvoice() {
 
                   {/* Meta info layout gray stripe */}
                   <div className="grid grid-cols-2 border-y border-gray-300 bg-gray-50/60 px-4 py-2 mb-4 text-[10px] font-bold text-gray-700">
-                     <p>Invoice No.: <span className="font-mono text-gray-950 font-extrabold">{invoice.invoiceNumber || "1"}</span></p>
-                     <p className="text-right">Invoice Date: <span className="font-mono text-gray-950 font-extrabold">{formattedDate}</span></p>
+                     <p>Quotation No.: <span className="font-mono text-gray-950 font-extrabold">{invoice.invoiceNumber || "1"}</span></p>
+                     <p className="text-right">Quotation Date: <span className="font-mono text-gray-950 font-extrabold">{formattedDate}</span></p>
                   </div>
 
                   {/* Customer details bill to block */}
@@ -869,7 +869,7 @@ export default function ViewInvoice() {
                        style={{ color: invoiceTheme === "tally" ? "#000000" : accentColor }} 
                        className="text-[12px] font-extrabold uppercase tracking-widest"
                      >
-                       {(invoice.invoiceType || "invoice") === "estimate" ? "ESTIMATE" : "TAX INVOICE"}
+                       {(invoice.invoiceType || "invoice") === "estimate" ? "ESTIMATE" : "QUOTATION"}
                      </span>
                      <span className="text-[9px] border border-gray-400 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase">
                        {activeLabel}
@@ -900,8 +900,8 @@ export default function ViewInvoice() {
 
                 {/* Meta info layout gray stripe */}
                 <div className="grid grid-cols-2 border-y border-gray-300 bg-gray-50/60 px-4 py-2 mb-4 text-[10px] font-bold text-gray-700">
-                   <p>Invoice No.: <span className="font-mono text-gray-950 font-extrabold">{invoice.invoiceNumber || "1"}</span></p>
-                   <p className="text-right">Invoice Date: <span className="font-mono text-gray-950 font-extrabold">{formattedDate}</span></p>
+                   <p>Quotation No.: <span className="font-mono text-gray-950 font-extrabold">{invoice.invoiceNumber || "1"}</span></p>
+                   <p className="text-right">Quotation Date: <span className="font-mono text-gray-950 font-extrabold">{formattedDate}</span></p>
                 </div>
 
                 {/* Customer details bill to block */}
@@ -1086,14 +1086,14 @@ export default function ViewInvoice() {
             className="bg-white p-2 font-mono text-[9px] text-black space-y-3 leading-normal"
           >
              <div className="text-center space-y-0.5">
-               <p className="font-bold text-xs uppercase tracking-wider">TAX INVOICE</p>
+               <p className="font-bold text-xs uppercase tracking-wider">QUOTATION</p>
                <p className="font-bold text-[10px]">{company?.name || "self"}</p>
                {showPhone && <p className="text-gray-500">Phone No: {company?.phone || "98XXXXXXXX"}</p>}
              </div>
 
              <div className="border-t border-dashed border-gray-300 pt-2 space-y-0.5">
                <p className="flex justify-between"><span>Invoice Number:</span><span className="font-bold">#{invoice.invoiceNumber || "1"}</span></p>
-               <p className="flex justify-between"><span>Invoice Date:</span><span>{formattedDate}</span></p>
+               <p className="flex justify-between"><span>Quotation Date:</span><span>{formattedDate}</span></p>
                <p className="flex justify-between"><span>Bill To:</span><span className="font-bold">{invoice.customerName}</span></p>
              </div>
 

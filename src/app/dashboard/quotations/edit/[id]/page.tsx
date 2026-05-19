@@ -48,7 +48,7 @@ type Product = {
   unit?: string;
 };
 
-export default function EditSalesInvoice() {
+export default function EditQuotation() {
   const router = useRouter();
   const { id } = useParams() as { id: string };
 
@@ -63,7 +63,7 @@ export default function EditSalesInvoice() {
   const [gstEnabled, setGstEnabled] = useState(true);
   const [status, setStatus] = useState<"paid" | "pending" | "cancelled">("pending");
   const [dueDate, setDueDate] = useState("");
-  const [invoiceType, setInvoiceType] = useState<"invoice" | "estimate">("invoice");
+  const [invoiceType, setInvoiceType] = useState<"invoice" | "estimate">("estimate");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("30");
@@ -198,8 +198,8 @@ export default function EditSalesInvoice() {
             setShowDiscountInput(true);
           }
         } else {
-          toast.error("Invoice record not found");
-          router.push("/dashboard/invoices");
+          toast.error("Quotation record not found");
+          router.push("/dashboard/quotations");
           return;
         }
 
@@ -642,8 +642,8 @@ export default function EditSalesInvoice() {
         };
 
         await updateOfflineInvoice(updatedInvoice as any);
-        toast.success("Invoice saved locally ✅");
-        router.push("/dashboard/invoices");
+        toast.success("Quotation saved locally ✅");
+        router.push("/dashboard/quotations");
         return;
       }
 
@@ -674,12 +674,12 @@ export default function EditSalesInvoice() {
       }
 
       await updateDoc(doc(db, "invoices", id), updateData);
-      toast.success("Invoice updated successfully! ✅");
-      router.push("/dashboard/invoices");
+      toast.success("Quotation updated successfully! ✅");
+      router.push("/dashboard/quotations");
 
     } catch (err) {
       console.error(err);
-      toast.error("Failed to update invoice workspace");
+      toast.error("Failed to update quotation");
     } finally {
       setSaving(false);
     }
@@ -735,11 +735,11 @@ export default function EditSalesInvoice() {
       {/* HEADER SECTION */}
       <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-20 shadow-xs">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/invoices" className="text-gray-400 hover:text-gray-700 transition-colors">
+          <Link href="/dashboard/quotations" className="text-gray-400 hover:text-gray-700 transition-colors">
             <ArrowLeft size={18} />
           </Link>
           <div className="space-y-0.5">
-            <h1 className="text-sm font-bold text-gray-800 uppercase tracking-wider">UPDATE SALES INVOICE</h1>
+            <h1 className="text-sm font-bold text-gray-800 uppercase tracking-wider">UPDATE QUOTATION</h1>
             <p className="text-[10px] text-gray-400 font-semibold uppercase">EDIT TRANSACTION</p>
           </div>
         </div>
@@ -757,7 +757,7 @@ export default function EditSalesInvoice() {
             disabled={saving}
             className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold shadow-sm transition-all disabled:opacity-50"
           >
-            {saving ? "Updating..." : "Update Invoice"}
+            {saving ? "Updating..." : "Update Quotation"}
           </button>
         </div>
       </header>
@@ -879,7 +879,7 @@ export default function EditSalesInvoice() {
             <div className="grid grid-cols-2 gap-4">
               
               <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Invoice No.</label>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Quotation No.</label>
                 <input
                   type="text"
                   value={invoiceNumber}
@@ -889,7 +889,7 @@ export default function EditSalesInvoice() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Invoice Date</label>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Quotation Date</label>
                 <input
                   type="date"
                   value={invoiceDate}
@@ -899,7 +899,7 @@ export default function EditSalesInvoice() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Payment Terms</label>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Valid For</label>
                 <div className="relative flex items-center">
                   <input
                     type="number"
@@ -913,7 +913,7 @@ export default function EditSalesInvoice() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Due Date</label>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Validity Date</label>
                 <input
                   type="date"
                   value={dueDate}

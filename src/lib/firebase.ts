@@ -8,6 +8,7 @@ import {
   initializeFirestore,
   persistentLocalCache,
 } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 
 
@@ -49,3 +50,4 @@ export const db =
     localCache:
       persistentLocalCache(),
   });
+export const storage = getStorage(app);
