@@ -122,16 +122,21 @@ export default function CustomerDetailsPage() {
         const fetchedInvoices: Invoice[] = isnap.docs
           .map((docSnap) => {
             const docData = docSnap.data();
+            const totalVal = Number(docData.total || 0);
+            const receivedVal = typeof docData.amountReceived === "number"
+              ? docData.amountReceived
+              : (docData.status === "paid" ? totalVal : 0);
+            const balAmount = Math.max(0, totalVal - receivedVal);
             return {
               id: docSnap.id,
               invoiceNumber: docData.invoiceNumber || "N/A",
-              total: Number(docData.total || 0),
+              total: totalVal,
               status: docData.status || "pending",
               invoiceType: docData.invoiceType || "invoice",
               createdAt: docData.createdAt,
               items: docData.items || [],
               paymentMode: docData.paymentMode || "Cash",
-              balanceAmount: Number(docData.balanceAmount !== undefined ? docData.balanceAmount : (docData.status === "paid" ? 0 : docData.total)),
+              balanceAmount: balAmount,
               partyName: docData.partyName || docData.customerName || "",
             };
           })

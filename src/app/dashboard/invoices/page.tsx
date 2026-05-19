@@ -27,6 +27,7 @@ type Invoice = {
   createdAt?: any;
   items?: InvoiceItem[];
   isOffline?: boolean;
+  amountReceived?: number;
 };
 
 export default function SalesInvoicesPage() {
@@ -65,6 +66,7 @@ export default function SalesInvoicesPage() {
             date: d.date || (d.createdAt ? new Date(d.createdAt.toDate ? d.createdAt.toDate() : d.createdAt).toISOString().split("T")[0] : ""),
             dueDate: d.dueDate || "",
             isOffline: false,
+            amountReceived: typeof d.amountReceived === "number" ? d.amountReceived : undefined,
           };
         });
       } catch (err) {
@@ -86,6 +88,7 @@ export default function SalesInvoicesPage() {
           date: c.date || new Date().toISOString().split("T")[0],
           dueDate: c.dueDate || "",
           isOffline: true,
+          amountReceived: typeof c.amountReceived === "number" ? c.amountReceived : undefined,
         }));
       } catch (err) {
         console.error("IndexedDB fetch error:", err);
@@ -178,8 +181,18 @@ export default function SalesInvoicesPage() {
   // Real aggregations (excluding cancelled and estimates from active sales calculations)
   const activeInvoices = invoices.filter(i => i.status !== "cancelled" && i.invoiceType !== "estimate");
   const totalSales = activeInvoices.reduce((acc, curr) => acc + curr.total, 0);
-  const totalPaid = activeInvoices.filter(i => i.status === "paid").reduce((acc, curr) => acc + curr.total, 0);
-  const totalUnpaid = activeInvoices.filter(i => i.status === "pending" || i.status === "credit").reduce((acc, curr) => acc + curr.total, 0);
+  const totalPaid = activeInvoices.reduce((acc, curr) => {
+    const received = typeof curr.amountReceived === "number"
+      ? curr.amountReceived
+      : (curr.status === "paid" ? curr.total : 0);
+    return acc + received;
+  }, 0);
+  const totalUnpaid = activeInvoices.reduce((acc, curr) => {
+    const received = typeof curr.amountReceived === "number"
+      ? curr.amountReceived
+      : (curr.status === "paid" ? curr.total : 0);
+    return acc + Math.max(0, curr.total - received);
+  }, 0);
   const estimateCount = invoices.filter(i => i.invoiceType === "estimate").length;
 
   // Apply filters
@@ -380,12 +393,10 @@ export default function SalesInvoicesPage() {
                       </td>
                       <td className="px-4 py-3 font-bold text-gray-800">{inv.customerName}</td>
                       <td className="px-4 py-3 text-gray-500">
-                        {inv.status === "paid" ? (
-                          <span className="text-gray-400 font-medium">-</span>
-                        ) : isOverdue ? (
+                        {isOverdue ? (
                           <span className="text-red-500 font-semibold font-mono">Overdue</span>
                         ) : inv.dueDate ? (
-                          <span className="text-gray-600 font-mono font-medium">{inv.dueDate}</span>
+                          <span className="text-gray-650 font-mono font-medium">{inv.dueDate}</span>
                         ) : (
                           <span className="text-gray-400 font-medium">-</span>
                         )}

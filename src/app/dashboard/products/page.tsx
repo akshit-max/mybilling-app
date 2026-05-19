@@ -255,6 +255,42 @@ export default function ItemsPage() {
       return;
     }
 
+    const priceVal = Number(formPrice);
+    if (isNaN(priceVal) || priceVal < 0) {
+      toast.error("Sales Price must be a valid positive number or zero");
+      return;
+    }
+
+    const costPriceVal = Number(formCostPrice);
+    if (isNaN(costPriceVal) || costPriceVal < 0) {
+      toast.error("Purchase Price must be a valid positive number or zero");
+      return;
+    }
+
+    const discountVal = Number(formDiscountOnSales);
+    if (isNaN(discountVal) || discountVal < 0 || discountVal > 100) {
+      toast.error("Discount on Sales must be a percentage between 0 and 100");
+      return;
+    }
+
+    const gstVal = Number(formGst);
+    if (isNaN(gstVal) || gstVal < 0 || gstVal > 100) {
+      toast.error("GST Tax Rate must be a percentage between 0 and 100");
+      return;
+    }
+
+    const stockVal = Number(formStock);
+    if (isNaN(stockVal)) {
+      toast.error("Opening Stock must be a valid number");
+      return;
+    }
+
+    const thresholdVal = Number(formLowStockThreshold);
+    if (formLowStockWarning && (isNaN(thresholdVal) || thresholdVal < 0)) {
+      toast.error("Low Stock Threshold must be a valid positive number or zero");
+      return;
+    }
+
     try {
       setModalSaving(true);
 

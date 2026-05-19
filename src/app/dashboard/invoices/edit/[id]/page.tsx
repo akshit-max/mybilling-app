@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Settings2, Share2, ScanBarcode, Plus, ChevronDown, Check, Trash2, Eye, FileText, Landmark, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, collection, getDocs, query, where, addDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, updateDoc, doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
@@ -14,7 +14,7 @@ import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 import { v4 as uuidv4 } from "uuid";
 import { INDIAN_STATES } from "@/lib/indianStates";
 
-// Lazy import BarcodeScanner
+// Lazy import BarcodeScanner so it doesn't break SSR / static builds
 import dynamic from "next/dynamic";
 const BarcodeScanner = dynamic(() => import("react-qr-barcode-scanner"), { ssr: false });
 
@@ -25,6 +25,7 @@ type Item = {
   price: number | "";
   gstRate?: number;
   hsn?: string;
+  description?: string;
 };
 
 type Customer = {
@@ -47,22 +48,20 @@ type Product = {
   unit?: string;
 };
 
-type Status = "paid" | "pending" | "credit" | "cancelled";
-
 export default function EditSalesInvoice() {
   const router = useRouter();
   const { id } = useParams() as { id: string };
 
-  // Invoice states
+  // Invoice state
   const [customerName, setCustomerName] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<Item[]>([{ name: "", qty: 1, price: 0, gstRate: 18, description: "" }]);
   const [originalItems, setOriginalItems] = useState<Item[]>([]);
   const [discountType, setDiscountType] = useState<DiscountType>("flat");
   const [discountValue, setDiscountValue] = useState<number | string>(0);
   const [gstEnabled, setGstEnabled] = useState(true);
-  const [status, setStatus] = useState<Status>("pending");
+  const [status, setStatus] = useState<"paid" | "pending" | "cancelled">("pending");
   const [dueDate, setDueDate] = useState("");
   const [invoiceType, setInvoiceType] = useState<"invoice" | "estimate">("invoice");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -78,17 +77,67 @@ export default function EditSalesInvoice() {
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
 
-  // Quick add customer states
+  // Extended Custom States
+  const [shippingAddress, setShippingAddress] = useState("");
+  const [isEditingShipping, setIsEditingShipping] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [additionalChargeName, setAdditionalChargeName] = useState("Transport Charges");
+  const [additionalChargeValue, setAdditionalChargeValue] = useState<number | string>(0);
+  const [showDiscountInput, setShowDiscountInput] = useState(false);
+  const [autoRoundOff, setAutoRoundOff] = useState(true);
+
+  // Bank Account modal states
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState("");
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [newBank, setNewBank] = useState({
+    name: "",
+    balance: "",
+    asOfDate: new Date().toISOString().split("T")[0],
+    accountNumber: "",
+    reAccountNumber: "",
+    holderName: "",
+    ifsc: "",
+    bankName: "",
+    branchName: "",
+    upiId: "",
+    addDetails: true
+  });
+
+  // Dynamic QR Code select states
+  const [selectedQRBankId, setSelectedQRBankId] = useState("");
+  const [showQRModal, setShowQRModal] = useState(false);
+
+  // Quick settings modal state
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [invoiceSettings, setInvoiceSettings] = useState({
+    prefixEnabled: false,
+    purchasePriceEnabled: true,
+    itemImageEnabled: false,
+    priceHistoryEnabled: false,
+    invoiceTheme: "Stylish"
+  });
+
+  // Signature States
+  const [signatureType, setSignatureType] = useState<"upload" | "empty" | "">("");
+  const [signatureImage, setSignatureImage] = useState("");
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [showEmptySigModal, setShowEmptySigModal] = useState(false);
+
+  // New customer quick add fields
   const [newCustomer, setNewCustomer] = useState({
     name: "",
     phone: "",
     address: "",
     gstin: "",
     state: "",
+    category: "",
   });
   const [addingCustomer, setAddingCustomer] = useState(false);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
-  /* FETCH DATA & PRE-FILL INSTANCE */
+  // Fetch initial collections and load target invoice doc
   useEffect(() => {
     const fetchData = async () => {
       const user = auth.currentUser;
@@ -130,13 +179,31 @@ export default function EditSalesInvoice() {
           setInvoiceDate(loadedInvoice.date || new Date().toISOString().split("T")[0]);
           setAmountReceived(loadedInvoice.amountReceived || 0);
           setPaymentMode(loadedInvoice.paymentMode || "Cash");
+          
+          // Prepopulate extended fields if present
+          setShippingAddress(loadedInvoice.shippingAddress || "");
+          setNotes(loadedInvoice.notes || "");
+          setShowNotes(!!loadedInvoice.notes);
+          setAdditionalChargeName(loadedInvoice.additionalChargeName || "Transport Charges");
+          setAdditionalChargeValue(loadedInvoice.additionalChargeValue || 0);
+          setAutoRoundOff(loadedInvoice.autoRoundOff ?? true);
+          setSelectedBankId(loadedInvoice.selectedBankId || "");
+          setSelectedQRBankId(loadedInvoice.selectedQRBankId || "");
+          setSignatureType(loadedInvoice.signatureType || "");
+          setSignatureImage(loadedInvoice.signatureImage || "");
+          if (loadedInvoice.settings) {
+            setInvoiceSettings(loadedInvoice.settings);
+          }
+          if (loadedInvoice.discountValue > 0) {
+            setShowDiscountInput(true);
+          }
         } else {
           toast.error("Invoice record not found");
           router.push("/dashboard/invoices");
           return;
         }
 
-        // 2. CUSTOMERS LOAD
+        // Fetch Customers
         try {
           if (!navigator.onLine) throw new Error("Offline");
           const cq = query(collection(db, "customers"), where("userId", "==", user.uid));
@@ -161,7 +228,7 @@ export default function EditSalesInvoice() {
           setCustomers(cached as any || []);
         }
 
-        // 3. PRODUCTS LOAD
+        // Fetch Products
         try {
           if (!navigator.onLine) throw new Error("Offline");
           const pq = query(collection(db, "products"), where("userId", "==", user.uid));
@@ -188,14 +255,34 @@ export default function EditSalesInvoice() {
           setProducts(cached as any || []);
         }
 
-        // 4. SETTINGS / COMPANY STATE LOAD
+        // Fetch Bank Accounts
+        try {
+          if (!navigator.onLine) throw new Error("Offline");
+          const bq = query(collection(db, "banks"), where("userId", "==", user.uid));
+          const bsnap = await getDocs(bq);
+          const bList = bsnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+          setBankAccounts(bList);
+        } catch {
+          // Silent catch for bank accounts load
+        }
+
+        // Fetch Categories
+        try {
+          const catSnap = await getDocs(collection(db, "categories"));
+          const catList = catSnap.docs.map(d => ({ id: d.id, name: d.data().name }));
+          setCategories(catList);
+        } catch {
+          // Offline skip
+        }
+
+        // Fetch Settings (Company state)
         try {
           const settingsSnap = await getDoc(doc(db, "settings", user.uid));
           if (settingsSnap.exists()) {
             setCompanyState((settingsSnap.data().state || "").trim());
           }
         } catch {
-          // Defaults to CGST + SGST
+          // Defaults to SGST/CGST
         }
 
       } catch (err) {
@@ -217,7 +304,7 @@ export default function EditSalesInvoice() {
     return () => unsub();
   }, [id]);
 
-  // Adjust due dates on date terms change
+  // Adjust due dates on date terms change or date modification
   useEffect(() => {
     if (paymentTerms && invoiceDate) {
       const date = new Date(invoiceDate);
@@ -225,6 +312,16 @@ export default function EditSalesInvoice() {
       setDueDate(date.toISOString().split("T")[0]);
     }
   }, [paymentTerms, invoiceDate]);
+
+  // Sync shipping address with customer billing address on selection
+  useEffect(() => {
+    if (customerName && customers.length > 0 && !shippingAddress) {
+      const party = customers.find(c => c.name === customerName);
+      if (party?.address) {
+        setShippingAddress(party.address);
+      }
+    }
+  }, [customerName, customers]);
 
   // Valid calculations
   const validItems = items
@@ -252,13 +349,36 @@ export default function EditSalesInvoice() {
     isInterstate
   );
 
+  const rawTotal = calc.total + Number(additionalChargeValue || 0);
+  const roundedTotal = Math.round(rawTotal);
+  const roundOffAmount = roundedTotal - rawTotal;
+  const finalTotal = autoRoundOff ? roundedTotal : rawTotal;
+
+  // Sync Amount Received on Fully Paid toggle
   const handleMarkFullyPaid = (checked: boolean) => {
     if (checked) {
-      setAmountReceived(calc.total.toFixed(2));
+      setAmountReceived(finalTotal.toFixed(2));
       setStatus("paid");
     } else {
       setAmountReceived(0);
       setStatus("pending");
+    }
+  };
+
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setSignatureImage(event.target.result as string);
+          setSignatureType("upload");
+          setShowSignatureModal(false);
+          setShowEmptySigModal(false);
+          toast.success("Signature uploaded successfully! ✍️");
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -276,12 +396,12 @@ export default function EditSalesInvoice() {
   };
 
   const addItem = () => {
-    setItems([...items, { name: "", qty: 1, price: 0, gstRate: 18 }]);
+    setItems([...items, { name: "", qty: 1, price: 0, gstRate: 18, description: "" }]);
   };
 
   const removeItem = (index: number) => {
     if (items.length <= 1) {
-      setItems([{ name: "", qty: 1, price: 0, gstRate: 18 }]);
+      setItems([{ name: "", qty: 1, price: 0, gstRate: 18, description: "" }]);
       return;
     }
     setItems(items.filter((_, i) => i !== index));
@@ -302,11 +422,11 @@ export default function EditSalesInvoice() {
       }
     }
 
-    const user = auth.currentUser;
-    if (!user) return toast.error("Not logged in");
-
     try {
       setAddingCustomer(true);
+      const user = auth.currentUser;
+      if (!user) return toast.error("Please authenticate first");
+
       const customerId = uuidv4();
       const customerData = {
         userId: user.uid,
@@ -314,7 +434,7 @@ export default function EditSalesInvoice() {
         phone: cleanPhone,
         address: newCustomer.address.trim(),
         gstin: newCustomer.gstin.trim().toUpperCase(),
-        state: newCustomer.state.trim(),
+        state: newCustomer.state,
         createdAt: new Date(),
       };
 
@@ -331,13 +451,65 @@ export default function EditSalesInvoice() {
 
       setCustomerName(added.name);
       setShowAddCustomer(false);
-      setNewCustomer({ name: "", phone: "", address: "", gstin: "", state: "" });
+      setNewCustomer({ name: "", phone: "", address: "", gstin: "", state: "", category: "" });
       toast.success("Customer added successfully!");
     } catch (err) {
       console.error(err);
       toast.error("Failed to add customer");
     } finally {
       setAddingCustomer(false);
+    }
+  };
+
+  const handleSaveBank = async () => {
+    if (!newBank.name.trim()) return toast.error("Account Display Name is required");
+    if (!newBank.balance.trim()) return toast.error("Opening Balance is required");
+
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const bankId = uuidv4();
+      const bankData = {
+        userId: user.uid,
+        name: newBank.name.trim(),
+        balance: Number(newBank.balance),
+        asOfDate: newBank.asOfDate,
+        accountNumber: newBank.addDetails ? newBank.accountNumber.trim() : "",
+        holderName: newBank.addDetails ? newBank.holderName.trim() : "",
+        ifsc: newBank.addDetails ? newBank.ifsc.trim().toUpperCase() : "",
+        bankName: newBank.addDetails ? newBank.bankName.trim() : "",
+        branchName: newBank.addDetails ? newBank.branchName.trim() : "",
+        upiId: newBank.upiId.trim(),
+        createdAt: new Date()
+      };
+
+      const { setDoc, doc } = await import("firebase/firestore");
+      await setDoc(doc(db, "banks", bankId), bankData);
+
+      const added = { id: bankId, ...bankData };
+      const updated = [...bankAccounts, added];
+      setBankAccounts(updated);
+      setSelectedBankId(bankId);
+
+      setShowBankModal(false);
+      setNewBank({
+        name: "",
+        balance: "",
+        asOfDate: new Date().toISOString().split("T")[0],
+        accountNumber: "",
+        reAccountNumber: "",
+        holderName: "",
+        ifsc: "",
+        bankName: "",
+        branchName: "",
+        upiId: "",
+        addDetails: true
+      });
+      toast.success("Bank Account profile saved! 🏦");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save bank account settings");
     }
   };
 
@@ -348,6 +520,9 @@ export default function EditSalesInvoice() {
     if (calc.discountAmount > calc.subtotal) {
       return toast.error("Discount cannot exceed subtotal");
     }
+
+    const user = auth.currentUser;
+    if (!user) return toast.error("Access denied. Please authenticate.");
 
     try {
       setSaving(true);
@@ -405,12 +580,23 @@ export default function EditSalesInvoice() {
         cgst: calc.cgst,
         sgst: calc.sgst,
         igst: calc.igst,
-        total: calc.total,
-        status,
+        status: Number(amountReceived) >= finalTotal ? "paid" : "pending",
         invoiceType,
         amountReceived: Number(amountReceived),
         paymentMode,
-        dueDate: status === "credit" ? dueDate : "",
+        dueDate: dueDate,
+        // Extended fields
+        shippingAddress,
+        notes,
+        additionalChargeName,
+        additionalChargeValue: Number(additionalChargeValue),
+        autoRoundOff,
+        roundOffAmount,
+        selectedBankId,
+        selectedQRBankId,
+        settings: invoiceSettings,
+        signatureType,
+        signatureImage
       };
 
       if (isOfflineMode || isOfflineInvoice) {
@@ -498,187 +684,240 @@ export default function EditSalesInvoice() {
     }
   };
 
+  const handleScanSuccess = (err: any, result: any) => {
+    if (result) {
+      const barcodeText = result.text;
+      setShowScanner(false);
+      toast.success(`Barcode detected: ${barcodeText}`);
+
+      const foundProduct = products.find((p) => p.barcode === barcodeText);
+      if (foundProduct) {
+        // Append or replace empty item
+        const updated = [...items];
+        const emptyIdx = updated.findIndex((i) => !i.name);
+        const itemToSet = {
+          productId: foundProduct.id,
+          name: foundProduct.name,
+          qty: 1 as const,
+          price: foundProduct.price,
+          gstRate: foundProduct.gst ?? 18,
+          description: ""
+        };
+
+        if (emptyIdx > -1) {
+          updated[emptyIdx] = itemToSet;
+        } else {
+          updated.push(itemToSet);
+        }
+        setItems(updated);
+      } else {
+        toast.error(`Product not found matching barcode: ${barcodeText}`);
+      }
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center p-12 text-gray-400 gap-2">
+      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center p-12 text-gray-400 gap-2 font-sans">
         <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
         <span className="text-xs font-semibold">Configuring edit invoice workspace...</span>
       </div>
     );
   }
 
+  const selectedBank = bankAccounts.find(b => b.id === selectedBankId);
+  const selectedQRBank = bankAccounts.find(b => b.id === selectedQRBankId);
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       
-      {/* ENTERPRISE ACTION HEADER */}
+      {/* HEADER SECTION */}
       <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-20 shadow-xs">
         <div className="flex items-center gap-4">
           <Link href="/dashboard/invoices" className="text-gray-400 hover:text-gray-700 transition-colors">
             <ArrowLeft size={18} />
           </Link>
           <div className="space-y-0.5">
-            <h1 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Update Sales Invoice</h1>
-            <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">Edit Transaction</span>
+            <h1 className="text-sm font-bold text-gray-800 uppercase tracking-wider">UPDATE SALES INVOICE</h1>
+            <p className="text-[10px] text-gray-400 font-semibold uppercase">EDIT TRANSACTION</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1 text-xs text-gray-600 border border-gray-200 px-3 py-1.5 rounded bg-white hover:bg-gray-50 font-semibold transition-colors">
-            <Settings2 size={13} className="text-indigo-500" />
+          <button 
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded text-gray-500 hover:text-gray-700 hover:bg-gray-50 text-xs font-semibold transition-all"
+          >
+            <Settings2 size={13} />
             <span>Settings</span>
           </button>
-          <button 
+          <button
             onClick={handleUpdate}
             disabled={saving}
-            className="text-xs text-white bg-indigo-600 border border-indigo-600 px-5 py-1.5 rounded hover:bg-indigo-700 font-bold shadow-sm transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold shadow-sm transition-all disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Update Invoice"}
+            {saving ? "Updating..." : "Update Invoice"}
           </button>
         </div>
       </header>
 
-      {/* WORKSPACE CONTENT AREA */}
-      <main className="flex-1 max-w-[1400px] w-full mx-auto p-6 space-y-6">
+      {/* MAIN CONTAINER */}
+      <main className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
         
-        {/* SMS Broadcast Alert */}
-        <div className="bg-amber-50 border border-amber-100 rounded p-3 flex items-start justify-between">
-          <div className="flex gap-3">
-            <Share2 className="text-amber-500 shrink-0 mt-0.5" size={16} />
-            <div className="space-y-0.5">
-              <p className="text-xs font-bold text-gray-700">Invoice Auto-SMS to Party is turned on</p>
-              <p className="text-[10px] text-gray-500 leading-normal">An SMS with the invoice details and payment link is instantly broadcasted to the customer after saving.</p>
-            </div>
+        {/* Tally Theme Notice */}
+        {invoiceSettings.invoiceTheme === "Tally" && (
+          <div className="bg-yellow-50 border border-yellow-100 rounded p-3 text-[11px] text-yellow-700 font-semibold flex items-center justify-between">
+            <span>⚡ Invoice Auto GST is Turned On. An A4 format with minimal Tally style layout will be generated upon saving/printing.</span>
+            <button onClick={() => setShowSettingsModal(true)} className="text-indigo-600 underline font-bold">Change Settings</button>
           </div>
-          <button className="bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 text-[10px] px-3 py-1 rounded font-semibold transition-all">
-            Change Settings
-          </button>
-        </div>
+        )}
 
-        {/* INVOICE ENTRY DESK SHEET */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+        {/* CUSTOMER & INVOICE DETAILS CARD */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-xs overflow-hidden">
           
-          {/* BILL TO & SHIP TO SPLIT PANELS */}
-          <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 border-b border-gray-100 bg-gray-50/20">
+          <div className="bg-gray-50/45 px-4 py-2 border-b border-gray-150 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+            Bill To & Ship To Details
+          </div>
+
+          <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
             
-            {/* Bill To Info */}
-            <div className="lg:col-span-2 space-y-3">
-              <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Bill To & Ship To Details</span>
+            {/* BILL TO */}
+            <div className="space-y-3">
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Billing Address</label>
               
-              {!customerName ? (
-                <div className="relative">
-                  <button 
-                    onClick={() => setShowPartyDropdown(!showPartyDropdown)}
-                    className="w-full max-w-md h-20 border-2 border-dashed border-indigo-200 rounded-lg flex flex-col items-center justify-center text-indigo-600 hover:bg-indigo-50/50 transition-all gap-1 text-xs font-semibold"
-                  >
-                    <Plus size={16} />
-                    <span>+ Add Customer Party</span>
-                  </button>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Select customer or party..."
+                  value={customerName}
+                  onChange={(e) => {
+                    setCustomerName(e.target.value);
+                    setShowPartyDropdown(true);
+                  }}
+                  onFocus={() => setShowPartyDropdown(true)}
+                  className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-700 bg-white"
+                />
 
-                  {showPartyDropdown && (
-                    <div className="absolute left-0 top-22 z-30 bg-white border border-gray-200 rounded-md shadow-lg w-80 max-h-60 overflow-y-auto p-1">
-                      <button 
-                        onClick={() => {
-                          setShowAddCustomer(true);
-                          setShowPartyDropdown(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded mb-1"
-                      >
-                        + Quick Add New Customer
-                      </button>
-                      <div className="divide-y divide-gray-50 border-t border-gray-100">
-                        {customers.map(c => (
-                          <button
-                            key={c.id}
-                            onClick={() => {
-                              setCustomerName(c.name);
-                              setShowPartyDropdown(false);
-                            }}
-                            className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 rounded"
-                          >
-                            <p className="font-semibold">{c.name}</p>
-                            {c.phone && <p className="text-[10px] text-gray-400">{c.phone}</p>}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white border border-gray-200 rounded-lg p-4 shadow-xs relative">
-                  
-                  {/* Bill To Column */}
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Billing Address</span>
-                    <p className="text-xs font-bold text-gray-800">{customerName}</p>
-                    {selectedCustomer?.phone && <p className="text-[10px] text-gray-500 font-mono">Ph: {selectedCustomer.phone}</p>}
-                    {selectedCustomer?.gstin && <p className="text-[10px] text-gray-500 font-mono">GSTIN: {selectedCustomer.gstin}</p>}
-                    {selectedCustomer?.address && <p className="text-[10px] text-gray-400 leading-normal">{selectedCustomer.address}</p>}
-                    <button 
-                      onClick={() => setCustomerName("")}
-                      className="text-[9px] text-indigo-600 hover:underline font-bold uppercase tracking-wider mt-1 block"
+                {showPartyDropdown && (
+                  <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto z-10">
+                    <button
+                      onClick={() => {
+                        setShowAddCustomer(true);
+                        setShowPartyDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50 border-b border-gray-100 flex items-center gap-1"
                     >
-                      Change Party
+                      <Plus size={13} />
+                      <span>Add New Party</span>
                     </button>
+                    {customers
+                      .filter(c => c.name.toLowerCase().includes(customerName.toLowerCase()))
+                      .map(c => (
+                        <button
+                          key={c.id}
+                          onClick={() => {
+                            setCustomerName(c.name);
+                            setShowPartyDropdown(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 text-gray-700 font-semibold"
+                        >
+                          {c.name}
+                        </button>
+                      ))
+                    }
                   </div>
+                )}
+              </div>
 
-                  {/* Ship To Column */}
-                  <div className="space-y-1 border-l border-gray-100 pl-4">
-                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Shipping Address</span>
-                    <p className="text-xs font-bold text-gray-700">{customerName}</p>
-                    {selectedCustomer?.phone && <p className="text-[10px] text-gray-400 font-mono">Ph: {selectedCustomer.phone}</p>}
-                    <span className="text-[9px] text-gray-400 block mt-1">Same as billing address</span>
-                    <button className="text-[9px] text-gray-400 hover:underline font-bold uppercase tracking-wider mt-1 block">
-                      Change Shipping Address
-                    </button>
-                  </div>
-
+              {selectedCustomer && (
+                <div className="bg-gray-50 border border-gray-150 rounded p-2.5 text-[11px] text-gray-500 space-y-0.5">
+                  <p className="font-bold text-gray-700">{selectedCustomer.name}</p>
+                  {selectedCustomer.phone && <p>Ph: {selectedCustomer.phone}</p>}
+                  {selectedCustomer.gstin && <p className="font-mono text-[10px]">GSTIN: {selectedCustomer.gstin}</p>}
+                  {selectedCustomer.address && <p className="leading-relaxed">{selectedCustomer.address}</p>}
                 </div>
               )}
             </div>
 
-            {/* Meta Details Panel */}
-            <div className="bg-white border border-gray-200 rounded-lg p-4 grid grid-cols-2 gap-x-4 gap-y-3 shadow-xs">
+            {/* SHIPPING ADDRESS */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Shipping Address</label>
+                <button 
+                  onClick={() => setIsEditingShipping(!isEditingShipping)}
+                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
+                >
+                  Change Shipping
+                </button>
+              </div>
+
+              {isEditingShipping ? (
+                <textarea
+                  value={shippingAddress}
+                  onChange={(e) => setShippingAddress(e.target.value)}
+                  placeholder="Enter details custom delivery destination..."
+                  rows={3}
+                  className="w-full border border-gray-200 rounded p-2 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-600 bg-white"
+                />
+              ) : (
+                <div className="bg-gray-50/50 border border-gray-150 border-dashed rounded p-3 text-[11px] text-gray-500 min-h-16 flex flex-col justify-center">
+                  {shippingAddress ? (
+                    <div>
+                      <p className="font-bold text-gray-600">{customerName}</p>
+                      <p className="leading-relaxed mt-0.5">{shippingAddress}</p>
+                      <span className="text-[8px] bg-green-50 text-green-600 border border-green-150 px-1 py-0.2 rounded font-bold uppercase mt-1 inline-block">Custom Shipping Address</span>
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 italic">Same as billing address</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* DATE & INVOICE NUMBER */}
+            <div className="grid grid-cols-2 gap-4">
               
-              <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Invoice No.</label>
-                <input 
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Invoice No.</label>
+                <input
                   type="text"
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
-                  className="w-full border-b border-gray-200 py-1 text-xs focus:outline-none focus:border-indigo-500 text-gray-700 font-mono font-bold" 
+                  className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-gray-700 bg-white"
                 />
               </div>
 
-              <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Invoice Date</label>
-                <input 
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Invoice Date</label>
+                <input
                   type="date"
                   value={invoiceDate}
                   onChange={(e) => setInvoiceDate(e.target.value)}
-                  className="w-full border-b border-gray-200 py-1 text-xs focus:outline-none focus:border-indigo-500 text-gray-600" 
+                  className="w-full border border-gray-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-gray-700 bg-white"
                 />
               </div>
 
-              <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Payment Terms</label>
-                <select
-                  value={paymentTerms}
-                  onChange={(e) => setPaymentTerms(e.target.value)}
-                  className="w-full border-b border-gray-200 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white cursor-pointer text-gray-600 font-semibold"
-                >
-                  <option value="30">30 days</option>
-                  <option value="15">15 days</option>
-                  <option value="0">Due on Receipt</option>
-                </select>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Payment Terms</label>
+                <div className="relative flex items-center">
+                  <input
+                    type="number"
+                    value={paymentTerms}
+                    onChange={(e) => setPaymentTerms(e.target.value)}
+                    placeholder="Days"
+                    className="w-full border border-gray-200 rounded-l px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-gray-700 bg-white"
+                  />
+                  <span className="bg-gray-50 border border-l-0 border-gray-200 rounded-r px-2 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Days</span>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Due Date</label>
-                <input 
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Due Date</label>
+                <input
                   type="date"
                   value={dueDate}
-                  disabled
-                  className="w-full border-b border-gray-200 py-1 text-xs text-gray-400 bg-transparent" 
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="w-full border border-gray-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-gray-700 bg-white"
                 />
               </div>
 
@@ -686,373 +925,470 @@ export default function EditSalesInvoice() {
 
           </div>
 
-          {/* DENSE ITEM TRANSACTIONS SHEET */}
-          <div className="w-full overflow-x-auto">
-            <table className="w-full text-left text-xs whitespace-nowrap border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-[9px] font-bold text-gray-400 uppercase tracking-wider">
-                  <th className="px-4 py-2.5 w-10 text-center">NO</th>
-                  <th className="px-4 py-2.5 min-w-[280px]">ITEMS / SERVICES</th>
-                  <th className="px-4 py-2.5 w-24">HSN / SAC</th>
-                  <th className="px-4 py-2.5 w-24">QTY</th>
-                  <th className="px-4 py-2.5 w-28">PRICE/ITEM (₹)</th>
-                  <th className="px-4 py-2.5 w-24">DISCOUNT</th>
-                  <th className="px-4 py-2.5 w-32">TAX (GST)</th>
-                  <th className="px-4 py-2.5 w-32 text-right">AMOUNT (₹)</th>
-                  <th className="px-4 py-2.5 w-10 text-center"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {items.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50/30">
-                    <td className="px-4 py-3 text-center text-gray-400 font-mono">{idx + 1}</td>
-                    
-                    {/* Item Name Lookup Dropdown */}
-                    <td className="px-4 py-3">
-                      <div className="space-y-1">
-                        <select
-                          value={item.productId || ""}
-                          onChange={(e) => {
-                            const found = products.find(p => p.id === e.target.value);
-                            if (found) {
-                              const updated = [...items];
-                              updated[idx] = {
-                                productId: found.id,
-                                name: found.name,
-                                price: found.price,
-                                qty: 1,
-                                gstRate: found.gst || 18,
-                                hsn: found.hsnCode || "",
-                              };
-                              setItems(updated);
-                            }
-                          }}
-                          className="w-full border border-gray-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white"
-                        >
-                          <option value="">Select Item / Product...</option>
-                          {products.map(p => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} (Stock: {p.stock} {p.unit})
-                            </option>
-                          ))}
-                        </select>
-                        <input 
-                          type="text"
-                          placeholder="Enter Description (optional)"
-                          className="w-full text-[10px] text-gray-500 bg-transparent border-none focus:ring-0 focus:outline-none p-0" 
-                        />
-                      </div>
-                    </td>
+        </div>
 
-                    {/* HSN Code */}
-                    <td className="px-4 py-3">
-                      <span className="text-gray-500 font-mono">{item.hsn || "-"}</span>
-                    </td>
-
-                    {/* Quantity */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 border border-gray-200 rounded overflow-hidden w-20">
-                        <input 
-                          type="number"
-                          value={item.qty}
-                          onChange={(e) => updateItem(idx, "qty", e.target.value)}
-                          className="w-full px-2 py-1 text-xs focus:outline-none font-mono text-right"
-                        />
-                      </div>
-                    </td>
-
-                    {/* Price/Item */}
-                    <td className="px-4 py-3">
-                      <input 
-                        type="number"
-                        value={item.price}
-                        onChange={(e) => updateItem(idx, "price", e.target.value)}
-                        className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none font-mono text-right"
-                      />
-                    </td>
-
-                    {/* Discount */}
-                    <td className="px-4 py-3">
-                      <span className="text-gray-400">-</span>
-                    </td>
-
-                    {/* Tax rate displaying absolute calculations */}
-                    <td className="px-4 py-3">
-                      <div className="space-y-0.5">
-                        <span className="text-xs font-semibold text-gray-700 font-mono">{item.gstRate || 18}%</span>
-                        {gstEnabled && (
-                          <span className="text-[10px] text-gray-400 block font-mono">
-                            (₹ {(((Number(item.qty) || 0) * (Number(item.price) || 0)) * ((item.gstRate || 18) / 100)).toFixed(2)})
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Amount */}
-                    <td className="px-4 py-3 text-right font-bold font-mono text-gray-800">
-                      ₹ {((Number(item.qty) || 0) * (Number(item.price) || 0)).toFixed(2)}
-                    </td>
-
-                    {/* Delete action */}
-                    <td className="px-4 py-3 text-center">
-                      <button 
-                        type="button"
-                        onClick={() => removeItem(idx)}
-                        className="text-red-500 hover:text-red-700 transition-colors p-1"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-
-                {/* Insertion row */}
-                <tr>
-                  <td colSpan={8} className="p-3">
-                    <div className="flex items-center gap-3">
-                      <button 
-                        type="button"
-                        onClick={addItem}
-                        className="flex-1 border border-dashed border-indigo-200 bg-indigo-50/20 py-2 rounded text-indigo-600 text-xs font-semibold hover:bg-indigo-50 flex items-center justify-center gap-1 shadow-xs transition-all"
-                      >
-                        <Plus size={13} />
-                        <span>Add Product Row</span>
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => setShowScanner(true)}
-                        className="w-44 border border-gray-200 py-2 rounded text-gray-700 text-xs font-semibold hover:bg-gray-50 flex items-center justify-center gap-1 shadow-xs transition-all"
-                      >
-                        <ScanBarcode size={13} className="text-indigo-500" />
-                        <span>Scan Item Barcode</span>
-                      </button>
-                    </div>
-                  </td>
-                  <td></td>
-                </tr>
-
-                {/* Subtotals Row */}
-                <tr className="bg-gray-50/30 border-t border-gray-100 font-semibold text-gray-700">
-                  <td colSpan={5} className="px-4 py-2.5 text-right text-[10px] text-gray-400 uppercase tracking-wider">Subtotal</td>
-                  <td className="px-4 py-2.5">₹ 0.00</td>
-                  <td className="px-4 py-2.5 font-mono">₹ {calc.totalGst.toFixed(2)}</td>
-                  <td className="px-4 py-2.5 text-right font-mono">₹ {calc.subtotal.toFixed(2)}</td>
-                  <td></td>
-                </tr>
-
-              </tbody>
-            </table>
+        {/* ITEMS & BARCODE SEARCH TABLE */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-xs overflow-hidden">
+          
+          <div className="bg-gray-50/45 px-4 py-2 border-b border-gray-150 flex justify-between items-center">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Items / Services</span>
+            <button 
+              onClick={() => setShowScanner(!showScanner)}
+              className="flex items-center gap-1 text-[10px] text-indigo-600 hover:text-indigo-800 font-bold uppercase hover:underline"
+            >
+              <ScanBarcode size={14} />
+              <span>{showScanner ? "Close Barcode" : "Scan Barcode"}</span>
+            </button>
           </div>
 
-          {/* WEBCAM BARCODE SCANNER MODAL */}
           {showScanner && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-              <div className="bg-white rounded-lg overflow-hidden border border-gray-200 w-full max-w-lg shadow-2xl">
-                <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                  <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">Webcam Barcode Scanner</span>
-                  <button 
-                    onClick={() => setShowScanner(false)}
-                    className="p-1 rounded text-gray-400 hover:text-gray-700"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-                <div className="p-6 flex flex-col items-center justify-center bg-black min-h-[300px]">
-                  <BarcodeScanner
-                    width={480}
-                    height={280}
-                    onUpdate={(err, result) => {
-                      if (result) {
-                        const code = result.getText();
-                        const found = products.find(p => p.barcode === code);
-                        if (found) {
-                          toast.success(`${found.name} scanned successfully!`);
-                          setItems(prev => [
-                            ...prev,
-                            {
-                              productId: found.id,
-                              name: found.name,
-                              qty: 1,
-                              price: found.price,
-                              gstRate: found.gst || 18,
-                              hsn: found.hsnCode || "",
-                            }
-                          ]);
-                          setShowScanner(false);
-                        } else {
-                          toast.error(`Barcode ${code} not matches in inventory catalog`);
-                          setShowScanner(false);
-                        }
-                      }
-                    }}
-                  />
-                </div>
+            <div className="p-4 bg-gray-50/40 border-b border-gray-150 flex flex-col items-center justify-center">
+              <div className="w-64 h-48 border border-indigo-200 rounded overflow-hidden relative shadow-inner">
+                <BarcodeScanner onUpdate={handleScanSuccess} />
               </div>
+              <p className="text-[9px] text-gray-400 mt-2 font-bold uppercase tracking-wider">Position item barcode scan region</p>
             </div>
           )}
 
-          {/* LOWER SPECIFICATION GRID */}
-          <div className="flex flex-col lg:flex-row border-t border-gray-200">
+          <div className="p-4 space-y-3">
             
-            {/* Notes & Accounts (Left) */}
-            <div className="flex-1 border-r border-gray-200 p-6 space-y-6">
-              
-              <div className="space-y-3">
-                <button className="text-indigo-600 text-xs font-semibold flex items-center gap-1.5 hover:underline">
-                  <Plus size={13} />
-                  <span>Add Notes & Remarks</span>
-                </button>
-                
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Terms & Conditions</p>
-                  <div className="bg-gray-50 border border-gray-150 p-3 rounded text-[11px] text-gray-500 space-y-1">
-                    <p>1. Goods once sold will not be taken back or exchanged.</p>
-                    <p>2. All disputes are subject to local state jurisdictions only.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-gray-150 space-y-2.5">
-                <button className="text-indigo-600 text-xs font-semibold flex items-center gap-1.5 hover:underline font-bold">
-                  <Plus size={13} />
-                  <span>Add Bank Account Settings</span>
-                </button>
-                <button className="text-indigo-600 text-xs font-semibold flex items-center gap-1.5 hover:underline block font-bold">
-                  <Plus size={13} />
-                  <span>Add Payment Dynamic QR Code</span>
-                </button>
-              </div>
-
+            {/* Table Header labels */}
+            <div className="grid grid-cols-12 gap-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider pb-1.5 border-b border-gray-100 hidden md:grid">
+              <span className="col-span-1 text-center">NO.</span>
+              <span className="col-span-4">ITEMS / SERVICES</span>
+              <span className="col-span-2 text-center">HSN / SAC</span>
+              <span className="col-span-1 text-center">QTY</span>
+              <span className="col-span-2 text-right">PRICE/ITEM (₹)</span>
+              <span className="col-span-1 text-center">TAX</span>
+              <span className="col-span-1 text-right">AMOUNT (₹)</span>
             </div>
 
-            {/* Calculations & Saving Actions (Right) */}
-            <div className="w-full lg:w-[460px] bg-gray-50/20 p-6 space-y-4">
-              
-              <div className="flex justify-between items-center text-xs text-gray-600">
-                <button className="text-indigo-600 font-semibold flex items-center gap-1 hover:underline">
-                  <Plus size={12} /> Add Additional Charges
-                </button>
-                <span className="font-mono">₹ 0.00</span>
-              </div>
-
-              <div className="flex justify-between items-center text-xs text-gray-600 border-t border-gray-100 pt-2">
-                <span>Taxable Amount</span>
-                <span className="font-bold font-mono text-gray-700">₹ {calc.subtotal.toFixed(2)}</span>
-              </div>
-
-              {/* Dynamic CGST/SGST/IGST breakdown */}
-              {gstEnabled && (
-                <div className="space-y-1 border-t border-gray-100 pt-2 text-[11px] text-gray-500 font-mono">
-                  {isInterstate ? (
-                    <div className="flex justify-between">
-                      <span>IGST tax breakdown</span>
-                      <span className="font-bold">₹ {calc.igst.toFixed(2)}</span>
+            {/* Table Row loops */}
+            <div className="space-y-4">
+              {items.map((item, idx) => (
+                <div key={idx} className="space-y-2">
+                  <div className="grid grid-cols-12 gap-3 items-center">
+                    
+                    {/* Index */}
+                    <div className="col-span-1 text-center font-bold text-gray-400 font-mono text-xs">
+                      {idx + 1}
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex justify-between">
-                        <span>CGST tax breakdown</span>
-                        <span className="font-bold">₹ {calc.cgst.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>SGST tax breakdown</span>
-                        <span className="font-bold">₹ {calc.sgst.toFixed(2)}</span>
-                      </div>
-                    </>
+
+                    {/* Product Name Autocomplete */}
+                    <div className="col-span-11 md:col-span-4 relative">
+                      <input
+                        type="text"
+                        placeholder="Search or enter item name..."
+                        value={item.name}
+                        onChange={(e) => updateItem(idx, "name", e.target.value)}
+                        className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-700 bg-white"
+                      />
+
+                      {/* Optional Autocomplete match */}
+                      {item.name && !products.find(p => p.name === item.name) && (
+                        <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-32 overflow-y-auto z-10">
+                          {products
+                            .filter(p => p.name.toLowerCase().includes(item.name.toLowerCase()))
+                            .map(p => (
+                              <button
+                                key={p.id}
+                                onClick={() => {
+                                  const updated = [...items];
+                                  updated[idx] = {
+                                    productId: p.id,
+                                    name: p.name,
+                                    qty: 1,
+                                    price: p.price,
+                                    gstRate: p.gst ?? 18,
+                                    hsn: p.hsnCode || "",
+                                    description: ""
+                                  };
+                                  setItems(updated);
+                                }}
+                                className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 text-gray-600 font-semibold"
+                              >
+                                {p.name} (₹{p.price})
+                              </button>
+                            ))
+                          }
+                        </div>
+                      )}
+                    </div>
+
+                    {/* HSN Code */}
+                    <div className="col-span-4 md:col-span-2">
+                      <input
+                        type="text"
+                        placeholder="HSN (Optional)"
+                        value={item.hsn || ""}
+                        onChange={(e) => updateItem(idx, "hsn", e.target.value)}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-600 bg-white max-w-[120px] mx-auto text-center"
+                      />
+                    </div>
+
+                    {/* Quantity */}
+                    <div className="col-span-2 md:col-span-1">
+                      <input
+                        type="text"
+                        placeholder="Qty"
+                        value={item.qty}
+                        onChange={(e) => updateItem(idx, "qty", e.target.value)}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-center text-gray-700 bg-white"
+                      />
+                    </div>
+
+                    {/* Price per Item */}
+                    <div className="col-span-3 md:col-span-2">
+                      <input
+                        type="text"
+                        placeholder="Price"
+                        value={item.price}
+                        onChange={(e) => updateItem(idx, "price", e.target.value)}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-right text-gray-700 bg-white"
+                      />
+                    </div>
+
+                    {/* GST Rate */}
+                    <div className="col-span-2 md:col-span-1">
+                      <select
+                        value={item.gstRate ?? 18}
+                        onChange={(e) => updateItem(idx, "gstRate", Number(e.target.value))}
+                        className="w-full border border-gray-200 rounded px-1.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-600 bg-white"
+                      >
+                        <option value={0}>0%</option>
+                        <option value={5}>5%</option>
+                        <option value={12}>12%</option>
+                        <option value={18}>18%</option>
+                        <option value={28}>28%</option>
+                      </select>
+                    </div>
+
+                    {/* Dynamic Amount and Delete */}
+                    <div className="col-span-1 flex items-center justify-end gap-2 text-right">
+                      <span className="font-bold font-mono text-xs text-gray-700">
+                        ₹{((Number(item.qty || 0)) * (Number(item.price || 0))).toFixed(2)}
+                      </span>
+                      <button 
+                        onClick={() => removeItem(idx)}
+                        className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+
+                  </div>
+
+                  {/* Dynamic Item Description below dropdown */}
+                  <div className="pl-8 flex items-center gap-2 max-w-xl">
+                    <input
+                      type="text"
+                      placeholder="Add item optional description..."
+                      value={item.description || ""}
+                      onChange={(e) => updateItem(idx, "description", e.target.value)}
+                      className="w-full text-[10px] text-gray-500 font-medium focus:outline-none border-b border-dashed border-gray-200 pb-0.5 focus:border-indigo-300"
+                    />
+                  </div>
+
+                </div>
+              ))}
+            </div>
+
+            {/* Control triggers */}
+            <div className="pt-3 border-t border-gray-100 flex justify-between items-center">
+              <button
+                onClick={addItem}
+                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100/70 border border-indigo-100 rounded text-xs text-indigo-600 font-bold transition-all"
+              >
+                <Plus size={14} className="stroke-[2.5]" />
+                <span>Add Product Row</span>
+              </button>
+
+              <div className="text-xs font-bold text-gray-500 space-x-1">
+                <span>SUB TOTAL:</span>
+                <span className="font-mono text-gray-700">₹{calc.subtotal.toFixed(2)}</span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* BOTTOM DOUBLE COLUMN SPECIFICATIONS CARD */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+          
+          {/* LEFT SPECIFICATIONS: NOTES, BANK SETTINGS */}
+          <div className="space-y-6">
+            
+            {/* Notes row */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-xs space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Terms and Conditions / Remarks</span>
+                <button 
+                  onClick={() => setShowNotes(!showNotes)}
+                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold uppercase hover:underline"
+                >
+                  {showNotes ? "- Remove Remarks" : "+ Add Notes & Remarks"}
+                </button>
+              </div>
+
+              {showNotes ? (
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Remarks shown on printed invoice..."
+                  rows={2}
+                  className="w-full border border-gray-200 rounded p-2 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-600 bg-white"
+                />
+              ) : (
+                <div className="border border-dashed border-gray-150 rounded p-2 bg-gray-50/20 text-[10px] font-semibold text-gray-400 space-y-1">
+                  <p>1. Goods once sold will not be taken back or exchanged.</p>
+                  <p>2. All disputes are subject to [ENTER_YOUR_CITY_NAME] jurisdiction only.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Bank Accounts settings */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-xs space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                  <Landmark size={12} className="text-gray-400" />
+                  Bank Account Profile
+                </span>
+                <button 
+                  onClick={() => setShowBankModal(true)}
+                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold uppercase hover:underline"
+                >
+                  + Add Bank Account Settings
+                </button>
+              </div>
+
+              <div className="relative">
+                <select
+                  value={selectedBankId}
+                  onChange={(e) => setSelectedBankId(e.target.value)}
+                  className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white font-semibold text-gray-600"
+                >
+                  <option value="">No Active Account Selected</option>
+                  {bankAccounts.map(bank => (
+                    <option key={bank.id} value={bank.id}>{bank.name} (A/C: {bank.accountNumber || "UPI Profile"})</option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedBank && (
+                <div className="bg-gray-50 border border-gray-150 rounded p-2.5 text-[11px] text-gray-500 space-y-1">
+                  <p className="font-bold text-gray-700 flex justify-between">
+                    <span>{selectedBank.name}</span>
+                    <span className="text-[10px] text-indigo-600 font-mono">Opening Bal: ₹{selectedBank.balance}</span>
+                  </p>
+                  {selectedBank.accountNumber && (
+                    <div className="grid grid-cols-2 gap-1 text-[10px]">
+                      <p>A/C No.: <span className="font-bold font-mono text-gray-600">{selectedBank.accountNumber}</span></p>
+                      <p>IFSC: <span className="font-bold font-mono text-gray-600">{selectedBank.ifsc}</span></p>
+                      <p className="col-span-2">Holder: <span className="font-bold text-gray-600">{selectedBank.holderName}</span></p>
+                    </div>
+                  )}
+                  {selectedBank.upiId && (
+                    <p className="text-[10px] border-t border-gray-200/60 pt-1 mt-1">
+                      UPI ID: <span className="font-bold font-mono text-indigo-500">{selectedBank.upiId}</span>
+                    </p>
                   )}
                 </div>
               )}
 
-              <div className="flex justify-between items-center text-xs text-gray-600 border-t border-gray-100 pt-2">
-                <button className="text-indigo-600 font-semibold flex items-center gap-1 hover:underline">
-                  <Plus size={12} /> Add Discount Value
+              {/* QR Code Dynamic setup trigger */}
+              <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                <button
+                  onClick={() => setShowQRModal(true)}
+                  className="flex items-center gap-1 text-[10px] text-indigo-600 hover:text-indigo-800 font-bold uppercase hover:underline"
+                >
+                  + Add Payment Dynamic QR Code
                 </button>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={discountType}
-                    onChange={(e) => setDiscountType(e.target.value as any)}
-                    className="border border-gray-200 rounded px-1 text-[10px] focus:outline-none bg-white text-gray-500"
-                  >
-                    <option value="flat">₹</option>
-                    <option value="percent">%</option>
-                  </select>
-                  <input 
-                    type="number"
-                    value={discountValue}
-                    onChange={(e) => setDiscountValue(sanitizeNumericInput(e.target.value))}
-                    className="border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none font-mono text-right w-16"
+
+                {selectedQRBank && (
+                  <span className="text-[9px] bg-green-50 text-green-600 border border-green-150 px-2 py-0.5 rounded font-bold uppercase">
+                    UPI QR connected: {selectedQRBank.name}
+                  </span>
+                )}
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* RIGHT CALCULATOR COLUMN */}
+          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-xs space-y-4">
+            
+            <div className="flex justify-between items-center text-[10px] font-bold text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100">
+              <span>Subtotal Summary</span>
+              <span>₹{calc.subtotal.toFixed(2)}</span>
+            </div>
+
+            {/* Additional charges */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500 font-semibold uppercase tracking-wider text-[9px]">+ Add Additional Charges</span>
+                <input 
+                  type="text"
+                  placeholder="Charge Name (e.g. Transport)"
+                  value={additionalChargeName}
+                  onChange={(e) => setAdditionalChargeName(e.target.value)}
+                  className="border border-gray-200 rounded px-2 py-1 text-[10px] text-right font-semibold text-gray-600 focus:outline-none focus:border-indigo-500 max-w-[130px] bg-white"
+                />
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">{additionalChargeName}</span>
+                <div className="relative max-w-[110px] flex items-center">
+                  <span className="absolute left-2.5 text-xs text-gray-400 font-bold">₹</span>
+                  <input
+                    type="text"
+                    value={additionalChargeValue}
+                    onChange={(e) => setAdditionalChargeValue(sanitizeNumericInput(e.target.value))}
+                    className="w-full border border-gray-200 rounded pl-5 pr-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-right text-gray-700 bg-white"
                   />
                 </div>
               </div>
+            </div>
 
-              <div className="flex justify-between items-center text-xs text-gray-600 border-t border-gray-100 pt-2">
-                <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-gray-600">
-                  <input type="checkbox" defaultChecked className="rounded border-gray-300 text-indigo-600" />
-                  <span>Auto Round Off</span>
-                </label>
-                <span className="font-mono text-gray-500">0.00</span>
-              </div>
-
-              {/* Huge Invoice Total Display */}
-              <div className="flex justify-between items-center pt-3 border-t border-gray-200">
-                <span className="font-bold text-gray-800 text-xs">Total Amount</span>
-                <span className="text-lg font-bold font-mono text-indigo-600">
-                  ₹ {calc.total.toFixed(2)}
-                </span>
-              </div>
-
-              {/* Fully Paid toggle + Received Cash */}
-              <div className="border-t border-gray-100 pt-3 space-y-3">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-500">Amount Received</span>
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">₹</span>
-                      <input 
-                        type="number"
-                        value={amountReceived}
-                        onChange={(e) => setAmountReceived(sanitizeNumericInput(e.target.value))}
-                        className="border border-gray-200 rounded py-1 pl-4 pr-1 text-xs focus:outline-none font-mono text-right w-24"
-                      />
-                    </div>
-                    <select
-                      value={paymentMode}
-                      onChange={(e) => setPaymentMode(e.target.value)}
-                      className="border border-gray-200 rounded py-1 text-[10px] focus:outline-none bg-white text-gray-600 font-semibold"
-                    >
-                      <option value="Cash">Cash</option>
-                      <option value="Bank">Bank</option>
-                    </select>
+            {/* Tax Details */}
+            {gstEnabled && (
+              <div className="bg-gray-50 border border-gray-150 rounded p-2.5 text-[10px] font-mono text-gray-500 space-y-1">
+                {isInterstate ? (
+                  <div className="flex justify-between font-bold">
+                    <span>IGST (Interstate Tax)</span>
+                    <span>₹{calc.igst.toFixed(2)}</span>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between">
+                      <span>CGST (Central Tax)</span>
+                      <span>₹{calc.cgst.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>SGST (State Tax)</span>
+                      <span>₹{calc.sgst.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
-                <div className="flex justify-end">
-                  <label className="flex items-center gap-1.5 text-[10px] text-gray-400 font-bold uppercase tracking-wider cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      onChange={(e) => handleMarkFullyPaid(e.target.checked)}
-                      className="rounded border-gray-300 text-indigo-600" 
+            {/* Discount trigger */}
+            <div className="space-y-2 border-t border-gray-100 pt-3">
+              <div className="flex justify-between items-center">
+                <button 
+                  onClick={() => setShowDiscountInput(!showDiscountInput)}
+                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold uppercase hover:underline"
+                >
+                  {showDiscountInput ? "- Remove Discount" : "+ Add Discount value"}
+                </button>
+
+                {showDiscountInput && (
+                  <div className="flex items-center gap-1">
+                    <select
+                      value={discountType}
+                      onChange={(e) => setDiscountType(e.target.value as any)}
+                      className="border border-gray-200 rounded px-1.5 py-1 text-[10px] font-semibold text-gray-600 focus:outline-none bg-white"
+                    >
+                      <option value="flat">Flat (₹)</option>
+                      <option value="percentage">Percentage (%)</option>
+                    </select>
+                    
+                    <input
+                      type="text"
+                      value={discountValue}
+                      onChange={(e) => setDiscountValue(sanitizeNumericInput(e.target.value))}
+                      className="w-16 border border-gray-200 rounded px-2 py-1 text-[10px] font-bold font-mono text-right text-gray-700 focus:outline-none focus:border-indigo-500 bg-white"
                     />
-                    <span>Mark as fully paid</span>
-                  </label>
+                  </div>
+                )}
+              </div>
+
+              {calc.discountAmount > 0 && (
+                <div className="flex justify-between items-center text-[10px] text-green-600 font-bold uppercase tracking-wider pl-1">
+                  <span>Discount Adjusted ({discountType === "flat" ? "Flat" : `${discountValue}%`})</span>
+                  <span>- ₹{calc.discountAmount.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Auto Round Off */}
+            <div className="pt-2 flex justify-between items-center border-t border-gray-100">
+              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={autoRoundOff}
+                  onChange={(e) => setAutoRoundOff(e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+                Auto Round Off
+              </label>
+              <span className="font-mono text-gray-500 text-[11px] font-semibold">
+                {roundOffAmount >= 0 ? "+" : ""}{roundOffAmount.toFixed(2)}
+              </span>
+            </div>
+
+            {/* Grand Totals */}
+            <div className="pt-3 border-t border-gray-200/80 space-y-3">
+              <div className="flex justify-between items-center text-sm font-extrabold text-indigo-650">
+                <span>TOTAL AMOUNT:</span>
+                <span className="font-mono text-lg">₹{finalTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              </div>
+
+              {/* Amount received inputs */}
+              <div className="grid grid-cols-2 gap-4 items-center pt-2">
+                <div className="space-y-1">
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider">Amount Received (₹)</label>
+                  <input
+                    type="text"
+                    value={amountReceived}
+                    onChange={(e) => setAmountReceived(sanitizeNumericInput(e.target.value))}
+                    className="w-full border border-gray-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-right text-gray-700 bg-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider">Payment Mode</label>
+                  <select
+                    value={paymentMode}
+                    onChange={(e) => setPaymentMode(e.target.value)}
+                    className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white font-semibold text-gray-650"
+                  >
+                    <option value="Cash">Cash Only</option>
+                    <option value="Bank">Bank Transfer</option>
+                    <option value="UPI">UPI Digital Payment</option>
+                    <option value="Cheque">Cheque Deposit</option>
+                  </select>
                 </div>
               </div>
 
-              {/* Balance remaining */}
-              <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                <span className="font-bold text-green-600 text-xs">Balance Amount</span>
-                <span className="font-bold font-mono text-green-600">
-                  ₹ {Math.max(0, calc.total - Number(amountReceived || 0)).toFixed(2)}
-                </span>
+              {/* Mark fully paid row */}
+              <div className="flex justify-between items-center pt-1.5">
+                <label className="flex items-center gap-1.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={Number(amountReceived).toFixed(2) === finalTotal.toFixed(2) && status === "paid"}
+                    onChange={(e) => handleMarkFullyPaid(e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  Mark as fully paid
+                </label>
+
+                <div className="text-[10px] font-bold flex gap-1">
+                  <span className="text-gray-400 uppercase">Balance Amount:</span>
+                  <span className={`font-mono ${finalTotal - Number(amountReceived) > 0 ? "text-red-500" : "text-green-600"}`}>
+                    ₹{(finalTotal - Number(amountReceived)).toFixed(2)}
+                  </span>
+                </div>
               </div>
 
-              {/* Billing transaction Type selection */}
-              <div className="border-t border-gray-150 pt-3">
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Invoice Type</label>
+              {/* Invoice status type selector */}
+              <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider">Invoice Document Type</label>
                 <select
                   value={invoiceType}
                   onChange={(e) => setInvoiceType(e.target.value as any)}
-                  className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white font-semibold text-gray-600"
+                  className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white font-semibold text-gray-600"
                 >
                   <option value="invoice">Tax Invoice (Deducts Stock)</option>
                   <option value="estimate">Estimate / Quotation (Skips Stock)</option>
@@ -1063,10 +1399,52 @@ export default function EditSalesInvoice() {
               <div className="pt-4 flex justify-end">
                 <div className="w-40 text-right space-y-1">
                   <p className="text-[9px] text-gray-400 uppercase tracking-wider">Authorized Signatory for <span className="font-bold text-gray-700">self</span></p>
-                  <button className="w-full h-12 border border-dashed border-indigo-200 bg-indigo-50/20 rounded flex items-center justify-center text-indigo-600 text-[10px] font-semibold hover:bg-indigo-50 transition-colors">
-                    <Plus size={11} className="mr-0.5" />
-                    <span>Add Signature</span>
-                  </button>
+                  
+                  {signatureType === "empty" ? (
+                    <div className="relative group">
+                      <div className="w-full h-14 border border-dashed border-red-400 bg-red-50/10 rounded flex flex-col items-center justify-center text-red-500 text-[9px] font-bold tracking-wider leading-tight">
+                        <span>EMPTY SIGNATURE</span>
+                        <span>BOX ENABLED</span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setSignatureType("");
+                          setSignatureImage("");
+                        }}
+                        className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 shadow-xs transition-colors"
+                        title="Remove Signature"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ) : signatureType === "upload" && signatureImage ? (
+                    <div className="relative group">
+                      <div className="w-full h-14 border border-gray-200 bg-white rounded flex items-center justify-center p-1.5 overflow-hidden">
+                        <img src={signatureImage} alt="Signature Upload" className="max-h-full max-w-full object-contain" />
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setSignatureType("");
+                          setSignatureImage("");
+                        }}
+                        className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 shadow-xs transition-colors"
+                        title="Remove Signature"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      type="button"
+                      onClick={() => setShowSignatureModal(true)}
+                      className="w-full h-12 border border-dashed border-indigo-200 bg-indigo-50/20 rounded flex items-center justify-center text-indigo-600 text-[10px] font-semibold hover:bg-indigo-50 transition-colors"
+                    >
+                      <Plus size={11} className="mr-0.5" />
+                      <span>Add Signature</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1080,99 +1458,568 @@ export default function EditSalesInvoice() {
 
       {/* QUICK ADD CUSTOMER MODAL */}
       {showAddCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-200">
-            <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-              <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">Quick Add New Customer</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden flex flex-col border border-gray-200">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">Add New Customer</span>
               <button 
                 onClick={() => setShowAddCustomer(false)}
-                className="p-1 rounded text-gray-400 hover:text-gray-700"
+                className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
               >
-                <X size={14} />
+                <X size={15} />
               </button>
             </div>
-            
-            <div className="p-6 space-y-4 text-xs text-gray-600">
+
+            <div className="p-6 space-y-4">
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Party / Customer Name *</label>
+                  <input
+                    type="text"
+                    value={newCustomer.name}
+                    onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                    placeholder="Enter display name"
+                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Mobile / Phone Number</label>
+                  <input
+                    type="text"
+                    value={newCustomer.phone}
+                    onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                    placeholder="10-digit number"
+                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Customer Name *</label>
-                <input 
-                  type="text"
-                  required
-                  value={newCustomer.name}
-                  onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
-                  placeholder="e.g. John Doe"
-                  className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Billing / Delivery Address</label>
+                <textarea
+                  value={newCustomer.address}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
+                  placeholder="Address details"
+                  rows={2}
+                  className="w-full border border-gray-200 rounded p-2.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Phone Number</label>
-                  <input 
-                    type="text"
-                    value={newCustomer.phone}
-                    onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
-                    placeholder="e.g. 9876543210"
-                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">GSTIN</label>
-                  <input 
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">GSTIN Number</label>
+                  <input
                     type="text"
                     value={newCustomer.gstin}
-                    onChange={(e) => setNewCustomer({...newCustomer, gstin: e.target.value})}
-                    placeholder="e.g. 22AAAAA0000A1Z5"
-                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono"
+                    onChange={(e) => setNewCustomer({ ...newCustomer, gstin: e.target.value })}
+                    placeholder="15-digit code (Optional)"
+                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold font-mono"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">State (For GST Tax Calculations)</label>
-                <select
-                  value={newCustomer.state}
-                  onChange={(e) => setNewCustomer({...newCustomer, state: e.target.value})}
-                  className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white"
-                >
-                  <option value="">Select State...</option>
-                  {INDIAN_STATES.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Billing Address</label>
-                <textarea 
-                  rows={2}
-                  value={newCustomer.address}
-                  onChange={(e) => setNewCustomer({...newCustomer, address: e.target.value})}
-                  placeholder="e.g. 123 Street, City"
-                  className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
-                ></textarea>
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">State / Union Territory *</label>
+                  <select
+                    value={newCustomer.state}
+                    onChange={(e) => setNewCustomer({ ...newCustomer, state: e.target.value })}
+                    className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white font-semibold text-gray-650"
+                  >
+                    <option value="">Select State...</option>
+                    {INDIAN_STATES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="border-t border-gray-150 pt-4 flex justify-end gap-2">
                 <button
-                  type="button"
                   onClick={() => setShowAddCustomer(false)}
-                  className="text-xs text-gray-500 border border-gray-300 bg-white px-4 py-1.5 rounded hover:bg-gray-100 font-semibold"
+                  className="text-xs text-gray-500 border border-gray-300 bg-white px-4 py-1.5 rounded hover:bg-gray-100 font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddCustomer}
+                  disabled={addingCustomer}
+                  className="text-xs text-white bg-indigo-600 px-5 py-1.5 rounded hover:bg-indigo-700 font-bold shadow-sm transition-all"
+                >
+                  {addingCustomer ? "Adding..." : "Add Party"}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD BANK MODAL */}
+      {showBankModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden flex flex-col border border-gray-200 my-8">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1">
+                <Landmark size={14} className="text-indigo-500" />
+                Add Bank Account settings
+              </span>
+              <button 
+                onClick={() => setShowBankModal(false)}
+                className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Account Display Name *</label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. Shop Current A/C"
+                    value={newBank.name}
+                    onChange={(e) => setNewBank({ ...newBank, name: e.target.value })}
+                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Opening Balance *</label>
+                  <input 
+                    type="text"
+                    placeholder="0.00"
+                    value={newBank.balance}
+                    onChange={(e) => setNewBank({ ...newBank, balance: String(sanitizeNumericInput(e.target.value)) })}
+                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-right"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={newBank.addDetails}
+                    onChange={(e) => setNewBank({ ...newBank, addDetails: e.target.checked })}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  Add Account details (Account Number, IFSC, etc.)
+                </label>
+              </div>
+
+              {newBank.addDetails && (
+                <div className="space-y-4 border-t border-gray-100 pt-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Account Number *</label>
+                      <input 
+                        type="password"
+                        placeholder="Enter account number"
+                        value={newBank.accountNumber}
+                        onChange={(e) => setNewBank({ ...newBank, accountNumber: e.target.value })}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Re-enter Account Number *</label>
+                      <input 
+                        type="text"
+                        placeholder="Re-enter for confirmation"
+                        value={newBank.reAccountNumber}
+                        onChange={(e) => setNewBank({ ...newBank, reAccountNumber: e.target.value })}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">IFSC Code *</label>
+                      <input 
+                        type="text"
+                        placeholder="11 digit IFSC"
+                        value={newBank.ifsc}
+                        onChange={(e) => setNewBank({ ...newBank, ifsc: e.target.value })}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Account Holder Name *</label>
+                      <input 
+                        type="text"
+                        placeholder="Display name on bank statement"
+                        value={newBank.holderName}
+                        onChange={(e) => setNewBank({ ...newBank, holderName: e.target.value })}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Bank Name *</label>
+                      <input 
+                        type="text"
+                        placeholder="e.g. State Bank of India"
+                        value={newBank.bankName}
+                        onChange={(e) => setNewBank({ ...newBank, bankName: e.target.value })}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Branch Name *</label>
+                      <input 
+                        type="text"
+                        placeholder="Branch location"
+                        value={newBank.branchName}
+                        onChange={(e) => setNewBank({ ...newBank, branchName: e.target.value })}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">UPI ID (For Dynamic QR Codes)</label>
+                    <input 
+                      type="text"
+                      placeholder="e.g. shopowner@okhdfc"
+                      value={newBank.upiId}
+                      onChange={(e) => setNewBank({ ...newBank, upiId: e.target.value })}
+                      className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t border-gray-150 pt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBankModal(false)}
+                  className="text-xs text-gray-500 border border-gray-300 bg-white px-4 py-1.5 rounded hover:bg-gray-100 font-semibold transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  onClick={handleAddCustomer}
-                  disabled={addingCustomer}
+                  onClick={handleSaveBank}
                   className="text-xs text-white bg-indigo-600 border border-indigo-600 px-5 py-1.5 rounded hover:bg-indigo-700 font-semibold shadow-sm transition-all"
                 >
-                  {addingCustomer ? "Saving..." : "Save Customer"}
+                  Add Account
                 </button>
               </div>
 
             </div>
+          </div>
+        </div>
+      )}
 
+      {/* SELECT PAYMENT QR MODAL */}
+      {showQRModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-200">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Landmark size={14} className="text-indigo-500" />
+                Select Payment QR Code
+              </span>
+              <button 
+                onClick={() => setShowQRModal(false)}
+                className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4 text-xs text-gray-600">
+              {bankAccounts.length === 0 ? (
+                <div className="text-center py-6 space-y-3">
+                  <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mx-auto text-indigo-500">
+                    <Landmark size={20} />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-bold text-gray-700">No bank accounts found</p>
+                    <p className="text-[10px] text-gray-400">Please add a bank account with UPI ID first to generate payment QR code</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowQRModal(false);
+                      setShowBankModal(true);
+                    }}
+                    className="text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-1.5 rounded font-bold shadow-xs transition-colors"
+                  >
+                    Add Bank Account
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Connected Bank UPI Accounts</p>
+                  <div className="divide-y divide-gray-100 max-h-60 overflow-y-auto border border-gray-200 rounded">
+                    {bankAccounts.map(bank => (
+                      <button
+                        key={bank.id}
+                        onClick={() => {
+                          setSelectedQRBankId(bank.id);
+                          setShowQRModal(false);
+                          toast.success(`Dynamic QR Payment connected to ${bank.name}! 📱`);
+                        }}
+                        className={`w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center justify-between transition-colors ${selectedQRBankId === bank.id ? "bg-indigo-50/40" : ""}`}
+                      >
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-gray-700">{bank.name}</p>
+                          <p className="text-[10px] text-gray-400 font-mono">{bank.upiId || "No UPI ID listed"}</p>
+                        </div>
+                        {selectedQRBankId === bank.id && (
+                          <div className="w-4 h-4 rounded-full bg-indigo-600 flex items-center justify-center text-white text-[8px] font-bold">✓</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t border-gray-150 pt-4 flex justify-end gap-2">
+                <button
+                  onClick={() => setShowQRModal(false)}
+                  className="text-xs text-gray-500 border border-gray-300 bg-white px-4 py-1.5 rounded hover:bg-gray-100 font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK INVOICE SETTINGS MODAL */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm overflow-hidden flex flex-col border border-gray-200">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Settings2 size={14} className="text-indigo-500" />
+                Quick Invoice Settings
+              </span>
+              <button 
+                onClick={() => setShowSettingsModal(false)}
+                className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4 text-xs text-gray-600 font-semibold">
+              
+              <label className="flex items-center justify-between cursor-pointer p-1 hover:bg-gray-50 rounded">
+                <span>Enable Invoice Prefix & Sequence</span>
+                <input 
+                  type="checkbox"
+                  checked={invoiceSettings.prefixEnabled}
+                  onChange={(e) => setInvoiceSettings({ ...invoiceSettings, prefixEnabled: e.target.checked })}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer p-1 hover:bg-gray-50 rounded">
+                <span>Display Purchase Price on Catalog</span>
+                <input 
+                  type="checkbox"
+                  checked={invoiceSettings.purchasePriceEnabled}
+                  onChange={(e) => setInvoiceSettings({ ...invoiceSettings, purchasePriceEnabled: e.target.checked })}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer p-1 hover:bg-gray-50 rounded">
+                <span>Show Item Images in Rows</span>
+                <input 
+                  type="checkbox"
+                  checked={invoiceSettings.itemImageEnabled}
+                  onChange={(e) => setInvoiceSettings({ ...invoiceSettings, itemImageEnabled: e.target.checked })}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer p-1 hover:bg-gray-50 rounded">
+                <span>Log Price History for Party</span>
+                <input 
+                  type="checkbox"
+                  checked={invoiceSettings.priceHistoryEnabled}
+                  onChange={(e) => setInvoiceSettings({ ...invoiceSettings, priceHistoryEnabled: e.target.checked })}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+              </label>
+
+              <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                <span>Invoice Theme Style</span>
+                <select
+                  value={invoiceSettings.invoiceTheme}
+                  onChange={(e) => setInvoiceSettings({ ...invoiceSettings, invoiceTheme: e.target.value })}
+                  className="border border-gray-200 rounded px-2 py-1 focus:outline-none focus:border-indigo-500 bg-white font-semibold text-gray-650"
+                >
+                  <option value="Stylish">Stylish Modern Theme</option>
+                  <option value="Tally">Minimalist Tally Style</option>
+                </select>
+              </div>
+
+              <div className="border-t border-gray-150 pt-4 flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowSettingsModal(false);
+                    toast.success("Quick Settings updated successfully! 🛠️");
+                  }}
+                  className="text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-5 py-1.5 rounded font-bold shadow-sm transition-colors"
+                >
+                  Save Settings
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HIDDEN SIGNATURE UPLOAD INPUT */}
+      <input 
+        type="file"
+        id="sig-upload-input"
+        className="hidden"
+        accept="image/*"
+        onChange={handleSignatureUpload}
+      />
+
+      {/* SIGNATURE SELECTION MODAL */}
+      {showSignatureModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col border border-gray-200">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                Signature
+              </span>
+              <button 
+                onClick={() => setShowSignatureModal(false)}
+                className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="grid grid-cols-2 gap-4">
+                
+                {/* Option 1: Upload from Desktop */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const inputEl = document.getElementById("sig-upload-input");
+                    inputEl?.click();
+                  }}
+                  className="border border-indigo-100 hover:border-indigo-300 bg-indigo-50/5 hover:bg-indigo-50/20 rounded-xl p-6 flex flex-col items-center justify-center text-center gap-3 transition-all cursor-pointer group"
+                >
+                  <div className="w-12 h-12 rounded-full bg-indigo-50 group-hover:bg-indigo-100/70 flex items-center justify-center text-indigo-600 transition-all">
+                    <Plus size={22} className="stroke-[2.5]" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-bold text-xs text-gray-800">Upload Signature from Desktop</p>
+                  </div>
+                </button>
+
+                {/* Option 2: Empty Box placeholder */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSignatureModal(false);
+                    setShowEmptySigModal(true);
+                  }}
+                  className="border border-indigo-100 hover:border-indigo-300 bg-indigo-50/5 hover:bg-indigo-50/20 rounded-xl p-6 flex flex-col items-center justify-center text-center gap-3 transition-all cursor-pointer group"
+                >
+                  <div className="w-12 h-12 rounded-full bg-indigo-50 group-hover:bg-indigo-100/70 flex items-center justify-center text-indigo-600 transition-all">
+                    <div className="w-5 h-5 border-2 border-indigo-600 rounded-sm"></div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-bold text-xs text-gray-800">Show Empty Signature Box on Invoice</p>
+                  </div>
+                </button>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EMPTY SIGNATURE PREVIEW & CONFIRM MODAL */}
+      {showEmptySigModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-200">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-sm font-bold text-gray-800 uppercase tracking-wider">
+                Empty Signature box
+              </span>
+              <button 
+                onClick={() => setShowEmptySigModal(false)}
+                className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-5">
+              
+              {/* High fidelity Mini-invoice Preview representation */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 relative overflow-hidden flex flex-col gap-2">
+                <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                  <div className="w-16 h-3 bg-gray-300 rounded-xs"></div>
+                  <div className="w-10 h-3 bg-gray-200 rounded-xs"></div>
+                </div>
+                <div className="space-y-1.5 my-1">
+                  <div className="w-full h-2 bg-gray-150 rounded-xs"></div>
+                  <div className="w-[85%] h-2 bg-gray-150 rounded-xs"></div>
+                </div>
+                <div className="flex justify-end pt-3">
+                  <div className="w-24 border border-dashed border-red-400 rounded p-2 text-[7px] text-red-500 font-bold text-center leading-normal bg-red-50/15">
+                    Authorized Signatory
+                    <div className="h-6 mt-1 border border-dashed border-red-200 rounded-xs flex items-center justify-center text-[5px] text-red-300">
+                      Sign Here
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-center">
+                <p className="text-xs text-gray-650 leading-relaxed px-2">
+                  Empty box for signature will be shown in invoices and PDFs. You can manually sign invoices.
+                </p>
+              </div>
+
+              <div className="border-t border-gray-150 pt-4 flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const inputEl = document.getElementById("sig-upload-input");
+                    inputEl?.click();
+                  }}
+                  className="text-xs text-gray-700 border border-gray-300 bg-white px-4 py-1.5 rounded-lg hover:bg-gray-100 font-bold transition-colors"
+                >
+                  Upload Signature
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSignatureType("empty");
+                    setSignatureImage("");
+                    setShowEmptySigModal(false);
+                    toast.success("Empty signature box enabled! ✍️");
+                  }}
+                  className="text-xs text-white bg-indigo-600 border border-indigo-600 px-5 py-1.5 rounded-lg hover:bg-indigo-700 font-bold shadow-xs transition-all"
+                >
+                  Confirm
+                </button>
+              </div>
+
+            </div>
           </div>
         </div>
       )}

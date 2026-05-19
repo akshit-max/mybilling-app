@@ -13,44 +13,49 @@ import { ReactNode } from "react";
 
 export default function Features() {
   return (
-    <section className="bg-gray-50 py-16">
-      <div className="max-w-7xl mx-auto px-6">
+    <section className="bg-slate-50 py-20 relative overflow-hidden">
+      <div className="max-w-7xl mx-auto px-6 relative z-10">
         {/* HEADING */}
-        <h2 className="text-center text-2xl md:text-3xl font-bold text-gray-900 mb-12">
-          Everything you need to run your business
-        </h2>
+        <div className="text-center max-w-2xl mx-auto mb-16">
+          <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight">
+            Everything you need to run your business
+          </h2>
+          <p className="text-gray-500 mt-3 text-sm sm:text-base">
+            Powering small and medium enterprises with tools that automate invoicing, bookkeeping, and inventory.
+          </p>
+        </div>
 
         {/* FEATURE CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
           <Card
-            icon={<FileText size={20} />}
+            icon={<FileText size={22} />}
             title="GST Invoicing"
-            desc="Create professional invoices in seconds with GST."
+            desc="Create professional invoices in seconds with custom styles, colors, and GST compliance."
           />
           <Card
-            icon={<Boxes size={20} />}
+            icon={<Boxes size={22} />}
             title="Inventory Management"
-            desc="Track stock in real-time and never run out."
+            desc="Track stock levels in real-time, auto-adjust items, and receive low stock alerts."
           />
           <Card
-            icon={<Users size={20} />}
-            title="Customer Management"
-            desc="Manage customers, due payments and history."
+            icon={<Users size={22} />}
+            title="Customer Ledger"
+            desc="Manage complete customer ledgers, track dynamic outstanding balances, and send WhatsApp alerts."
           />
           <Card
-            icon={<BarChart3 size={20} />}
+            icon={<BarChart3 size={22} />}
             title="Business Reports"
-            desc="Detailed reports to help you grow your business."
+            desc="Obtain detailed sales reports, party outstanding, and profit-and-loss insights instantly."
           />
           <Card
-            icon={<Landmark size={20} />}
+            icon={<Landmark size={22} />}
             title="Payment Tracking"
-            desc="Track payments and send payment reminders."
+            desc="Record standard payments, partial transactions, and update receipts dynamically."
           />
           <Card
-            icon={<ShieldCheck size={20} />}
+            icon={<ShieldCheck size={22} />}
             title="GST Compliance"
-            desc="Stay compliant with latest GST rules and filing."
+            desc="Fully customized tax computations and automatic CGST/SGST splitting."
           />
         </div>
       </div>
@@ -76,16 +81,16 @@ type TestimonialProps = {
 
 function Card({ icon, title, desc }: CardProps) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-6 text-center transition hover:shadow-md">
-      <div className="flex justify-center mb-4">
-        <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
+    <div className="bg-white border border-slate-100 rounded-2xl p-8 text-left transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 group">
+      <div className="mb-5">
+        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl w-fit transition-colors group-hover:bg-indigo-600 group-hover:text-white duration-300">
           {icon}
         </div>
       </div>
 
-      <h4 className="font-semibold text-gray-900 mb-2">{title}</h4>
+      <h4 className="font-bold text-gray-900 text-lg mb-2.5 transition-colors group-hover:text-indigo-600 duration-300">{title}</h4>
 
-      <p className="text-sm text-gray-600 leading-relaxed">{desc}</p>
+      <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
     </div>
   );
 }

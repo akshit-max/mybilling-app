@@ -25,6 +25,7 @@ type Item = {
   price: number | "";
   gstRate?: number;
   hsn?: string;
+  description?: string;
 };
 
 type Customer = {
@@ -54,7 +55,7 @@ export default function CreateSalesInvoice() {
   const [customerName, setCustomerName] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [items, setItems] = useState<Item[]>([{ name: "", qty: 1, price: 0, gstRate: 18 }]);
+  const [items, setItems] = useState<Item[]>([{ name: "", qty: 1, price: 0, gstRate: 18, description: "" }]);
   const [discountType, setDiscountType] = useState<DiscountType>("flat");
   const [discountValue, setDiscountValue] = useState<number | string>(0);
   const [gstEnabled, setGstEnabled] = useState(true);
@@ -73,6 +74,54 @@ export default function CreateSalesInvoice() {
   const [companyState, setCompanyState] = useState("");
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
+
+  // Extended Custom States
+  const [shippingAddress, setShippingAddress] = useState("");
+  const [isEditingShipping, setIsEditingShipping] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [additionalChargeName, setAdditionalChargeName] = useState("Transport Charges");
+  const [additionalChargeValue, setAdditionalChargeValue] = useState<number | string>(0);
+  const [showDiscountInput, setShowDiscountInput] = useState(false);
+  const [autoRoundOff, setAutoRoundOff] = useState(true);
+
+  // Bank Account modal states
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState("");
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [newBank, setNewBank] = useState({
+    name: "",
+    balance: "",
+    asOfDate: new Date().toISOString().split("T")[0],
+    accountNumber: "",
+    reAccountNumber: "",
+    holderName: "",
+    ifsc: "",
+    bankName: "",
+    branchName: "",
+    upiId: "",
+    addDetails: true
+  });
+
+  // Dynamic QR Code select states
+  const [selectedQRBankId, setSelectedQRBankId] = useState("");
+  const [showQRModal, setShowQRModal] = useState(false);
+
+  // Quick settings modal state
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [invoiceSettings, setInvoiceSettings] = useState({
+    prefixEnabled: false,
+    purchasePriceEnabled: true,
+    itemImageEnabled: false,
+    priceHistoryEnabled: false,
+    invoiceTheme: "Stylish"
+  });
+
+  // Signature States
+  const [signatureType, setSignatureType] = useState<"upload" | "empty" | "">("");
+  const [signatureImage, setSignatureImage] = useState("");
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [showEmptySigModal, setShowEmptySigModal] = useState(false);
 
   // New customer quick add fields
   const [newCustomer, setNewCustomer] = useState({
@@ -177,6 +226,22 @@ export default function CreateSalesInvoice() {
           // Defaults to CGST + SGST
         }
 
+        // Fetch Bank Accounts
+        try {
+          const bq = query(collection(db, "bankAccounts"), where("userId", "==", user.uid));
+          const bsnap = await getDocs(bq);
+          const bList = bsnap.docs.map(docSnap => ({
+            id: docSnap.id,
+            ...docSnap.data()
+          }));
+          setBankAccounts(bList);
+          if (bList.length > 0) {
+            setSelectedBankId(bList[0].id);
+          }
+        } catch (err) {
+          console.error("Bank accounts fetch error:", err);
+        }
+
       } catch (err) {
         console.error(err);
         toast.error("Failed to load invoice workspace configurations");
@@ -196,6 +261,15 @@ export default function CreateSalesInvoice() {
     return () => unsub();
   }, []);
 
+  // Sync Shipping Address automatically
+  useEffect(() => {
+    if (selectedCustomer) {
+      setShippingAddress(selectedCustomer.address || "");
+    } else {
+      setShippingAddress("");
+    }
+  }, [customerName, customers]);
+
   // Update payment terms or dates
   useEffect(() => {
     if (paymentTerms && invoiceDate) {
@@ -204,6 +278,62 @@ export default function CreateSalesInvoice() {
       setDueDate(date.toISOString().split("T")[0]);
     }
   }, [paymentTerms, invoiceDate]);
+
+  // Save new Bank Account to Firestore
+  const handleSaveBank = async () => {
+    if (!newBank.name.trim()) return toast.error("Account Name is required");
+    if (newBank.addDetails) {
+      if (!newBank.accountNumber.trim()) return toast.error("Account Number is required");
+      if (newBank.accountNumber !== newBank.reAccountNumber) return toast.error("Account Numbers do not match");
+      if (!newBank.holderName.trim()) return toast.error("Account Holder Name is required");
+      if (!newBank.ifsc.trim()) return toast.error("IFSC Code is required");
+      if (!newBank.bankName.trim()) return toast.error("Bank Name is required");
+      if (!newBank.branchName.trim()) return toast.error("Branch Name is required");
+    }
+
+    const user = auth.currentUser;
+    if (!user) return toast.error("Not logged in");
+
+    try {
+      const bankData = {
+        userId: user.uid,
+        name: newBank.name.trim(),
+        balance: Number(newBank.balance || 0),
+        asOfDate: newBank.asOfDate,
+        accountNumber: newBank.accountNumber.trim(),
+        holderName: newBank.holderName.trim(),
+        ifsc: newBank.ifsc.trim().toUpperCase(),
+        bankName: newBank.bankName.trim(),
+        branchName: newBank.branchName.trim(),
+        upiId: newBank.upiId.trim(),
+        addDetails: newBank.addDetails,
+        createdAt: new Date(),
+      };
+
+      const docRef = await addDoc(collection(db, "bankAccounts"), bankData);
+      const addedBank = { id: docRef.id, ...bankData };
+      setBankAccounts(prev => [...prev, addedBank]);
+      setSelectedBankId(docRef.id);
+      setShowBankModal(false);
+      setNewBank({
+        name: "",
+        balance: "",
+        asOfDate: new Date().toISOString().split("T")[0],
+        accountNumber: "",
+        reAccountNumber: "",
+        holderName: "",
+        ifsc: "",
+        bankName: "",
+        branchName: "",
+        upiId: "",
+        addDetails: true
+      });
+      toast.success("Bank Account added successfully! 🏦");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to add bank account");
+    }
+  };
 
   // Valid calculations
   const validItems = items
@@ -231,14 +361,36 @@ export default function CreateSalesInvoice() {
     isInterstate
   );
 
+  const rawTotal = calc.total + Number(additionalChargeValue || 0);
+  const roundedTotal = Math.round(rawTotal);
+  const roundOffAmount = roundedTotal - rawTotal;
+  const finalTotal = autoRoundOff ? roundedTotal : rawTotal;
+
   // Sync Amount Received on Fully Paid toggle
   const handleMarkFullyPaid = (checked: boolean) => {
     if (checked) {
-      setAmountReceived(calc.total.toFixed(2));
+      setAmountReceived(finalTotal.toFixed(2));
       setStatus("paid");
     } else {
       setAmountReceived(0);
       setStatus("pending");
+    }
+  };
+
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setSignatureImage(event.target.result as string);
+          setSignatureType("upload");
+          setShowSignatureModal(false);
+          setShowEmptySigModal(false);
+          toast.success("Signature uploaded successfully! ✍️");
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -347,6 +499,11 @@ export default function CreateSalesInvoice() {
         }
       }
 
+      const rawTotal = calc.total + Number(additionalChargeValue || 0);
+      const roundedTotal = Math.round(rawTotal);
+      const roundOffAmount = roundedTotal - rawTotal;
+      const finalTotal = autoRoundOff ? roundedTotal : rawTotal;
+
       const invoiceData = {
         userId: user.uid,
         customerName,
@@ -354,7 +511,7 @@ export default function CreateSalesInvoice() {
         customerPhone: selectedCustomer?.phone || "",
         invoiceNumber,
         date: invoiceDate,
-        dueDate: status === "credit" ? dueDate : "",
+        dueDate: dueDate,
         items: validItems,
         subtotal: calc.subtotal,
         discountType,
@@ -365,12 +522,23 @@ export default function CreateSalesInvoice() {
         cgst: calc.cgst,
         sgst: calc.sgst,
         igst: calc.igst,
-        total: calc.total,
-        status,
+        status: Number(amountReceived) >= finalTotal ? "paid" : "pending",
         invoiceType,
         amountReceived: Number(amountReceived),
         paymentMode,
         createdAt: new Date(),
+        // New extended fields
+        shippingAddress,
+        notes,
+        additionalChargeName,
+        additionalChargeValue: Number(additionalChargeValue),
+        autoRoundOff,
+        roundOffAmount,
+        selectedBankId,
+        selectedQRBankId,
+        settings: invoiceSettings,
+        signatureType,
+        signatureImage
       };
 
       if (isOfflineMode) {
@@ -459,7 +627,10 @@ export default function CreateSalesInvoice() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1 text-xs text-gray-600 border border-gray-200 px-3 py-1.5 rounded bg-white hover:bg-gray-50 font-semibold transition-colors">
+          <button 
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center gap-1 text-xs text-gray-600 border border-gray-200 px-3 py-1.5 rounded bg-white hover:bg-gray-50 font-semibold transition-colors"
+          >
             <Settings2 size={13} className="text-indigo-500" />
             <span>Settings</span>
           </button>
@@ -561,11 +732,37 @@ export default function CreateSalesInvoice() {
                   <div className="space-y-1 border-l border-gray-100 pl-4">
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Shipping Address</span>
                     <p className="text-xs font-bold text-gray-700">{customerName}</p>
-                    {selectedCustomer?.phone && <p className="text-[10px] text-gray-400 font-mono">Ph: {selectedCustomer.phone}</p>}
-                    <span className="text-[9px] text-gray-400 block mt-1">Same as billing address</span>
-                    <button className="text-[9px] text-gray-400 hover:underline font-bold uppercase tracking-wider mt-1 block">
-                      Change Shipping Address
-                    </button>
+                    {isEditingShipping ? (
+                      <div className="space-y-1 mt-1">
+                        <textarea
+                          value={shippingAddress}
+                          onChange={(e) => setShippingAddress(e.target.value)}
+                          rows={2}
+                          placeholder="Enter custom shipping address..."
+                          className="w-full border border-gray-200 rounded p-1 text-[10px] focus:outline-none focus:border-indigo-500 bg-white"
+                        />
+                        <button
+                          onClick={() => setIsEditingShipping(false)}
+                          className="text-[9px] bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded font-bold uppercase transition-colors"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {shippingAddress ? (
+                          <p className="text-[10px] text-gray-500 leading-normal font-medium">{shippingAddress}</p>
+                        ) : (
+                          <span className="text-[9px] text-gray-400 block mt-1">Same as billing address</span>
+                        )}
+                        <button 
+                          onClick={() => setIsEditingShipping(true)}
+                          className="text-[9px] text-indigo-600 hover:underline font-bold uppercase tracking-wider mt-1 block"
+                        >
+                          Change Shipping Address
+                        </button>
+                      </>
+                    )}
                   </div>
 
                 </div>
@@ -597,15 +794,17 @@ export default function CreateSalesInvoice() {
 
               <div>
                 <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Payment Terms</label>
-                <select
-                  value={paymentTerms}
-                  onChange={(e) => setPaymentTerms(e.target.value)}
-                  className="w-full border-b border-gray-200 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white cursor-pointer text-gray-600 font-semibold"
-                >
-                  <option value="30">30 days</option>
-                  <option value="15">15 days</option>
-                  <option value="0">Due on Receipt</option>
-                </select>
+                <div className="flex items-center gap-1 border-b border-gray-200 py-1">
+                  <input
+                    type="number"
+                    min="0"
+                    value={paymentTerms}
+                    onChange={(e) => setPaymentTerms(e.target.value)}
+                    className="w-full text-xs font-semibold focus:outline-none font-mono text-gray-700"
+                    placeholder="e.g. 30"
+                  />
+                  <span className="text-[10px] text-gray-400 font-bold uppercase">days</span>
+                </div>
               </div>
 
               <div>
@@ -613,8 +812,8 @@ export default function CreateSalesInvoice() {
                 <input 
                   type="date"
                   value={dueDate}
-                  disabled
-                  className="w-full border-b border-gray-200 py-1 text-xs text-gray-400 bg-transparent" 
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="w-full border-b border-gray-200 py-1 text-xs text-gray-600 focus:outline-none focus:border-indigo-500 bg-transparent" 
                 />
               </div>
 
@@ -640,12 +839,12 @@ export default function CreateSalesInvoice() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {items.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50/30">
-                    <td className="px-4 py-3 text-center text-gray-400 font-mono">{idx + 1}</td>
+                  <tr key={idx} className="hover:bg-gray-50/30 border-b border-gray-100">
+                    <td className="px-4 py-4 text-center text-gray-400 font-mono align-top">{idx + 1}</td>
                     
                     {/* Item Name Lookup Dropdown */}
-                    <td className="px-4 py-3">
-                      <div className="space-y-1">
+                    <td className="px-4 py-4 max-w-[320px] whitespace-normal">
+                      <div className="flex flex-col gap-1.5">
                         <select
                           value={item.productId || ""}
                           onChange={(e) => {
@@ -659,11 +858,12 @@ export default function CreateSalesInvoice() {
                                 qty: 1,
                                 gstRate: found.gst || 18,
                                 hsn: found.hsnCode || "",
+                                description: ""
                               };
                               setItems(updated);
                             }
                           }}
-                          className="w-full border border-gray-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white"
+                          className="w-full border border-gray-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white font-medium text-gray-700"
                         >
                           <option value="">Select Item / Product...</option>
                           {products.map(p => (
@@ -674,47 +874,49 @@ export default function CreateSalesInvoice() {
                         </select>
                         <input 
                           type="text"
+                          value={item.description || ""}
+                          onChange={(e) => updateItem(idx, "description", e.target.value)}
                           placeholder="Enter Description (optional)"
-                          className="w-full text-[10px] text-gray-500 bg-transparent border-none focus:ring-0 focus:outline-none p-0" 
+                          className="w-full text-[10px] text-gray-500 bg-transparent border-t border-dashed border-gray-200 focus:border-indigo-400 focus:ring-0 focus:outline-none py-1 px-1 mt-1 block" 
                         />
                       </div>
                     </td>
 
                     {/* HSN Code */}
-                    <td className="px-4 py-3">
-                      <span className="text-gray-500 font-mono">{item.hsn || "-"}</span>
+                    <td className="px-4 py-4 align-top">
+                      <span className="text-gray-600 font-mono font-medium block mt-1">{item.hsn || "-"}</span>
                     </td>
 
                     {/* Quantity */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 border border-gray-200 rounded overflow-hidden w-20">
+                    <td className="px-4 py-4 align-top">
+                      <div className="flex items-center gap-1 border border-gray-200 rounded overflow-hidden w-20 bg-white block mt-0.5">
                         <input 
                           type="number"
                           value={item.qty}
                           onChange={(e) => updateItem(idx, "qty", e.target.value)}
-                          className="w-full px-2 py-1 text-xs focus:outline-none font-mono text-right"
+                          className="w-full px-2 py-1 text-xs focus:outline-none font-mono text-right font-medium"
                         />
                       </div>
                     </td>
 
                     {/* Price/Item */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-4 align-top">
                       <input 
                         type="number"
                         value={item.price}
                         onChange={(e) => updateItem(idx, "price", e.target.value)}
-                        className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none font-mono text-right"
+                        className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none font-mono text-right font-medium bg-white block mt-0.5"
                       />
                     </td>
 
                     {/* Discount */}
-                    <td className="px-4 py-3">
-                      <span className="text-gray-400">-</span>
+                    <td className="px-4 py-4 align-top">
+                      <span className="text-gray-400 block mt-1">-</span>
                     </td>
 
                     {/* Tax rate displaying absolute calculations */}
-                    <td className="px-4 py-3">
-                      <div className="space-y-0.5">
+                    <td className="px-4 py-4 align-top">
+                      <div className="space-y-0.5 mt-0.5">
                         <span className="text-xs font-semibold text-gray-700 font-mono">{item.gstRate || 18}%</span>
                         {gstEnabled && (
                           <span className="text-[10px] text-gray-400 block font-mono">
@@ -725,16 +927,16 @@ export default function CreateSalesInvoice() {
                     </td>
 
                     {/* Amount */}
-                    <td className="px-4 py-3 text-right font-bold font-mono text-gray-800">
-                      ₹ {((Number(item.qty) || 0) * (Number(item.price) || 0)).toFixed(2)}
+                    <td className="px-4 py-4 text-right font-bold font-mono text-gray-800 align-top">
+                      <span className="block mt-1">₹ {((Number(item.qty) || 0) * (Number(item.price) || 0)).toFixed(2)}</span>
                     </td>
 
                     {/* Delete action */}
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-4 py-4 text-center align-top">
                       <button 
                         type="button"
                         onClick={() => removeItem(idx)}
-                        className="text-red-500 hover:text-red-700 transition-colors p-1"
+                        className="text-red-500 hover:text-red-700 transition-colors p-1 block mt-0.5"
                       >
                         <Trash2 size={13} />
                       </button>
@@ -834,10 +1036,23 @@ export default function CreateSalesInvoice() {
             <div className="flex-1 border-r border-gray-200 p-6 space-y-6">
               
               <div className="space-y-3">
-                <button className="text-indigo-600 text-xs font-semibold flex items-center gap-1.5 hover:underline">
+                <button 
+                  onClick={() => setShowNotes(!showNotes)} 
+                  className="text-indigo-600 text-xs font-semibold flex items-center gap-1.5 hover:underline"
+                >
                   <Plus size={13} />
-                  <span>Add Notes & Remarks</span>
+                  <span>{showNotes ? "Hide Notes & Remarks" : "Add Notes & Remarks"}</span>
                 </button>
+
+                {showNotes && (
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Enter notes, terms, remarks, bank instructions, etc..."
+                    rows={3}
+                    className="w-full border border-gray-200 rounded p-2 text-xs focus:outline-none focus:border-indigo-500 bg-white"
+                  />
+                )}
                 
                 <div>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Terms & Conditions</p>
@@ -848,15 +1063,76 @@ export default function CreateSalesInvoice() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-150 space-y-2.5">
-                <button className="text-indigo-600 text-xs font-semibold flex items-center gap-1.5 hover:underline">
-                  <Plus size={13} />
-                  <span>Add Bank Account Settings</span>
-                </button>
-                <button className="text-indigo-600 text-xs font-semibold flex items-center gap-1.5 hover:underline block">
-                  <Plus size={13} />
-                  <span>Add Payment Dynamic QR Code</span>
-                </button>
+              <div className="pt-4 border-t border-gray-150 space-y-3">
+                <div className="flex items-center justify-between">
+                  <button 
+                    onClick={() => setShowBankModal(true)} 
+                    className="text-indigo-600 text-xs font-semibold flex items-center gap-1.5 hover:underline"
+                  >
+                    <Landmark size={13} className="text-indigo-500" />
+                    <span>{selectedBankId ? "Change Bank Account" : "+ Add Bank Account Settings"}</span>
+                  </button>
+                  {selectedBankId && (
+                    <button 
+                      onClick={() => setSelectedBankId("")} 
+                      className="text-red-500 text-[10px] hover:underline uppercase font-bold"
+                    >
+                      Remove Bank
+                    </button>
+                  )}
+                </div>
+
+                {selectedBankId && (
+                  (() => {
+                    const bank = bankAccounts.find(b => b.id === selectedBankId);
+                    if (!bank) return null;
+                    return (
+                      <div className="bg-indigo-50/50 border border-indigo-100 rounded p-3 text-xs text-gray-700 space-y-1">
+                        <p className="font-bold text-indigo-700">{bank.name}</p>
+                        {bank.accountNumber && <p className="font-mono text-[10px]">A/C No: {bank.accountNumber}</p>}
+                        {bank.bankName && <p className="text-[10px] text-gray-500">{bank.bankName} - {bank.branchName}</p>}
+                        {bank.ifsc && <p className="font-mono text-[10px]">IFSC: {bank.ifsc}</p>}
+                      </div>
+                    );
+                  })()
+                )}
+
+                <div className="flex items-center justify-between pt-1">
+                  <button 
+                    onClick={() => setShowQRModal(true)} 
+                    className="text-indigo-600 text-xs font-semibold flex items-center gap-1.5 hover:underline block"
+                  >
+                    <Landmark size={13} className="text-indigo-500" />
+                    <span>{selectedQRBankId ? "Change Payment QR Code" : "+ Add Payment Dynamic QR Code"}</span>
+                  </button>
+                  {selectedQRBankId && (
+                    <button 
+                      onClick={() => setSelectedQRBankId("")} 
+                      className="text-red-500 text-[10px] hover:underline uppercase font-bold"
+                    >
+                      Remove QR
+                    </button>
+                  )}
+                </div>
+
+                {selectedQRBankId && (
+                  (() => {
+                    const qrBank = bankAccounts.find(b => b.id === selectedQRBankId);
+                    if (!qrBank) return null;
+                    return (
+                      <div className="bg-emerald-50/50 border border-emerald-100 rounded p-3 text-xs text-gray-700 flex items-center gap-3">
+                        <div className="p-1.5 bg-white border border-emerald-200 rounded">
+                          {/* Mock dynamic QR indicator */}
+                          <div className="w-8 h-8 bg-gray-100 flex items-center justify-center text-[8px] font-bold text-gray-400 font-mono">QR</div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-emerald-700">Dynamic Scan-to-Pay Connected</p>
+                          <p className="text-[10px] text-gray-500">UPI ID: {qrBank.upiId || `${qrBank.accountNumber}@upi`}</p>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
               </div>
 
             </div>
@@ -864,11 +1140,30 @@ export default function CreateSalesInvoice() {
             {/* Calculations & Saving Actions (Right) */}
             <div className="w-full lg:w-[460px] bg-gray-50/20 p-6 space-y-4">
               
-              <div className="flex justify-between items-center text-xs text-gray-600">
-                <button className="text-indigo-600 font-semibold flex items-center gap-1 hover:underline">
-                  <Plus size={12} /> Add Additional Charges
-                </button>
-                <span className="font-mono">₹ 0.00</span>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs text-gray-600">
+                  <span className="font-semibold text-gray-600 flex items-center gap-1.5">
+                    <Plus size={12} className="text-indigo-500" /> Add Additional Charges
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="text" 
+                      value={additionalChargeName}
+                      onChange={(e) => setAdditionalChargeName(e.target.value)}
+                      placeholder="e.g. Transport Charge"
+                      className="border border-gray-200 rounded px-2 py-0.5 text-xs focus:outline-none w-32 bg-white"
+                    />
+                    <div className="relative">
+                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">₹</span>
+                      <input 
+                        type="number"
+                        value={additionalChargeValue}
+                        onChange={(e) => setAdditionalChargeValue(sanitizeNumericInput(e.target.value))}
+                        className="border border-gray-200 rounded py-0.5 pl-4 pr-1 text-xs focus:outline-none font-mono text-right w-20 bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-between items-center text-xs text-gray-600 border-t border-gray-100 pt-2">
@@ -900,40 +1195,53 @@ export default function CreateSalesInvoice() {
               )}
 
               <div className="flex justify-between items-center text-xs text-gray-600 border-t border-gray-100 pt-2">
-                <button className="text-indigo-600 font-semibold flex items-center gap-1 hover:underline">
-                  <Plus size={12} /> Add Discount Value
+                <button 
+                  onClick={() => setShowDiscountInput(!showDiscountInput)}
+                  className="text-indigo-600 font-semibold flex items-center gap-1 hover:underline"
+                >
+                  <Plus size={12} /> {showDiscountInput ? "Hide Discount" : "Add Discount Value"}
                 </button>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={discountType}
-                    onChange={(e) => setDiscountType(e.target.value as any)}
-                    className="border border-gray-200 rounded px-1 text-[10px] focus:outline-none bg-white text-gray-500"
-                  >
-                    <option value="flat">₹</option>
-                    <option value="percent">%</option>
-                  </select>
-                  <input 
-                    type="number"
-                    value={discountValue}
-                    onChange={(e) => setDiscountValue(sanitizeNumericInput(e.target.value))}
-                    className="border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none font-mono text-right w-16"
-                  />
-                </div>
+                
+                {showDiscountInput && (
+                  <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <select
+                      value={discountType}
+                      onChange={(e) => setDiscountType(e.target.value as any)}
+                      className="border border-gray-200 rounded px-1 py-0.5 text-[10px] focus:outline-none bg-white text-gray-500 font-bold"
+                    >
+                      <option value="flat">₹</option>
+                      <option value="percent">%</option>
+                    </select>
+                    <input 
+                      type="number"
+                      value={discountValue}
+                      onChange={(e) => setDiscountValue(sanitizeNumericInput(e.target.value))}
+                      className="border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none font-mono text-right w-16 bg-white"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-between items-center text-xs text-gray-600 border-t border-gray-100 pt-2">
                 <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-gray-600">
-                  <input type="checkbox" defaultChecked className="rounded border-gray-300 text-indigo-600" />
+                  <input 
+                    type="checkbox" 
+                    checked={autoRoundOff} 
+                    onChange={(e) => setAutoRoundOff(e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                  />
                   <span>Auto Round Off</span>
                 </label>
-                <span className="font-mono text-gray-500">0.00</span>
+                <span className="font-mono text-gray-500">
+                  {roundOffAmount >= 0 ? "+" : ""}{roundOffAmount.toFixed(2)}
+                </span>
               </div>
 
               {/* Huge Invoice Total Display */}
               <div className="flex justify-between items-center pt-3 border-t border-gray-200">
                 <span className="font-bold text-gray-800 text-xs">Total Amount</span>
                 <span className="text-lg font-bold font-mono text-indigo-600">
-                  ₹ {calc.total.toFixed(2)}
+                  ₹ {finalTotal.toFixed(2)}
                 </span>
               </div>
 
@@ -942,7 +1250,7 @@ export default function CreateSalesInvoice() {
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-gray-500">Amount Received</span>
                   <div className="flex items-center gap-2">
-                    <div className="relative">
+                    <div className="relative bg-white rounded">
                       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">₹</span>
                       <input 
                         type="number"
@@ -954,7 +1262,7 @@ export default function CreateSalesInvoice() {
                     <select
                       value={paymentMode}
                       onChange={(e) => setPaymentMode(e.target.value)}
-                      className="border border-gray-200 rounded py-1 text-[10px] focus:outline-none bg-white text-gray-600 font-semibold"
+                      className="border border-gray-200 rounded py-1 text-[10px] focus:outline-none bg-white text-gray-600 font-semibold cursor-pointer"
                     >
                       <option value="Cash">Cash</option>
                       <option value="Bank">Bank</option>
@@ -966,7 +1274,15 @@ export default function CreateSalesInvoice() {
                   <label className="flex items-center gap-1.5 text-[10px] text-gray-400 font-bold uppercase tracking-wider cursor-pointer">
                     <input 
                       type="checkbox" 
-                      onChange={(e) => handleMarkFullyPaid(e.target.checked)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setAmountReceived(finalTotal.toFixed(2));
+                          setStatus("paid");
+                        } else {
+                          setAmountReceived(0);
+                          setStatus("pending");
+                        }
+                      }}
                       className="rounded border-gray-300 text-indigo-600" 
                     />
                     <span>Mark as fully paid</span>
@@ -978,7 +1294,7 @@ export default function CreateSalesInvoice() {
               <div className="flex justify-between items-center pt-2 border-t border-gray-100">
                 <span className="font-bold text-green-600 text-xs">Balance Amount</span>
                 <span className="font-bold font-mono text-green-600">
-                  ₹ {Math.max(0, calc.total - Number(amountReceived || 0)).toFixed(2)}
+                  ₹ {Math.max(0, finalTotal - Number(amountReceived || 0)).toFixed(2)}
                 </span>
               </div>
 
@@ -999,10 +1315,52 @@ export default function CreateSalesInvoice() {
               <div className="pt-4 flex justify-end">
                 <div className="w-40 text-right space-y-1">
                   <p className="text-[9px] text-gray-400 uppercase tracking-wider">Authorized Signatory for <span className="font-bold text-gray-700">self</span></p>
-                  <button className="w-full h-12 border border-dashed border-indigo-200 bg-indigo-50/20 rounded flex items-center justify-center text-indigo-600 text-[10px] font-semibold hover:bg-indigo-50 transition-colors">
-                    <Plus size={11} className="mr-0.5" />
-                    <span>Add Signature</span>
-                  </button>
+                  
+                  {signatureType === "empty" ? (
+                    <div className="relative group">
+                      <div className="w-full h-14 border border-dashed border-red-400 bg-red-50/10 rounded flex flex-col items-center justify-center text-red-500 text-[9px] font-bold tracking-wider leading-tight">
+                        <span>EMPTY SIGNATURE</span>
+                        <span>BOX ENABLED</span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setSignatureType("");
+                          setSignatureImage("");
+                        }}
+                        className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 shadow-xs transition-colors"
+                        title="Remove Signature"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ) : signatureType === "upload" && signatureImage ? (
+                    <div className="relative group">
+                      <div className="w-full h-14 border border-gray-200 bg-white rounded flex items-center justify-center p-1.5 overflow-hidden">
+                        <img src={signatureImage} alt="Signature Upload" className="max-h-full max-w-full object-contain" />
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setSignatureType("");
+                          setSignatureImage("");
+                        }}
+                        className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 shadow-xs transition-colors"
+                        title="Remove Signature"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      type="button"
+                      onClick={() => setShowSignatureModal(true)}
+                      className="w-full h-12 border border-dashed border-indigo-200 bg-indigo-50/20 rounded flex items-center justify-center text-indigo-600 text-[10px] font-semibold hover:bg-indigo-50 transition-colors"
+                    >
+                      <Plus size={11} className="mr-0.5" />
+                      <span>Add Signature</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1107,7 +1465,7 @@ export default function CreateSalesInvoice() {
                 <button
                   type="button"
                   onClick={() => setShowAddCustomer(false)}
-                  className="text-xs text-gray-500 border border-gray-300 bg-white px-4 py-1.5 rounded hover:bg-gray-100 font-semibold"
+                  className="text-xs text-gray-500 border border-gray-300 bg-white px-4 py-1.5 rounded hover:bg-gray-100 font-semibold transition-colors"
                 >
                   Cancel
                 </button>
@@ -1123,6 +1481,491 @@ export default function CreateSalesInvoice() {
 
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* QUICK INVOICE SETTINGS MODAL */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-200">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Settings2 size={14} className="text-indigo-500" />
+                Quick Invoice Settings
+              </span>
+              <button 
+                onClick={() => setShowSettingsModal(false)}
+                className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4 text-xs text-gray-600">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="space-y-0.5">
+                  <p className="font-bold text-gray-700">Invoice Prefix & Sequence Number</p>
+                  <p className="text-[10px] text-gray-400">Add customizable letters before digits (e.g. INV/2026/)</p>
+                </div>
+                <input 
+                  type="checkbox"
+                  checked={invoiceSettings.prefixEnabled}
+                  onChange={(e) => setInvoiceSettings({ ...invoiceSettings, prefixEnabled: e.target.checked })}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4.5 h-4.5"
+                />
+              </div>
+
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="space-y-0.5">
+                  <p className="font-bold text-gray-700">Show Purchase Price While Adding Items</p>
+                  <p className="text-[10px] text-gray-400">Allows viewing cost details directly inside row select</p>
+                </div>
+                <input 
+                  type="checkbox"
+                  checked={invoiceSettings.purchasePriceEnabled}
+                  onChange={(e) => setInvoiceSettings({ ...invoiceSettings, purchasePriceEnabled: e.target.checked })}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4.5 h-4.5"
+                />
+              </div>
+
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="space-y-0.5">
+                  <p className="font-bold text-gray-700">Show Item Image On Invoice PDF</p>
+                  <p className="text-[10px] text-gray-400">Include catalog photo preview in standard templates</p>
+                </div>
+                <input 
+                  type="checkbox"
+                  checked={invoiceSettings.itemImageEnabled}
+                  onChange={(e) => setInvoiceSettings({ ...invoiceSettings, itemImageEnabled: e.target.checked })}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4.5 h-4.5"
+                />
+              </div>
+
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="space-y-0.5">
+                  <p className="font-bold text-gray-700">Enable Price History Lookup</p>
+                  <p className="text-[10px] text-gray-400">Show recent transaction rates for the selected customer</p>
+                </div>
+                <input 
+                  type="checkbox"
+                  checked={invoiceSettings.priceHistoryEnabled}
+                  onChange={(e) => setInvoiceSettings({ ...invoiceSettings, priceHistoryEnabled: e.target.checked })}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4.5 h-4.5"
+                />
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider">Choose Invoice Theme</label>
+                <select
+                  value={invoiceSettings.invoiceTheme}
+                  onChange={(e) => setInvoiceSettings({ ...invoiceSettings, invoiceTheme: e.target.value })}
+                  className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white font-medium text-gray-700 cursor-pointer"
+                >
+                  <option value="Stylish">Stylish Theme (Modern Accent)</option>
+                  <option value="Simple">Simple Theme (Clean Gray)</option>
+                  <option value="Modern">Modern Theme (High Tech)</option>
+                </select>
+              </div>
+
+              <div className="border-t border-gray-150 pt-4 flex justify-end gap-2">
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  className="text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-5 py-1.5 rounded font-bold shadow-sm transition-all"
+                >
+                  Save & Apply Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD BANK ACCOUNT MODAL */}
+      {showBankModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg my-8 overflow-hidden flex flex-col border border-gray-200">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Landmark size={14} className="text-indigo-500" />
+                Add Bank Account
+              </span>
+              <button 
+                onClick={() => setShowBankModal(false)}
+                className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4 text-xs text-gray-600 max-h-[80vh] overflow-y-auto">
+              <div>
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Account Name *</label>
+                <input 
+                  type="text"
+                  placeholder="e.g. Personal Bank Account"
+                  value={newBank.name}
+                  onChange={(e) => setNewBank({ ...newBank, name: e.target.value })}
+                  className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Opening Balance</label>
+                  <input 
+                    type="number"
+                    placeholder="₹ 0.00"
+                    value={newBank.balance}
+                    onChange={(e) => setNewBank({ ...newBank, balance: e.target.value })}
+                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">As Of Date</label>
+                  <input 
+                    type="date"
+                    value={newBank.asOfDate}
+                    onChange={(e) => setNewBank({ ...newBank, asOfDate: e.target.value })}
+                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-gray-600"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-b border-gray-100 py-3">
+                <div className="space-y-0.5">
+                  <p className="font-bold text-gray-700">Add Account Details</p>
+                  <p className="text-[10px] text-gray-400">Save bank account number and IFSC code for invoices</p>
+                </div>
+                <input 
+                  type="checkbox"
+                  checked={newBank.addDetails}
+                  onChange={(e) => setNewBank({ ...newBank, addDetails: e.target.checked })}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4.5 h-4.5"
+                />
+              </div>
+
+              {newBank.addDetails && (
+                <div className="space-y-4 animate-in slide-in-from-top-1 duration-150">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Bank Account Number *</label>
+                      <input 
+                        type="password"
+                        placeholder="Enter account number"
+                        value={newBank.accountNumber}
+                        onChange={(e) => setNewBank({ ...newBank, accountNumber: e.target.value })}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Re-Enter Account Number *</label>
+                      <input 
+                        type="text"
+                        placeholder="Re-enter account number"
+                        value={newBank.reAccountNumber}
+                        onChange={(e) => setNewBank({ ...newBank, reAccountNumber: e.target.value })}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Account Holder Name *</label>
+                      <input 
+                        type="text"
+                        placeholder="Holder name"
+                        value={newBank.holderName}
+                        onChange={(e) => setNewBank({ ...newBank, holderName: e.target.value })}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">IFSC Code *</label>
+                      <input 
+                        type="text"
+                        placeholder="e.g. SBIN0001234"
+                        value={newBank.ifsc}
+                        onChange={(e) => setNewBank({ ...newBank, ifsc: e.target.value })}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono uppercase"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Bank Name *</label>
+                      <input 
+                        type="text"
+                        placeholder="e.g. State Bank of India"
+                        value={newBank.bankName}
+                        onChange={(e) => setNewBank({ ...newBank, bankName: e.target.value })}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Branch Name *</label>
+                      <input 
+                        type="text"
+                        placeholder="Branch location"
+                        value={newBank.branchName}
+                        onChange={(e) => setNewBank({ ...newBank, branchName: e.target.value })}
+                        className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">UPI ID (For Dynamic QR Codes)</label>
+                    <input 
+                      type="text"
+                      placeholder="e.g. shopowner@okhdfc"
+                      value={newBank.upiId}
+                      onChange={(e) => setNewBank({ ...newBank, upiId: e.target.value })}
+                      className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t border-gray-150 pt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBankModal(false)}
+                  className="text-xs text-gray-500 border border-gray-300 bg-white px-4 py-1.5 rounded hover:bg-gray-100 font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveBank}
+                  className="text-xs text-white bg-indigo-600 border border-indigo-600 px-5 py-1.5 rounded hover:bg-indigo-700 font-semibold shadow-sm transition-all"
+                >
+                  Add Account
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SELECT PAYMENT QR MODAL */}
+      {showQRModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-200">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Landmark size={14} className="text-indigo-500" />
+                Select Payment QR Code
+              </span>
+              <button 
+                onClick={() => setShowQRModal(false)}
+                className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4 text-xs text-gray-600">
+              {bankAccounts.length === 0 ? (
+                <div className="text-center py-6 space-y-3">
+                  <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mx-auto text-indigo-500">
+                    <Landmark size={20} />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-bold text-gray-700">No bank accounts found</p>
+                    <p className="text-[10px] text-gray-400">Please add a bank account with UPI ID first to generate payment QR code</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowQRModal(false);
+                      setShowBankModal(true);
+                    }}
+                    className="text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-1.5 rounded font-bold shadow-xs transition-colors"
+                  >
+                    Add Bank Account
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Connected Bank UPI Accounts</p>
+                  <div className="divide-y divide-gray-100 max-h-60 overflow-y-auto border border-gray-200 rounded">
+                    {bankAccounts.map(bank => (
+                      <button
+                        key={bank.id}
+                        onClick={() => {
+                          setSelectedQRBankId(bank.id);
+                          setShowQRModal(false);
+                          toast.success(`Dynamic QR Payment connected to ${bank.name}! 📱`);
+                        }}
+                        className={`w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center justify-between transition-colors ${selectedQRBankId === bank.id ? "bg-indigo-50/40" : ""}`}
+                      >
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-gray-700">{bank.name}</p>
+                          <p className="text-[10px] text-gray-400 font-mono">{bank.upiId || "No UPI ID listed"}</p>
+                        </div>
+                        {selectedQRBankId === bank.id && (
+                          <div className="w-4 h-4 rounded-full bg-indigo-600 flex items-center justify-center text-white text-[8px] font-bold">✓</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t border-gray-150 pt-4 flex justify-end gap-2">
+                <button
+                  onClick={() => setShowQRModal(false)}
+                  className="text-xs text-gray-500 border border-gray-300 bg-white px-4 py-1.5 rounded hover:bg-gray-100 font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HIDDEN SIGNATURE UPLOAD INPUT */}
+      <input 
+        type="file"
+        id="sig-upload-input"
+        className="hidden"
+        accept="image/*"
+        onChange={handleSignatureUpload}
+      />
+
+      {/* SIGNATURE SELECTION MODAL */}
+      {showSignatureModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col border border-gray-200">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                Signature
+              </span>
+              <button 
+                onClick={() => setShowSignatureModal(false)}
+                className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="grid grid-cols-2 gap-4">
+                
+                {/* Option 1: Upload from Desktop */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const inputEl = document.getElementById("sig-upload-input");
+                    inputEl?.click();
+                  }}
+                  className="border border-indigo-100 hover:border-indigo-300 bg-indigo-50/5 hover:bg-indigo-50/20 rounded-xl p-6 flex flex-col items-center justify-center text-center gap-3 transition-all cursor-pointer group"
+                >
+                  <div className="w-12 h-12 rounded-full bg-indigo-50 group-hover:bg-indigo-100/70 flex items-center justify-center text-indigo-600 transition-all">
+                    <Plus size={22} className="stroke-[2.5]" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-bold text-xs text-gray-800">Upload Signature from Desktop</p>
+                  </div>
+                </button>
+
+                {/* Option 2: Empty Box placeholder */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSignatureModal(false);
+                    setShowEmptySigModal(true);
+                  }}
+                  className="border border-indigo-100 hover:border-indigo-300 bg-indigo-50/5 hover:bg-indigo-50/20 rounded-xl p-6 flex flex-col items-center justify-center text-center gap-3 transition-all cursor-pointer group"
+                >
+                  <div className="w-12 h-12 rounded-full bg-indigo-50 group-hover:bg-indigo-100/70 flex items-center justify-center text-indigo-600 transition-all">
+                    <div className="w-5 h-5 border-2 border-indigo-600 rounded-sm"></div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-bold text-xs text-gray-800">Show Empty Signature Box on Invoice</p>
+                  </div>
+                </button>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EMPTY SIGNATURE PREVIEW & CONFIRM MODAL */}
+      {showEmptySigModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-200">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-sm font-bold text-gray-800 uppercase tracking-wider">
+                Empty Signature box
+              </span>
+              <button 
+                onClick={() => setShowEmptySigModal(false)}
+                className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-5">
+              
+              {/* High fidelity Mini-invoice Preview representation */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 relative overflow-hidden flex flex-col gap-2">
+                <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                  <div className="w-16 h-3 bg-gray-300 rounded-xs"></div>
+                  <div className="w-10 h-3 bg-gray-200 rounded-xs"></div>
+                </div>
+                <div className="space-y-1.5 my-1">
+                  <div className="w-full h-2 bg-gray-150 rounded-xs"></div>
+                  <div className="w-[85%] h-2 bg-gray-150 rounded-xs"></div>
+                </div>
+                <div className="flex justify-end pt-3">
+                  <div className="w-24 border border-dashed border-red-400 rounded p-2 text-[7px] text-red-500 font-bold text-center leading-normal bg-red-50/15">
+                    Authorized Signatory
+                    <div className="h-6 mt-1 border border-dashed border-red-200 rounded-xs flex items-center justify-center text-[5px] text-red-300">
+                      Sign Here
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-center">
+                <p className="text-xs text-gray-650 leading-relaxed px-2">
+                  Empty box for signature will be shown in invoices and PDFs. You can manually sign invoices.
+                </p>
+              </div>
+
+              <div className="border-t border-gray-150 pt-4 flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const inputEl = document.getElementById("sig-upload-input");
+                    inputEl?.click();
+                  }}
+                  className="text-xs text-gray-700 border border-gray-300 bg-white px-4 py-1.5 rounded-lg hover:bg-gray-100 font-bold transition-colors"
+                >
+                  Upload Signature
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSignatureType("empty");
+                    setSignatureImage("");
+                    setShowEmptySigModal(false);
+                    toast.success("Empty signature box enabled! ✍️");
+                  }}
+                  className="text-xs text-white bg-indigo-600 border border-indigo-600 px-5 py-1.5 rounded-lg hover:bg-indigo-700 font-bold shadow-xs transition-all"
+                >
+                  Confirm
+                </button>
+              </div>
+
+            </div>
           </div>
         </div>
       )}

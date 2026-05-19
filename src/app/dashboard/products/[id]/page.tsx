@@ -254,11 +254,16 @@ export default function ItemDetailsPage() {
       return;
     }
 
+    if (adjustType === "reduce" && parsedQty > product.stock) {
+      toast.error(`Cannot reduce stock by ${parsedQty} ${product.unit}. Only ${product.stock} ${product.unit} is currently in stock.`);
+      return;
+    }
+
     try {
       setAdjustSaving(true);
       const newStock = adjustType === "add" 
         ? product.stock + parsedQty 
-        : Math.max(0, product.stock - parsedQty);
+        : product.stock - parsedQty;
 
       await updateDoc(doc(db, "products", id), {
         stock: newStock,

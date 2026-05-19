@@ -118,6 +118,31 @@ export default function EditPartyPage() {
       return;
     }
 
+    if (phone.trim() && !/^\d{10}$/.test(phone.trim())) {
+      toast.error("Please enter a valid 10-digit mobile number");
+      return;
+    }
+
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    if (gstin.trim() && gstin.trim().length !== 15) {
+      toast.error("GSTIN must be exactly 15 characters");
+      return;
+    }
+
+    if (panNumber.trim() && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i.test(panNumber.trim())) {
+      toast.error("Please enter a valid 10-character PAN number (e.g. ABCDE1234F)");
+      return;
+    }
+
+    if (showBankForm && ifscCode.trim() && !/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(ifscCode.trim())) {
+      toast.error("Please enter a valid 11-character IFSC code (e.g. SBIN0001234)");
+      return;
+    }
+
     try {
       setSaving(true);
 

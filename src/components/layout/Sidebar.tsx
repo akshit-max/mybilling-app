@@ -26,6 +26,9 @@ import {
   Plus,
   Share2,
 } from "lucide-react";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 
 type SubItem = {
   name: string;
@@ -50,6 +53,34 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
+  
+  const [businessName, setBusinessName] = useState("Loading...");
+  const [phone, setPhone] = useState("...");
+  const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const snap = await getDoc(doc(db, "settings", user.uid));
+          if (snap.exists()) {
+            setBusinessName(snap.data().businessName || "self");
+            setPhone(snap.data().phone || "...");
+          } else {
+            setBusinessName("self");
+            setPhone("...");
+          }
+        } catch (err) {
+          console.error(err);
+          setBusinessName("self");
+        }
+      } else {
+        setBusinessName("self");
+        setPhone("...");
+      }
+    });
+    return () => unsub();
+  }, []);
 
   const toggleMenu = (name: string) => {
     setExpandedMenus(prev => ({ ...prev, [name]: !prev[name] }));
@@ -154,43 +185,69 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 bg-[#141725] text-white flex flex-col h-screen flex-shrink-0 font-sans border-r border-gray-800">
+    <aside className="w-64 bg-[#141725] text-white flex flex-col h-screen flex-shrink-0 font-sans border-r border-gray-800 relative z-50">
 
       {/* User Profile Area */}
-      <div className="p-4 flex items-center gap-3 border-b border-gray-800">
-        <div className="w-10 h-10 rounded-full bg-purple-900/50 flex items-center justify-center text-purple-300 font-bold text-sm">
-          S
+      <Link href="/dashboard/settings/account" className="p-4 flex items-center gap-3 border-b border-gray-800 hover:bg-white/5 transition-colors cursor-pointer">
+        <div className="w-10 h-10 rounded-full bg-purple-900/50 flex items-center justify-center text-purple-300 font-bold text-sm uppercase">
+          {businessName.charAt(0)}
         </div>
-        <div>
-          <div className="font-semibold text-sm">self</div>
-          <div className="text-xs text-gray-400">7505371139</div>
+        <div className="overflow-hidden">
+          <div className="font-semibold text-sm truncate">{businessName}</div>
+          <div className="text-xs text-gray-400 truncate">{phone}</div>
         </div>
-      </div>
+      </Link>
 
       {/* Primary Action Buttons */}
       <div className="px-4 py-4 space-y-2.5">
-        <Link
-          href="/dashboard/invoices/create"
-          className="w-full bg-white text-[#141725] flex items-center justify-between px-4 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors text-sm"
-        >
-          <div className="flex items-center gap-2">
-            <Plus size={15} />
-            <span>Create Sales Invoice</span>
-          </div>
-          <ChevronDown size={14} className="text-gray-500" />
-        </Link>
+        <div className="relative z-50">
+          <button
+            onClick={() => setIsCreateDropdownOpen(!isCreateDropdownOpen)}
+            className="w-full bg-white text-[#141725] flex items-center justify-between px-4 py-2.5 rounded-full font-semibold hover:bg-gray-100 transition-colors text-sm shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <Plus size={16} className="text-indigo-600 font-bold" />
+              <span>Create Sales Invoice</span>
+            </div>
+            <ChevronDown size={15} className={`text-gray-500 transition-transform duration-200 ${isCreateDropdownOpen ? "rotate-180" : ""}`} />
+          </button>
 
-        <button className="w-full bg-gradient-to-r from-orange-500/20 to-orange-500/10 border border-orange-500/30 text-orange-400 flex items-center justify-between px-4 py-2 rounded-full font-semibold hover:bg-orange-500/20 transition-colors text-sm">
+          {isCreateDropdownOpen && (
+            <>
+              <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-3xs" onClick={() => setIsCreateDropdownOpen(false)}></div>
+              <div className="absolute left-0 top-full mt-2 w-full bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden text-sm animate-in fade-in zoom-in-95 duration-150">
+                <Link href="/dashboard/invoices/create" onClick={() => setIsCreateDropdownOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-gray-800 hover:bg-indigo-50 hover:text-indigo-600 font-bold border-b border-gray-100 transition-colors">
+                  <FileText size={16} className="text-indigo-600" />
+                  <span>Sales Invoice</span>
+                </Link>
+                <Link href="#" onClick={() => setIsCreateDropdownOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-indigo-600 font-medium border-b border-gray-100 transition-colors">
+                  <FileCheck2 size={16} className="text-emerald-600" />
+                  <span>Quotation / Estimate</span>
+                </Link>
+                <Link href="#" onClick={() => setIsCreateDropdownOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-indigo-600 font-medium border-b border-gray-100 transition-colors">
+                  <Landmark size={16} className="text-blue-600" />
+                  <span>Payment In</span>
+                </Link>
+                <Link href="/dashboard/purchases" onClick={() => setIsCreateDropdownOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-indigo-600 font-medium transition-colors">
+                  <ShoppingBag size={16} className="text-purple-600" />
+                  <span>Purchase Invoice</span>
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+
+        <button className="w-full bg-gradient-to-r from-amber-500/15 to-amber-500/5 border border-amber-500/30 text-amber-300 flex items-center justify-between px-3.5 py-2.5 rounded-full font-semibold hover:bg-amber-500/25 transition-colors text-xs shadow-xs">
           <div className="flex items-center gap-2">
-            <Crown size={15} />
-            <span>Buy Premium Plan</span>
+            <Crown size={15} className="text-amber-400" />
+            <span className="font-bold tracking-wide">Plans & Pricing</span>
           </div>
-          <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">0 Days Left</span>
+          <span className="bg-[#ef4444] text-white text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider shadow-xs">Trial Expired</span>
         </button>
       </div>
 
       {/* Navigation Links */}
-      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-5 scrollbar-thin scrollbar-thumb-gray-800">
+      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-5 scrollbar-none [&::-webkit-scrollbar]:hidden">
         {navGroups.map((group, gIdx) => (
           <div key={gIdx} className="space-y-0.5">
             <h3 className="px-3 text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-1.5 mt-1">

@@ -43,6 +43,8 @@ export default function PartiesPage() {
   const [activeTab, setActiveTab] = useState<"all" | "collect" | "pay">("all");
   const [showBanner, setShowBanner] = useState(true);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<keyof Customer | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Categories Dropdowns & Modals States
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -72,9 +74,36 @@ export default function PartiesPage() {
           query(collection(db, "customers"), where("userId", "==", user.uid))
         );
 
+        // Fetch all invoices to calculate real-time balance
+        const invSnap = await getDocs(
+          query(collection(db, "invoices"), where("userId", "==", user.uid))
+        );
+        const invData = invSnap.docs.map(docSnap => docSnap.data());
+
         const custData: Customer[] = snap.docs.map((d) => {
           const docData = d.data();
-          const balance = docData.balance !== undefined ? docData.balance : (docData.pendingAmount !== undefined ? docData.pendingAmount : 0);
+          const openingBalance = Number(docData.openingBalance || 0);
+          const openingBalanceType = docData.openingBalanceType || "collect";
+          let initialBalance = openingBalanceType === "collect" ? openingBalance : -openingBalance;
+
+          // Find all active sales invoices for this customer
+          const custInvoices = invData.filter(inv => 
+            inv.customerName?.toLowerCase().trim() === (docData.name || docData.partyName || "").toLowerCase().trim() &&
+            inv.invoiceType !== "estimate" &&
+            inv.status !== "cancelled"
+          );
+
+          // Sum unpaid amount
+          const unpaidSum = custInvoices.reduce((sum, inv) => {
+            const total = Number(inv.total || 0);
+            const received = typeof inv.amountReceived === "number"
+              ? inv.amountReceived
+              : (inv.status === "paid" ? total : 0);
+            return sum + Math.max(0, total - received);
+          }, 0);
+
+          const finalBalance = initialBalance + unpaidSum;
+
           return {
             id: d.id,
             name: docData.name || docData.partyName || "Unknown",
@@ -85,9 +114,9 @@ export default function PartiesPage() {
             state: docData.state || "",
             type: docData.type || "Customer",
             category: docData.category || "-",
-            balance: Number(balance),
-            openingBalance: Number(docData.openingBalance || 0),
-            openingBalanceType: docData.openingBalanceType || "collect",
+            balance: finalBalance,
+            openingBalance: openingBalance,
+            openingBalanceType: openingBalanceType,
           };
         });
         setCustomers(custData);
@@ -198,6 +227,24 @@ export default function PartiesPage() {
     cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
   );
 
+    const handleSort = (field: keyof Customer) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const renderSortIndicator = (field: keyof Customer) => {
+    if (sortField !== field) {
+      return <span className="text-gray-300 ml-1 select-none font-normal text-[9px]">⇅</span>;
+    }
+    return sortDirection === "asc" 
+      ? <span className="text-indigo-650 ml-1 select-none font-bold text-[9px]">▲</span>
+      : <span className="text-indigo-650 ml-1 select-none font-bold text-[9px]">▼</span>;
+  };
+
   // Filter & Search Logic
   const filteredCustomers = customers.filter((c) => {
     const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -216,6 +263,24 @@ export default function PartiesPage() {
       return (c.balance || 0) < 0;
     }
     return true;
+  });
+
+  // Sort Logic
+  const sortedCustomers = [...filteredCustomers].sort((a, b) => {
+    if (!sortField) return 0;
+    
+    let valA = a[sortField];
+    let valB = b[sortField];
+    
+    if (typeof valA === "string") valA = valA.toLowerCase();
+    if (typeof valB === "string") valB = valB.toLowerCase();
+    
+    if (valA === undefined || valA === null) return sortDirection === "asc" ? 1 : -1;
+    if (valB === undefined || valB === null) return sortDirection === "asc" ? -1 : 1;
+    
+    if (valA < valB) return sortDirection === "asc" ? -1 : 1;
+    if (valA > valB) return sortDirection === "asc" ? 1 : -1;
+    return 0;
   });
 
   // Calculate Stats
@@ -532,16 +597,41 @@ export default function PartiesPage() {
             <table className="w-full text-left text-xs text-gray-600 border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider text-[10px]">
-                  <th className="px-4 py-2.5 font-bold">Party Name</th>
-                  <th className="px-4 py-2.5 font-bold">Category</th>
-                  <th className="px-4 py-2.5 font-bold">Mobile Number</th>
-                  <th className="px-4 py-2.5 font-bold">Party Type</th>
-                  <th className="px-4 py-2.5 font-bold text-right">Balance</th>
+                  <th className="px-4 py-2.5 font-bold cursor-pointer select-none hover:bg-gray-100 transition-colors" onClick={() => handleSort('name')}>
+                    <div className="flex items-center">
+                      <span>Party Name</span>
+                      {renderSortIndicator('name')}
+                    </div>
+                  </th>
+                  <th className="px-4 py-2.5 font-bold cursor-pointer select-none hover:bg-gray-100 transition-colors" onClick={() => handleSort('category')}>
+                    <div className="flex items-center">
+                      <span>Category</span>
+                      {renderSortIndicator('category')}
+                    </div>
+                  </th>
+                  <th className="px-4 py-2.5 font-bold cursor-pointer select-none hover:bg-gray-100 transition-colors" onClick={() => handleSort('phone')}>
+                    <div className="flex items-center">
+                      <span>Mobile Number</span>
+                      {renderSortIndicator('phone')}
+                    </div>
+                  </th>
+                  <th className="px-4 py-2.5 font-bold cursor-pointer select-none hover:bg-gray-100 transition-colors" onClick={() => handleSort('type')}>
+                    <div className="flex items-center">
+                      <span>Party Type</span>
+                      {renderSortIndicator('type')}
+                    </div>
+                  </th>
+                  <th className="px-4 py-2.5 font-bold text-right cursor-pointer select-none hover:bg-gray-100 transition-colors" onClick={() => handleSort('balance')}>
+                    <div className="flex items-center justify-end">
+                      <span>Balance</span>
+                      {renderSortIndicator('balance')}
+                    </div>
+                  </th>
                   <th className="px-4 py-2.5 text-center w-10"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredCustomers.map((c) => {
+                {sortedCustomers.map((c) => {
                   const isDebit = (c.balance || 0) > 0;
                   const absBalance = Math.abs(c.balance || 0);
 

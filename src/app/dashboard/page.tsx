@@ -26,18 +26,24 @@ type Invoice = {
   invoiceNumber?: string;
   createdAt?: Timestamp | Date | any;
   invoiceType?: string;
+  amountReceived?: number;
 };
 
 export default function Dashboard() {
   const [recentTransactions, setRecentTransactions] = useState<Invoice[]>([]);
+  const [allInvoicesCache, setAllInvoicesCache] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ toCollect: 0, toPay: 0, totalSales: 0 });
   const [lastUpdated, setLastUpdated] = useState<string>("");
+  const [graphMode, setGraphMode] = useState<"daily" | "weekly">("daily");
+  const [showGraphDropdown, setShowGraphDropdown] = useState(false);
 
   // Chart aggregation states
   const [chartPoints, setChartPoints] = useState<{ x: number; y: number; label: string; value: number }[]>([]);
   const [last7DaysSales, setLast7DaysSales] = useState<number>(0);
   const [last7DaysInvoicesCount, setLast7DaysInvoicesCount] = useState<number>(0);
+  const [lastWeeksSales, setLastWeeksSales] = useState<number>(0);
+  const [lastWeeksInvoicesCount, setLastWeeksInvoicesCount] = useState<number>(0);
 
   const fetchDashboardData = async (userUid: string) => {
     try {
@@ -58,9 +64,10 @@ export default function Dashboard() {
 
       allInvoices.forEach(inv => {
         totalSales += inv.total || 0;
-        if (inv.status !== "paid") {
-          toCollect += inv.total || 0; // pending balances
-        }
+        const received = typeof inv.amountReceived === "number"
+          ? inv.amountReceived
+          : (inv.status === "paid" ? inv.total : 0);
+        toCollect += Math.max(0, (inv.total || 0) - received);
       });
 
       setStats({ toCollect, toPay, totalSales });
@@ -128,16 +135,59 @@ export default function Dashboard() {
       setLast7DaysSales(sevenDaySum);
       setLast7DaysInvoicesCount(sevenDayCount);
 
-      // Construct points on a 600x180 SVG viewBox coordinate system
+      // Construct DAILY points on a 600x180 SVG viewBox coordinate system
       const maxVal = Math.max(...dailySales, 100); 
       const points = chartLabels.map((label, idx) => {
         const x = 40 + idx * 85; // Spread horizontal spacing
-        // Y-axis spans between 20 (peak) and 150 (base line)
         const y = 150 - (dailySales[idx] / maxVal) * 120;
         return { x, y, label, value: dailySales[idx] };
       });
 
       setChartPoints(points);
+
+      // WEEKLY aggregation — last 4 weeks (for toggle)
+      const weekLabels = ["Wk 4", "Wk 3", "Wk 2", "Wk 1"];
+      const weeklySales = Array(4).fill(0);
+      let weeklySum = 0;
+      let weeklyCount = 0;
+
+      allInvoices.forEach(inv => {
+        if (!inv.createdAt) return;
+        const invDate = typeof inv.createdAt.toDate === "function"
+          ? inv.createdAt.toDate()
+          : new Date(inv.createdAt);
+        const diffDays = Math.floor((today.getTime() - invDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays < 28) {
+          const weekSlot = 3 - Math.floor(diffDays / 7);
+          if (weekSlot >= 0 && weekSlot < 4) {
+            weeklySales[weekSlot] += inv.total || 0;
+            weeklySum += inv.total || 0;
+            weeklyCount += 1;
+          }
+        }
+      });
+
+      setLastWeeksSales(weeklySum);
+      setLastWeeksInvoicesCount(weeklyCount);
+
+      // Store all invoices for live re-compute when mode toggles
+      setAllInvoicesCache(allInvoices);
+      
+      // Store weekly points in a ref-like state so toggle can switch immediately
+      // We store them but chart points start with daily
+      const weeklyMaxVal = Math.max(...weeklySales, 100);
+      const weeklyPoints = weekLabels.map((label, idx) => {
+        const x = 80 + idx * 145;
+        const y = 150 - (weeklySales[idx] / weeklyMaxVal) * 120;
+        return { x, y, label, value: weeklySales[idx] };
+      });
+
+      // Always keep both ready in component-level refs via a combined state
+      // Start with daily
+      setChartPoints(points);
+      // We'll use graphMode state and recompute in useEffect when mode changes
+      (window as any).__weeklyChartPoints = weeklyPoints;
+      (window as any).__dailyChartPoints = points;
 
       // Update Timestamp
       const now = new Date();
@@ -167,6 +217,17 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
+  // Switch chart points when graph mode changes
+  useEffect(() => {
+    if (graphMode === "weekly") {
+      const pts = (window as any).__weeklyChartPoints;
+      if (pts) setChartPoints(pts);
+    } else {
+      const pts = (window as any).__dailyChartPoints;
+      if (pts) setChartPoints(pts);
+    }
+  }, [graphMode]);
+
   const handleRefresh = () => {
     const user = auth.currentUser;
     if (user) {
@@ -178,11 +239,14 @@ export default function Dashboard() {
   // Helper date range calculators for title
   const get7DaysRangeString = () => {
     const today = new Date();
-    const sixDaysAgo = new Date();
-    sixDaysAgo.setDate(today.getDate() - 6);
-    
+    const startDate = new Date();
+    if (graphMode === "weekly") {
+      startDate.setDate(today.getDate() - 27);
+    } else {
+      startDate.setDate(today.getDate() - 6);
+    }
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const startStr = `${sixDaysAgo.getDate()} ${months[sixDaysAgo.getMonth()]} ${sixDaysAgo.getFullYear()}`;
+    const startStr = `${startDate.getDate()} ${months[startDate.getMonth()]} ${startDate.getFullYear()}`;
     const endStr = `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
     return `${startStr} to ${endStr}`;
   };
@@ -208,8 +272,6 @@ export default function Dashboard() {
     if (!linePath || chartPoints.length === 0) return "";
     return `${linePath} L ${chartPoints[chartPoints.length - 1].x} 150 L ${chartPoints[0].x} 150 Z`;
   };
-
-  const maxChartValue = Math.max(...chartPoints.map(p => p.value), 100);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10 font-sans px-2">
@@ -321,13 +383,13 @@ export default function Dashboard() {
                         
                         const txnType = (tx.invoiceType || "invoice") === "estimate" ? "Estimate" : "Sales Invoices";
                         return (
-                          <tr key={tx.id} className="hover:bg-gray-50/30 transition-colors">
+                          <Link key={tx.id} href={`/dashboard/invoices/${tx.id}`} className="table-row hover:bg-indigo-50/30 cursor-pointer transition-colors">
                              <td className="py-3.5 px-5 font-semibold text-gray-800">{dateFormatted}</td>
                              <td className="py-3.5 px-5 text-gray-500 font-bold">{txnType}</td>
                              <td className="py-3.5 px-5 font-mono text-gray-500">{tx.invoiceNumber}</td>
                              <td className="py-3.5 px-5 text-gray-900 font-bold uppercase truncate max-w-[120px]">{tx.customerName}</td>
                              <td className="py-3.5 px-5 text-right font-bold text-gray-900 font-mono">₹{tx.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                          </tr>
+                          </Link>
                         );
                       })}
                    </tbody>
@@ -352,7 +414,6 @@ export default function Dashboard() {
            
            <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
              <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center text-orange-400 mb-4 opacity-75">
-               {/* High fidelity traffic cone illustration matching screenshots */}
                <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M4 22h16" strokeLinecap="round" />
                   <path d="M12 2L6 19h12L12 2z" fill="#FFEDD5" />
@@ -383,12 +444,12 @@ export default function Dashboard() {
                
                {/* Dynamic Y-Axis Labels Panel matching FloBiz style */}
                <div className="w-12 h-full flex flex-col justify-between text-right text-[9px] font-bold text-gray-400 font-mono pr-2 select-none py-1.5">
-                  <span>₹{Math.round(maxChartValue).toLocaleString()}</span>
-                  <span>₹{Math.round(maxChartValue * 5 / 6).toLocaleString()}</span>
-                  <span>₹{Math.round(maxChartValue * 4 / 6).toLocaleString()}</span>
-                  <span>₹{Math.round(maxChartValue * 3 / 6).toLocaleString()}</span>
-                  <span>₹{Math.round(maxChartValue * 2 / 6).toLocaleString()}</span>
-                  <span>₹{Math.round(maxChartValue / 6).toLocaleString()}</span>
+                  <span>{chartPoints.length > 0 ? `₹${Math.round(Math.max(...chartPoints.map(p => p.value), 100)).toLocaleString()}` : "₹0"}</span>
+                  <span>-</span>
+                  <span>-</span>
+                  <span>-</span>
+                  <span>-</span>
+                  <span>-</span>
                   <span>₹0</span>
                </div>
 
@@ -402,7 +463,6 @@ export default function Dashboard() {
                          </linearGradient>
                        </defs>
 
-                       {/* horizontal helper grid lines mapping left labels perfectly */}
                        <line x1="10" y1="20" x2="590" y2="20" stroke="#f3f4f6" strokeWidth="1" strokeDasharray="3 3" />
                        <line x1="10" y1="41.6" x2="590" y2="41.6" stroke="#f3f4f6" strokeWidth="1" strokeDasharray="3 3" />
                        <line x1="10" y1="63.3" x2="590" y2="63.3" stroke="#f3f4f6" strokeWidth="1" strokeDasharray="3 3" />
@@ -411,13 +471,11 @@ export default function Dashboard() {
                        <line x1="10" y1="128.3" x2="590" y2="128.3" stroke="#f3f4f6" strokeWidth="1" strokeDasharray="3 3" />
                        <line x1="10" y1="150" x2="590" y2="150" stroke="#e5e7eb" strokeWidth="1.5" />
 
-                       {/* Gradient Area Fill under smooth curve */}
                        <path 
                          d={getAreaPath(getCurvePath())} 
                          fill="url(#green-gradient)" 
                        />
 
-                       {/* Solid Green Main trend curve */}
                        <path 
                          d={getCurvePath()} 
                          fill="none" 
@@ -426,15 +484,12 @@ export default function Dashboard() {
                          strokeLinecap="round"
                        />
 
-                       {/* Dynamic Interactive Dot markers at peak points */}
                        {chartPoints.map((pt, idx) => (
                          <g key={idx} className="group cursor-pointer">
                             {pt.value > 0 && (
                               <>
                                 <circle cx={pt.x} cy={pt.y} r="6" fill="#10B981" className="animate-pulse" />
                                 <circle cx={pt.x} cy={pt.y} r="3" fill="#ffffff" />
-                                
-                                {/* Floating Value Labels */}
                                 <text 
                                   x={pt.x} 
                                   y={pt.y - 12} 
@@ -445,7 +500,6 @@ export default function Dashboard() {
                                 </text>
                               </>
                             )}
-                            {/* Base horizontal day labels */}
                             <text 
                               x={pt.x} 
                               y="168" 
@@ -468,24 +522,49 @@ export default function Dashboard() {
                
                <div className="flex items-center justify-between lg:justify-end gap-2 shrink-0">
                   <div className="relative inline-block text-left">
-                     <button className="flex items-center gap-1 text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-100 transition">
-                       <span>Daily</span>
+                     <button 
+                       onClick={() => setShowGraphDropdown(!showGraphDropdown)}
+                       className="flex items-center gap-1 text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-100 transition"
+                     >
+                       <span className="capitalize">{graphMode === "daily" ? "Daily" : "Weekly"}</span>
                        <ChevronDown size={11} className="text-gray-400" />
                      </button>
+
+                     {showGraphDropdown && (
+                       <>
+                         <div className="fixed inset-0 z-10" onClick={() => setShowGraphDropdown(false)}></div>
+                         <div className="absolute right-0 mt-1 w-24 bg-white border border-gray-200 rounded-lg shadow-md z-20 overflow-hidden text-[11px]">
+                           <button 
+                             onClick={() => { setGraphMode("daily"); setShowGraphDropdown(false); }}
+                             className={`w-full text-left px-3 py-2 hover:bg-gray-50 font-semibold ${graphMode === "daily" ? "text-indigo-600 bg-indigo-50" : "text-gray-700"}`}
+                           >
+                             Daily
+                           </button>
+                           <button 
+                             onClick={() => { setGraphMode("weekly"); setShowGraphDropdown(false); }}
+                             className={`w-full text-left px-3 py-2 hover:bg-gray-50 font-semibold ${graphMode === "weekly" ? "text-indigo-600 bg-indigo-50" : "text-gray-700"}`}
+                           >
+                             Weekly
+                           </button>
+                         </div>
+                       </>
+                     )}
                   </div>
                </div>
 
                <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Last 7 days sales</p>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                     {graphMode === "daily" ? "Last 7 days sales" : "Last 4 weeks sales"}
+                  </p>
                   <p className="text-xl font-bold text-gray-900 font-mono tracking-tight">
-                    ₹ {last7DaysSales.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    ₹ {(graphMode === "daily" ? last7DaysSales : lastWeeksSales).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                   </p>
                </div>
 
                <div className="space-y-1.5 mt-auto">
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Invoices Made</p>
                   <p className="text-xl font-bold text-gray-900 font-mono tracking-tight">
-                    {last7DaysInvoicesCount}
+                    {graphMode === "daily" ? last7DaysInvoicesCount : lastWeeksInvoicesCount}
                   </p>
                </div>
 
