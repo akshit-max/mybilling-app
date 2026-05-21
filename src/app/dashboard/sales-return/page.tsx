@@ -40,9 +40,9 @@ export default function SalesReturnList() {
           id: doc.id,
           date: data.date || "",
           salesReturnNumber: data.salesReturnNumber || "-",
-          partyName: data.partyName || "Unknown",
+          partyName: data.customerName || data.partyName || "Unknown",
           linkedInvoiceNumber: data.linkedInvoiceNumber || "-",
-          totalAmount: Number(data.totalAmount || 0),
+          totalAmount: Number(data.total || data.totalAmount || 0),
           status: data.status || "Settled"
         };
       });
@@ -93,7 +93,7 @@ export default function SalesReturnList() {
         
         {/* HEADER */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Sales Return / Cr. Note</h1>
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Sales Return</h1>
           <Link
             href="/dashboard/sales-return/create"
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-2"

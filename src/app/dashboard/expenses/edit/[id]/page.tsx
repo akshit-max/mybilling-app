@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Settings, Plus, Trash2, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc } from "firebase/firestore";
 import toast from "react-hot-toast";
 import { sanitizeNumericInput } from "@/lib/sanitize";
 
@@ -27,9 +27,11 @@ type Party = {
   name: string;
 };
 
-export default function CreateExpensePage() {
+export default function EditExpensePage() {
+  const { id } = useParams() as { id: string };
   const router = useRouter();
 
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [parties, setParties] = useState<Party[]>([]);
   
@@ -37,7 +39,7 @@ export default function CreateExpensePage() {
   const [withGst, setWithGst] = useState(false);
   const [partyId, setPartyId] = useState("");
   const [category, setCategory] = useState("");
-  const [expenseNumber, setExpenseNumber] = useState("1");
+  const [expenseNumber, setExpenseNumber] = useState("");
   const [originalInvoiceNumber, setOriginalInvoiceNumber] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [paymentMode, setPaymentMode] = useState("Select");
@@ -52,28 +54,68 @@ export default function CreateExpensePage() {
   const [newCustomer, setNewCustomer] = useState({ name: "", phone: "" });
 
   // Calculate totals
-  const subTotal = items.reduce((sum, item) => sum + (item.quantity * item.rate - item.discountAmount), 0);
-  const totalTax = items.reduce((sum, item) => sum + item.taxAmount, 0);
-  const calculatedTotal = items.reduce((sum, item) => sum + item.amount, 0);
+  const subTotal = items.reduce((sum, item) => sum + (item.quantity * item.rate - (item.discountAmount || 0)), 0);
+  const totalTax = items.reduce((sum, item) => sum + (item.taxAmount || 0), 0);
+  const calculatedTotal = items.reduce((sum, item) => sum + (item.amount || 0), 0);
 
   useEffect(() => {
-    const fetchParties = async () => {
+    const fetchInitialData = async () => {
       const user = auth.currentUser;
       if (!user) return;
       try {
+        // Fetch Parties (Customers)
         const q = query(collection(db, "customers"), where("userId", "==", user.uid));
-        const snap = await getDocs(q);
-        setParties(snap.docs.map(doc => ({ id: doc.id, name: doc.data().name || "Unknown" })));
+        const partiesSnap = await getDocs(q);
+        setParties(partiesSnap.docs.map(d => ({ id: d.id, name: d.data().name || "Unknown" })));
+
+        // Fetch Expense
+        const docRef = doc(db, "expenses", id);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setWithGst(data.withGst || false);
+          setPartyId(data.partyId || "");
+          setCategory(data.category || "");
+          setExpenseNumber(data.expenseNumber || "");
+          setOriginalInvoiceNumber(data.originalInvoiceNumber || "");
+          setDate(data.date || new Date().toISOString().split("T")[0]);
+          setPaymentMode(data.paymentMode || "Select");
+          setNotes(data.notes || "");
+          setManualAmount(data.amount || "");
+          
+          // Map existing items to ensure new properties exist
+          const loadedItems = (data.items || []).map((item: any) => ({
+            id: item.id || Date.now().toString(),
+            name: item.name || "",
+            hsn: item.hsn || "",
+            quantity: item.quantity || 1,
+            rate: item.rate || 0,
+            discountRate: item.discountRate || 0,
+            discountAmount: item.discountAmount || 0,
+            taxRate: item.taxRate || 0,
+            taxAmount: item.taxAmount || 0,
+            amount: item.amount || (item.quantity * item.rate)
+          }));
+          setItems(loadedItems);
+        } else {
+          toast.error("Expense not found");
+          router.push("/dashboard/expenses");
+        }
       } catch (err) {
         console.error(err);
+        toast.error("Failed to load expense");
+      } finally {
+        setLoading(false);
       }
     };
-    
+
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) fetchParties();
+      if (user) fetchInitialData();
     });
+
     return () => unsubscribe();
-  }, []);
+  }, [id, router]);
 
   // Recalculate taxes when GST is toggled
   useEffect(() => {
@@ -123,17 +165,11 @@ export default function CreateExpensePage() {
       return toast.error("Please select an expense category");
     }
 
-    const user = auth.currentUser;
-    if (!user) {
-      return toast.error("You must be logged in to save expenses");
-    }
-
     try {
       setSaving(true);
       const selectedParty = parties.find(p => p.id === partyId);
       
       const expenseData = {
-        userId: user.uid,
         withGst,
         partyId,
         partyName: selectedParty ? selectedParty.name : "",
@@ -147,17 +183,17 @@ export default function CreateExpensePage() {
         subTotal,
         totalTax: withGst ? totalTax : 0,
         items: items,
-        createdAt: new Date()
+        updatedAt: new Date()
       };
 
-      await addDoc(collection(db, "expenses"), expenseData);
+      await updateDoc(doc(db, "expenses", id), expenseData);
       
-      toast.success("Expense saved successfully!");
+      toast.success("Expense updated successfully!");
       router.push("/dashboard/expenses");
 
     } catch (err) {
       console.error(err);
-      toast.error("Failed to save expense");
+      toast.error("Failed to update expense");
     } finally {
       setSaving(false);
     }
@@ -208,6 +244,10 @@ export default function CreateExpensePage() {
     setItems(items.filter(item => item.id !== id));
   };
 
+  if (loading) {
+    return <div className="p-8 text-center text-gray-500 font-sans">Loading...</div>;
+  }
+
   return (
     <div className="min-h-screen bg-blue-50/50 flex flex-col font-sans pb-12">
       
@@ -217,7 +257,7 @@ export default function CreateExpensePage() {
           <Link href="/dashboard/expenses" className="text-gray-600 hover:text-gray-900 transition-colors">
             <ArrowLeft size={18} />
           </Link>
-          <h1 className="text-sm font-bold text-gray-800">Create Expense</h1>
+          <h1 className="text-sm font-bold text-gray-800">Edit Expense #{expenseNumber}</h1>
         </div>
         <div className="flex items-center gap-3">
           <button className="p-1.5 text-gray-400 hover:text-gray-600 border border-gray-200 rounded bg-white shadow-sm transition-colors">
@@ -231,7 +271,7 @@ export default function CreateExpensePage() {
             disabled={saving}
             className="text-xs font-bold text-white bg-indigo-600 border border-indigo-600 px-6 py-1.5 rounded hover:bg-indigo-700 shadow-sm transition-colors disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? "Updating..." : "Update"}
           </button>
         </div>
       </header>
@@ -445,9 +485,9 @@ export default function CreateExpensePage() {
                       {withGst && (
                         <td className="px-4 py-3">
                            <div className="flex flex-col items-end gap-1">
-                             <span className="font-semibold text-gray-800">{item.taxAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                             <span className="font-semibold text-gray-800">{(item.taxAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                              <select
-                               value={item.taxRate}
+                               value={item.taxRate || 0}
                                onChange={(e) => updateItem(item.id, 'taxRate', Number(e.target.value))}
                                className="text-[10px] bg-gray-100 border border-gray-200 rounded px-1 text-gray-600 focus:outline-none"
                              >
@@ -462,7 +502,7 @@ export default function CreateExpensePage() {
                       )}
                       <td className="px-4 py-3 text-right bg-gray-50 border-l border-gray-100">
                          <span className="font-bold text-gray-800">
-                           ₹ {item.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                           ₹ {(item.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                          </span>
                       </td>
                       <td className="px-3 py-3 text-center">

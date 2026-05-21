@@ -54,7 +54,7 @@ export default function SettingsSidebar() {
     { name: "Manage Business", icon: <Building2 size={15} />, href: "/dashboard/settings" },
     { name: "Invoice Settings", icon: <FileText size={15} />, href: "/dashboard/settings/invoice" },
     { name: "Print Settings", icon: <Printer size={15} />, href: "/dashboard/settings/print" },
-    { name: "Manage Users", icon: <Users size={15} />, href: "/dashboard/manage-users" },
+    { name: "Manage Users", icon: <Users size={15} />, href: "/dashboard/settings/manage-users" },
     { name: "Reminders", icon: <Bell size={15} />, href: "/dashboard/settings/reminders" },
     { name: "CA Reports Sharing", icon: <Share2 size={15} />, href: "/dashboard/settings/ca-reports" },
     { name: "Pricing", icon: <Tag size={15} />, href: "/dashboard/settings/pricing" },
