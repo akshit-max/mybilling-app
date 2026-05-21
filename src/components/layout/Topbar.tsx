@@ -88,6 +88,9 @@ export function Topbar() {
     if (pathname.includes("/dashboard/products")) return "Items";
     if (pathname.includes("/dashboard/customers")) return "Parties";
     if (pathname.includes("/dashboard/purchases")) return "Purchase Invoices";
+    if (pathname.includes("/dashboard/payment-in")) return "Payment-in";
+    if (pathname.includes("/dashboard/payment-out")) return "Payment-out";
+    if (pathname.includes("/dashboard/sales-return")) return "Sales Return";
     if (pathname.includes("/dashboard/settings")) return "Settings";
     
     // Fallback: capitalize the last segment

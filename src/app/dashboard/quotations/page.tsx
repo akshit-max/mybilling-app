@@ -53,7 +53,6 @@ export default function QuotationsPage() {
         const q = query(
           collection(db, "invoices"),
           where("userId", "==", userId),
-          where("invoiceType", "==", "estimate"),
           orderBy("createdAt", "desc")
         );
         const snapshot = await getDocs(q);
@@ -71,7 +70,7 @@ export default function QuotationsPage() {
             isOffline: false,
             amountReceived: typeof d.amountReceived === "number" ? d.amountReceived : undefined,
           };
-        });
+        }).filter(inv => inv.invoiceType === "estimate");
       } catch (err) {
         console.warn("Firestore fetch offline fallback:", err);
       }
@@ -182,8 +181,8 @@ export default function QuotationsPage() {
     return "bg-gray-50 text-gray-700 border border-gray-200";
   };
 
-  // Real aggregations (excluding cancelled and estimates from active sales calculations)
-  const activeInvoices = invoices.filter(i => i.status !== "cancelled" && i.invoiceType !== "estimate");
+  // Real aggregations (excluding cancelled)
+  const activeInvoices = invoices.filter(i => i.status !== "cancelled");
   const totalSales = activeInvoices.reduce((acc, curr) => acc + curr.total, 0);
   const totalPaid = activeInvoices.reduce((acc, curr) => {
     const received = typeof curr.amountReceived === "number"
@@ -233,7 +232,7 @@ export default function QuotationsPage() {
       <div className="flex justify-between items-center bg-white px-6 py-4 border-b border-gray-200 shadow-sm">
         <div className="space-y-1">
           <h1 className="text-base font-bold text-gray-800">Quotation / Estimate</h1>
-          <p className="text-[11px] text-gray-400 font-medium">Create, track and generate professional tax invoices & estimates</p>
+          <p className="text-[11px] text-gray-400 font-medium">Create, track and generate professional quotations & estimates</p>
         </div>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-1.5 text-xs text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded bg-white hover:bg-indigo-50 font-semibold transition-colors">
@@ -289,7 +288,7 @@ export default function QuotationsPage() {
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
               <input 
                 type="text" 
-                placeholder="Search party or invoice no..." 
+                placeholder="Search party or quotation no..." 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-8 pr-4 py-1.5 border border-gray-200 rounded text-xs w-56 focus:outline-none focus:border-indigo-500 bg-white"
@@ -337,7 +336,7 @@ export default function QuotationsPage() {
           <div>
             <Link href="/dashboard/quotations/create" className="bg-indigo-600 text-white hover:bg-indigo-700 text-xs px-4 py-1.5 rounded font-semibold transition-colors flex items-center gap-1 shadow-sm">
               <Plus size={13} />
-              <span>Create Sales Invoice</span>
+              <span>Create Quotation</span>
             </Link>
           </div>
 
@@ -348,15 +347,15 @@ export default function QuotationsPage() {
           {loading ? (
             <div className="flex items-center justify-center p-12 text-gray-400 gap-2 text-xs">
               <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-              <span>Loading invoice logs...</span>
+              <span>Loading quotation logs...</span>
             </div>
           ) : filteredInvoices.length === 0 ? (
             <div className="text-center py-20 text-gray-400 space-y-2">
               <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto text-xl shadow-xs">
                 📄
               </div>
-              <p className="text-xs font-semibold text-gray-700">No invoices or estimates found</p>
-              <p className="text-[11px] text-gray-400 max-w-xs mx-auto">Create a new sales invoice or quotation draft to populate the records.</p>
+              <p className="text-xs font-semibold text-gray-700">No quotations or estimates found</p>
+              <p className="text-[11px] text-gray-400 max-w-xs mx-auto">Create a new quotation or estimate draft to populate the records.</p>
             </div>
           ) : (
             <table className="w-full text-left text-xs text-gray-600 border-collapse">
@@ -391,7 +390,7 @@ export default function QuotationsPage() {
                         {inv.isOffline ? (
                           <span className="text-gray-500 bg-gray-50 border border-gray-200 rounded-sm text-[9px] px-1 py-0.5 mr-1 font-bold">DRAFT</span>
                         ) : null}
-                        <Link href={`/dashboard/invoices/${inv.id}`} className="hover:text-indigo-600 hover:underline">
+                        <Link href={`/dashboard/quotations/${inv.id}`} className="hover:text-indigo-600 hover:underline">
                           {inv.invoiceNumber}
                         </Link>
                       </td>
@@ -461,7 +460,7 @@ export default function QuotationsPage() {
                                 className="w-full px-3 py-1.5 hover:bg-gray-50 text-xs text-gray-700 font-medium flex items-center gap-1.5 transition-colors text-left"
                               >
                                 <span className="text-gray-400">✕</span>
-                                <span>Cancel Invoice</span>
+                                <span>Cancel Quotation</span>
                               </button>
                             )}
 

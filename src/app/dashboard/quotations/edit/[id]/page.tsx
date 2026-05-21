@@ -82,6 +82,7 @@ export default function EditQuotation() {
   const [isEditingShipping, setIsEditingShipping] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState("");
+  const [activeProductDropdown, setActiveProductDropdown] = useState<number | null>(null);
   const [additionalChargeName, setAdditionalChargeName] = useState("Transport Charges");
   const [additionalChargeValue, setAdditionalChargeValue] = useState<number | string>(0);
   const [showDiscountInput, setShowDiscountInput] = useState(false);
@@ -517,6 +518,20 @@ export default function EditQuotation() {
     if (!customerName) return toast.error("Please select a customer first");
     if (!validItems.length) return toast.error("Please add at least one valid item");
 
+      // Check stock validation for all items against total stock
+      for (const item of validItems) {
+        const prod = item.productId 
+          ? products.find(p => p.id === item.productId)
+          : products.find(p => p.name.toLowerCase() === (item.name || "").toLowerCase());
+          
+        if (prod) {
+          if (invoiceType === "estimate" && item.qty > (prod.stock || 0)) {
+             return toast.error(`Insufficient stock for ${item.name}. Available: ${prod.stock || 0}`);
+          }
+        }
+      }
+
+
     if (calc.discountAmount > calc.subtotal) {
       return toast.error("Discount cannot exceed subtotal");
     }
@@ -774,7 +789,7 @@ export default function EditQuotation() {
         )}
 
         {/* CUSTOMER & INVOICE DETAILS CARD */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-xs overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-lg shadow-xs">
           
           <div className="bg-gray-50/45 px-4 py-2 border-b border-gray-150 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
             Bill To & Ship To Details
@@ -796,11 +811,12 @@ export default function EditQuotation() {
                     setShowPartyDropdown(true);
                   }}
                   onFocus={() => setShowPartyDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)}
                   className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-700 bg-white"
                 />
 
                 {showPartyDropdown && (
-                  <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto z-10">
+                    <div onMouseDown={(e) => e.preventDefault()} className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto z-10">
                     <button
                       onClick={() => {
                         setShowAddCustomer(true);
@@ -929,7 +945,7 @@ export default function EditQuotation() {
         </div>
 
         {/* ITEMS & BARCODE SEARCH TABLE */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-xs overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-lg shadow-xs">
           
           <div className="bg-gray-50/45 px-4 py-2 border-b border-gray-150 flex justify-between items-center">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Items / Services</span>
@@ -981,15 +997,20 @@ export default function EditQuotation() {
                         type="text"
                         placeholder="Search or enter item name..."
                         value={item.name}
-                        onChange={(e) => updateItem(idx, "name", e.target.value)}
+                        onChange={(e) => {
+                          updateItem(idx, "name", e.target.value);
+                          setActiveProductDropdown(idx);
+                        }}
+                        onFocus={() => setActiveProductDropdown(idx)}
+                        onBlur={() => setTimeout(() => setActiveProductDropdown(null), 200)}
                         className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-700 bg-white"
                       />
 
-                      {/* Optional Autocomplete match */}
-                      {item.name && !products.find(p => p.name === item.name) && (
-                        <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-32 overflow-y-auto z-10">
+                      {/* Autocomplete match */}
+                      {activeProductDropdown === idx && (
+                        <div onMouseDown={(e) => e.preventDefault()} className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-32 overflow-y-auto z-10">
                           {products
-                            .filter(p => p.name.toLowerCase().includes(item.name.toLowerCase()))
+                            .filter(p => p.name.toLowerCase().includes((item.name || "").toLowerCase()))
                             .map(p => (
                               <button
                                 key={p.id}

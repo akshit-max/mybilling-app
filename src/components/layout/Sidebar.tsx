@@ -135,8 +135,8 @@ export function Sidebar() {
           subItems: [
             { name: "Sales Invoices", href: "/dashboard/invoices" },
             { name: "Quotation / Estimate", href: "/dashboard/quotations" },
-            { name: "Payment In", href: "#" },
-            { name: "Sales Return", href: "#" },
+            { name: "Payment In", href: "/dashboard/payment-in" },
+            { name: "Sales Return", href: "/dashboard/sales-return" },
             { name: "Credit Note", href: "#" },
             { name: "Delivery Challan", href: "#" },
             { name: "Proforma Invoice", href: "#" },
@@ -149,7 +149,7 @@ export function Sidebar() {
           hasSubmenu: true,
           subItems: [
             { name: "Purchase Invoices", href: "/dashboard/purchases" },
-            { name: "Payment Out", href: "#" },
+            { name: "Payment Out", href: "/dashboard/payment-out" },
             { name: "Purchase Return", href: "#" },
             { name: "Debit Note", href: "#" },
             { name: "Purchase Orders", href: "#" },
