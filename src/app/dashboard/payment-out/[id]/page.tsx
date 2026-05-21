@@ -61,7 +61,7 @@ export default function PaymentOutReceipt() {
       try {
         await deleteDoc(doc(db, "paymentOut", id));
         toast.success("Payment deleted successfully");
-        router.push("/dashboard/payment-out");
+        window.location.href = "/dashboard/payment-out";
       } catch (err) {
         console.error(err);
         toast.error("Failed to delete payment");

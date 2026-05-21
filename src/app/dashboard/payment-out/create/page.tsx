@@ -86,7 +86,7 @@ export default function CreatePaymentOut() {
         const q = query(
           collection(db, "purchases"),
           where("userId", "==", user.uid),
-          where("partyName", "==", partyName) // In purchases, it might be partyName
+          where("customerName", "==", partyName) // In purchases, it is customerName
         );
         const snap = await getDocs(q);
         const list: PurchaseInvoice[] = snap.docs
@@ -94,7 +94,7 @@ export default function CreatePaymentOut() {
             const data = d.data();
             return {
               id: d.id,
-              invoiceNumber: data.invoiceNumber || "",
+              invoiceNumber: data.purchaseInvoiceNumber || data.invoiceNumber || "",
               date: data.date || (data.createdAt?.toDate ? data.createdAt.toDate().toISOString().split("T")[0] : ""),
               dueDate: data.dueDate || "",
               total: Number(data.total || 0),
@@ -215,14 +215,14 @@ export default function CreatePaymentOut() {
           
           batch.update(invRef, {
             amountPaid: newAmountPaid,
-            status: isFullyPaid ? "paid" : "credit"
+            status: isFullyPaid ? "paid" : "pending"
           });
         }
       }
       
       await batch.commit();
       toast.success("Payment Out recorded successfully!");
-      router.push("/dashboard/payment-out");
+      window.location.href = "/dashboard/payment-out";
     } catch (err) {
       console.error(err);
       toast.error("Failed to save payment");

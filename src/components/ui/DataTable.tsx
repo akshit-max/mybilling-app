@@ -47,7 +47,7 @@ export function DataTable<T>({ columns, data, keyExtractor, emptyState }: DataTa
           </thead>
           <tbody className="divide-y divide-gray-100">
             {data.map((row) => (
-              <tr key={keyExtractor(row)} className="hover:bg-gray-50/50 transition-colors">
+              <tr key={keyExtractor(row)} className="group hover:bg-gray-50/50 transition-colors">
                 {columns.map((col, i) => (
                   <td key={i} className={`px-4 py-3 text-gray-700 whitespace-nowrap ${col.className || ''}`}>
                     {col.cell ? col.cell(row) : col.accessorKey ? String(row[col.accessorKey]) : null}
