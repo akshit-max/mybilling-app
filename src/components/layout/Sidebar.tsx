@@ -91,8 +91,8 @@ export function Sidebar() {
     const expansions: Record<string, boolean> = {};
     if (pathname?.startsWith("/dashboard/customers")) expansions["Parties"] = true;
     if (pathname?.startsWith("/dashboard/products")) expansions["Items"] = true;
-    if (pathname?.startsWith("/dashboard/invoices")) expansions["Sales"] = true;
-    if (pathname?.startsWith("/dashboard/purchases")) expansions["Purchases"] = true;
+    if (pathname?.startsWith("/dashboard/invoices") || pathname?.startsWith("/dashboard/credit-note") || pathname?.startsWith("/dashboard/delivery-challan") || pathname?.startsWith("/dashboard/proforma-invoice")) expansions["Sales"] = true;
+    if (pathname?.startsWith("/dashboard/purchases") || pathname?.startsWith("/dashboard/purchase-return") || pathname?.startsWith("/dashboard/debit-note") || pathname?.startsWith("/dashboard/purchase-orders") || pathname?.startsWith("/dashboard/payment-out")) expansions["Purchases"] = true;
     if (Object.keys(expansions).length > 0) {
       setExpandedMenus(prev => ({ ...prev, ...expansions }));
     }
@@ -137,9 +137,9 @@ export function Sidebar() {
             { name: "Quotation / Estimate", href: "/dashboard/quotations" },
             { name: "Payment In", href: "/dashboard/payment-in" },
             { name: "Sales Return", href: "/dashboard/sales-return" },
-            { name: "Credit Note", href: "#" },
-            { name: "Delivery Challan", href: "#" },
-            { name: "Proforma Invoice", href: "#" },
+            { name: "Credit Note", href: "/dashboard/credit-note" },
+            { name: "Delivery Challan", href: "/dashboard/delivery-challan" },
+            { name: "Proforma Invoice", href: "/dashboard/proforma-invoice" },
           ],
         },
         {
@@ -150,9 +150,9 @@ export function Sidebar() {
           subItems: [
             { name: "Purchase Invoices", href: "/dashboard/purchases" },
             { name: "Payment Out", href: "/dashboard/payment-out" },
-            { name: "Purchase Return", href: "#" },
-            { name: "Debit Note", href: "#" },
-            { name: "Purchase Orders", href: "#" },
+            { name: "Purchase Return", href: "/dashboard/purchase-return" },
+            { name: "Debit Note", href: "/dashboard/debit-note" },
+            { name: "Purchase Orders", href: "/dashboard/purchase-orders" },
           ],
         },
         {
@@ -255,9 +255,7 @@ export function Sidebar() {
             </h3>
 
             {group.items.map((item) => {
-              const isParentActive = pathname?.startsWith(item.href) && item.href !== "/dashboard" 
-                ? true 
-                : pathname === item.href;
+              const isParentActive = (pathname?.startsWith(item.href) && item.href !== "/dashboard") || (item.name === "Purchases" && (pathname?.startsWith("/dashboard/purchase-return") || pathname?.startsWith("/dashboard/debit-note") || pathname?.startsWith("/dashboard/purchase-orders") || pathname?.startsWith("/dashboard/payment-out"))) || (item.name === "Sales" && (pathname?.startsWith("/dashboard/credit-note") || pathname?.startsWith("/dashboard/delivery-challan") || pathname?.startsWith("/dashboard/proforma-invoice") || pathname?.startsWith("/dashboard/payment-in") || pathname?.startsWith("/dashboard/sales-return") || pathname?.startsWith("/dashboard/quotations"))) ? true : pathname === item.href;
               const isExpanded = expandedMenus[item.name];
 
               if (!item.hasSubmenu) {

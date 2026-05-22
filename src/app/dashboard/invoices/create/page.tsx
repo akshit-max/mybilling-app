@@ -625,7 +625,43 @@ export default function CreateSalesInvoice() {
         }
       }
 
-      await addDoc(collection(db, "invoices"), invoiceData);
+      const invRef = await addDoc(collection(db, "invoices"), invoiceData);
+      
+      // Update Cash & Bank Balance
+      const amountRec = Number(amountReceived);
+      if (amountRec > 0 && invoiceType === "invoice") {
+        const isCash = paymentMode === "Cash";
+        let newBalance = 0;
+        if (isCash) {
+           const sRef = doc(db, "settings", user.uid);
+           const sSnap = await getDoc(sRef);
+           const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+           newBalance = current + amountRec;
+           await updateDoc(sRef, { cashInHand: newBalance });
+        } else {
+           const bRef = doc(db, "bankAccounts", paymentMode);
+           const bSnap = await getDoc(bRef);
+           const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+           newBalance = current + amountRec;
+           await updateDoc(bRef, { balance: newBalance });
+        }
+        
+        await addDoc(collection(db, "cashBankTransactions"), {
+          userId: user.uid,
+          accountId: isCash ? "cash" : paymentMode,
+          type: "Sales Invoice",
+          txnNo: invoiceNumber,
+          date: invoiceDate,
+          party: customerName,
+          mode: isCash ? "Cash" : "Bank",
+          paid: 0,
+          received: amountRec,
+          balanceAfter: newBalance,
+          remarks: `Received against Invoice #${invoiceNumber}`,
+          createdAt: new Date()
+        });
+      }
+
       toast.success("Sales Invoice created successfully! ✅");
       router.push("/dashboard/invoices");
 
@@ -1297,10 +1333,12 @@ export default function CreateSalesInvoice() {
                     <select
                       value={paymentMode}
                       onChange={(e) => setPaymentMode(e.target.value)}
-                      className="border border-gray-200 rounded py-1 text-[10px] focus:outline-none bg-white text-gray-600 font-semibold cursor-pointer"
+                      className="border border-gray-200 rounded py-1 px-1 text-[10px] focus:outline-none bg-white text-gray-600 font-semibold cursor-pointer max-w-[100px]"
                     >
                       <option value="Cash">Cash</option>
-                      <option value="Bank">Bank</option>
+                      {bankAccounts.filter((b: any) => b.status !== "inactive").map((b: any) => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
                     </select>
                   </div>
                 </div>

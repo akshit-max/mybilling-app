@@ -56,6 +56,14 @@ type Invoice = {
   signatureType?: "upload" | "empty" | "";
   signatureImage?: string;
   amountReceived?: number;
+  // e-Invoice & e-Way Bill tracking
+  eInvoiceGenerated?: boolean;
+  irn?: string;
+  ackNo?: string;
+  ackDate?: string;
+  ewayBillGenerated?: boolean;
+  ewayBillNo?: string;
+  ewayBillDate?: string;
 };
 
 type Company = {
@@ -521,19 +529,26 @@ export default function ViewInvoice() {
           {/* Right Actions Side (Eway / e-Invoice) */}
           <div className="flex items-center gap-2">
             <button 
-              onClick={() => toast.success("Generating E-way Bill workflow... 🚚")}
-              className="flex items-center gap-1 text-xs font-bold text-indigo-600 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100 rounded px-3 py-1.5 transition shadow-3xs"
+              onClick={() => router.push(`/dashboard/e-way-bill/generate/${id}`)}
+              className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50/80 hover:bg-blue-100/80 border border-blue-200 rounded-md px-3.5 py-1.5 transition shadow-sm"
             >
               <FileSpreadsheet size={13} />
               <span>Generate E-way Bill</span>
             </button>
             
             <button 
-              onClick={() => toast.success("e-Invoice successfully generated! ✅")}
-              className="flex items-center gap-1 text-xs font-bold text-indigo-600 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100 rounded px-3 py-1.5 transition shadow-3xs"
+              onClick={() => router.push(`/dashboard/e-invoicing/generate/${id}`)}
+              className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50/80 hover:bg-blue-100/80 border border-blue-200 rounded-md px-3.5 py-1.5 transition shadow-sm"
             >
               <CheckSquare size={13} />
               <span>Generate e-Invoice</span>
+            </button>
+
+            <button 
+              onClick={() => router.push(`/dashboard/payment-in/create?invoiceId=${id}`)}
+              className="flex items-center gap-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 border border-indigo-700 rounded-md px-3.5 py-1.5 transition shadow-sm"
+            >
+              <span>Record Payment In</span>
             </button>
           </div>
 
@@ -604,12 +619,45 @@ export default function ViewInvoice() {
                      <p className="text-right">Invoice Date: <span className="font-mono text-gray-950 font-extrabold">{formattedDate}</span></p>
                   </div>
 
+                  {/* e-Invoice block if generated */}
+                  {invoice.eInvoiceGenerated && (
+                    <div className="mb-4 text-[10px] border border-gray-300 rounded p-3 flex justify-between relative">
+                      <div className="space-y-1 w-3/4">
+                        <h3 className="text-lg font-black text-gray-800 mb-2">e-Invoice Details</h3>
+                        <p className="font-bold text-gray-600">IRN: <span className="font-mono text-gray-900 font-extrabold break-all">{invoice.irn}</span></p>
+                        <div className="flex items-center gap-6">
+                          <p className="font-bold text-gray-600">Ack No: <span className="font-mono text-gray-900 font-extrabold">{invoice.ackNo}</span></p>
+                          <p className="font-bold text-gray-600">Ack Date: <span className="font-mono text-gray-900 font-extrabold">{invoice.ackDate ? new Date(invoice.ackDate).toLocaleDateString() : "-"}</span></p>
+                        </div>
+                      </div>
+                      <div className="w-20 h-20 bg-gray-100 flex items-center justify-center shrink-0 border border-gray-200">
+                        {/* Placeholder QR Code SVG */}
+                        <svg viewBox="0 0 100 100" width="100%" height="100%">
+                          <rect width="100" height="100" fill="#fff" />
+                          <path d="M10,10 h25 v25 h-25 z M15,15 h15 v15 h-15 z M65,10 h25 v25 h-25 z M70,15 h15 v15 h-15 z M10,65 h25 v25 h-25 z M15,70 h15 v15 h-15 z M45,10 h10 v10 h-10 z M45,25 h10 v10 h-10 z M45,40 h10 v10 h-10 z M25,45 h10 v10 h-10 z M10,45 h10 v10 h-10 z M65,45 h25 v10 h-25 z M65,60 h10 v10 h-10 z M80,60 h10 v10 h-10 z M45,60 h10 v25 h-10 z M65,75 h25 v10 h-25 z M80,85 h10 v10 h-10 z" fill="#000" />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Customer details bill to block */}
-                  <div className="mb-4 space-y-0.5 text-[10px]">
-                     <p className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider">BILL TO</p>
-                     <p className="text-xs font-extrabold text-gray-900">{invoice.customerName}</p>
-                     {showPhone && invoice.customerPhone && <p className="text-gray-650 font-semibold">Mobile: {invoice.customerPhone}</p>}
-                     {invoice.customerGSTIN && <p className="text-gray-650 font-mono">GSTIN: {invoice.customerGSTIN}</p>}
+                  <div className="mb-4 flex justify-between items-start">
+                     <div className="space-y-0.5 text-[10px]">
+                       <p className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider">BILL TO</p>
+                       <p className="text-xs font-extrabold text-gray-900">{invoice.customerName}</p>
+                       {showPhone && invoice.customerPhone && <p className="text-gray-650 font-semibold">Mobile: {invoice.customerPhone}</p>}
+                       {invoice.customerGSTIN && <p className="text-gray-650 font-mono">GSTIN: {invoice.customerGSTIN}</p>}
+                     </div>
+                     
+                     {/* E-Way Bill Number Display */}
+                     {invoice.ewayBillGenerated && invoice.ewayBillNo && (
+                       <div className="text-right">
+                         <p className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                           <span>E-way Bill No.:</span>
+                           <span className="font-mono text-xl">{invoice.ewayBillNo}</span>
+                         </p>
+                       </div>
+                     )}
                   </div>
 
                   {/* Standard responsive columns products table */}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Settings2, Share2, ScanBarcode, Plus, ChevronDown, Check, Trash2, Eye, FileText, Landmark, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, updateDoc, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, updateDoc, doc, getDoc, addDoc, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
@@ -258,7 +258,7 @@ export default function EditSalesInvoice() {
         // Fetch Bank Accounts
         try {
           if (!navigator.onLine) throw new Error("Offline");
-          const bq = query(collection(db, "banks"), where("userId", "==", user.uid));
+          const bq = query(collection(db, "bankAccounts"), where("userId", "==", user.uid));
           const bsnap = await getDocs(bq);
           const bList = bsnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
           setBankAccounts(bList);
@@ -485,7 +485,7 @@ export default function EditSalesInvoice() {
       };
 
       const { setDoc, doc } = await import("firebase/firestore");
-      await setDoc(doc(db, "banks", bankId), bankData);
+      await setDoc(doc(db, "bankAccounts", bankId), bankData);
 
       const added = { id: bankId, ...bankData };
       const updated = [...bankAccounts, added];
@@ -674,6 +674,76 @@ export default function EditSalesInvoice() {
       }
 
       await updateDoc(doc(db, "invoices", id), updateData);
+      
+      // Sync Cash & Bank
+      if (invoiceType === "invoice") {
+        try {
+          // Find existing transaction for this invoice
+          const tq = query(collection(db, "cashBankTransactions"), where("userId", "==", user.uid), where("txnNo", "==", invoiceNumber), where("type", "==", "Sales Invoice"));
+          const tSnap = await getDocs(tq);
+          
+          // Reverse old transaction
+          if (!tSnap.empty) {
+             const oldTxnDoc = tSnap.docs[0];
+             const oldTxn = oldTxnDoc.data();
+             
+             // Reverse balance
+             if (oldTxn.received > 0) {
+               if (oldTxn.accountId === "cash") {
+                  const sRef = doc(db, "settings", user.uid);
+                  const sSnap = await getDoc(sRef);
+                  const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+                  await updateDoc(sRef, { cashInHand: current - oldTxn.received });
+               } else {
+                  const bRef = doc(db, "bankAccounts", oldTxn.accountId);
+                  const bSnap = await getDoc(bRef);
+                  const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+                  await updateDoc(bRef, { balance: current - oldTxn.received });
+               }
+             }
+             
+             await deleteDoc(doc(db, "cashBankTransactions", oldTxnDoc.id));
+          }
+  
+          // Apply new transaction
+          const amountRec = Number(amountReceived);
+          if (amountRec > 0) {
+             const isCash = paymentMode === "Cash";
+             let newBalance = 0;
+             if (isCash) {
+                const sRef = doc(db, "settings", user.uid);
+                const sSnap = await getDoc(sRef);
+                const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+                newBalance = current + amountRec;
+                await updateDoc(sRef, { cashInHand: newBalance });
+             } else {
+                const bRef = doc(db, "bankAccounts", paymentMode);
+                const bSnap = await getDoc(bRef);
+                const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+                newBalance = current + amountRec;
+                await updateDoc(bRef, { balance: newBalance });
+             }
+  
+             await addDoc(collection(db, "cashBankTransactions"), {
+               userId: user.uid,
+               accountId: isCash ? "cash" : paymentMode,
+               type: "Sales Invoice",
+               txnNo: invoiceNumber,
+               date: invoiceDate,
+               party: customerName,
+               mode: isCash ? "Cash" : "Bank",
+               paid: 0,
+               received: amountRec,
+               balanceAfter: newBalance,
+               remarks: `Received against Invoice #${invoiceNumber}`,
+               createdAt: new Date()
+             });
+          }
+        } catch (syncErr) {
+          console.error("Cash & Bank sync failed:", syncErr);
+        }
+      }
+
       toast.success("Invoice updated successfully! ✅");
       router.push("/dashboard/invoices");
 

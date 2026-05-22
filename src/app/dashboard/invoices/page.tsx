@@ -22,7 +22,7 @@ type Invoice = {
   total: number;
   status: "paid" | "pending" | "credit" | "cancelled" | string;
   invoiceNumber: string;
-  invoiceType?: "invoice" | "estimate";
+  invoiceType?: "invoice" | "estimate" | "pos";
   date?: string;
   dueDate?: string;
   createdAt?: any;
@@ -374,6 +374,8 @@ export default function SalesInvoicesPage() {
                       <td className="px-4 py-3 font-bold font-mono text-gray-700">
                         {inv.invoiceType === "estimate" ? (
                           <span className="text-orange-600 bg-orange-50 border border-orange-100 rounded-sm text-[9px] px-1 py-0.5 mr-1 font-bold">EST</span>
+                        ) : inv.invoiceType === "pos" ? (
+                          <span className="text-blue-600 bg-blue-50 border border-blue-100 rounded-sm text-[9px] px-1 py-0.5 mr-1 font-bold">POS</span>
                         ) : null}
                         {inv.isOffline ? (
                           <span className="text-gray-500 bg-gray-50 border border-gray-200 rounded-sm text-[9px] px-1 py-0.5 mr-1 font-bold">DRAFT</span>
