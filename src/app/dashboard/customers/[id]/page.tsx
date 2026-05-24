@@ -67,6 +67,43 @@ export default function CustomerDetailsPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [transactionTimeFilter, setTransactionTimeFilter] = useState("365");
+  const [transactionTypeFilter, setTransactionTypeFilter] = useState("all");
+
+  const exportToExcel = () => {
+    if (invoices.length === 0) return toast.error("No transactions to export");
+    const headers = ["Date", "Voucher Type", "Payment Mode", "Debit (Sales)", "Credit (Received)", "Balance"];
+    
+    const rows: string[][] = [];
+    
+    // Opening balance row
+    if (customer?.openingBalance) {
+      const obDebit = customer.openingBalanceType === "collect" ? customer.openingBalance : 0;
+      const obCredit = customer.openingBalanceType === "pay" ? customer.openingBalance : 0;
+      const obBal = customer.openingBalanceType === "collect" ? customer.openingBalance : -customer.openingBalance;
+      rows.push(["-", "Opening Balance", "-", obDebit.toString(), obCredit.toString(), obBal.toString()]);
+    }
+
+    invoices.forEach(inv => {
+      const dateStr = inv.createdAt?.toDate ? inv.createdAt.toDate().toLocaleDateString("en-IN") : new Date(inv.createdAt || 0).toLocaleDateString("en-IN");
+      const vType = inv.invoiceType === "estimate" ? "Estimate" : `Sales Invoice #${inv.invoiceNumber}`;
+      const isPaid = inv.status === "paid";
+      const debit = inv.total;
+      const credit = isPaid ? inv.total : 0;
+      const bal = isPaid ? 0 : inv.total;
+      rows.push([dateStr, vType, inv.paymentMode || "Cash", debit.toString(), credit.toString(), bal.toString()]);
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${customer?.name}_Ledger.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Ledger downloaded successfully! 📊");
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -187,6 +224,22 @@ export default function CustomerDetailsPage() {
         inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
+    
+    // Apply transactionTimeFilter logic for the Transactions tab (independent of Ledger fromDate/toDate)
+    if (activeTab === "transactions") {
+       if (transactionTimeFilter !== "all") {
+         const days = parseInt(transactionTimeFilter);
+         const cutoff = new Date();
+         cutoff.setDate(cutoff.getDate() - days);
+         filtered = filtered.filter(inv => {
+           const d = inv.createdAt?.toDate ? inv.createdAt.toDate() : new Date(inv.createdAt || 0);
+           return d >= cutoff;
+         });
+       }
+       if (transactionTypeFilter !== "all") {
+         filtered = filtered.filter(inv => inv.invoiceType === transactionTypeFilter || (transactionTypeFilter === "invoice" && !inv.invoiceType));
+       }
+    }
 
     setInvoices(filtered);
 
@@ -211,7 +264,7 @@ export default function CustomerDetailsPage() {
     setPendingAmount(pAmount);
     setTotalInvoicesCount(count);
     setLastPurchaseDate(lastDate);
-  }, [allInvoices, fromDate, toDate, searchTerm]);
+  }, [allInvoices, fromDate, toDate, searchTerm, transactionTimeFilter, transactionTypeFilter, activeTab]);
 
   // Print PDF Export
   const handleExportPDF = () => {
@@ -241,7 +294,7 @@ export default function CustomerDetailsPage() {
   const paidAmount = totalSales - pendingAmount;
 
   return (
-    <div className="min-h-screen bg-gray-50/50 pb-16 font-sans">
+    <div id="print-area" className="min-h-screen bg-gray-50/50 pb-16 font-sans print:bg-white print:pb-0">
       
       {/* Top sticky header */}
       <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-10">
@@ -307,14 +360,31 @@ export default function CustomerDetailsPage() {
                     className="pl-8 pr-3 py-1.5 border border-gray-200 rounded text-xs w-48 focus:outline-none focus:border-indigo-500 bg-white placeholder-gray-400"
                   />
                 </div>
-                <button className="flex items-center gap-1 text-xs text-gray-500 border border-gray-200 bg-white px-2.5 py-1.5 rounded hover:bg-gray-50">
-                  <span>Last 365 Days</span>
-                  <ChevronDown size={11} />
-                </button>
-                <button className="flex items-center gap-1 text-xs text-gray-500 border border-gray-200 bg-white px-2.5 py-1.5 rounded hover:bg-gray-50">
-                  <span>Select Transaction Type</span>
-                  <ChevronDown size={11} />
-                </button>
+                <div className="relative">
+                  <select
+                    value={transactionTimeFilter}
+                    onChange={(e) => setTransactionTimeFilter(e.target.value)}
+                    className="appearance-none pl-3 pr-8 py-1.5 text-xs text-gray-500 font-semibold bg-white border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer shadow-sm focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="30">Last 30 Days</option>
+                    <option value="90">Last 90 Days</option>
+                    <option value="365">Last 365 Days</option>
+                  </select>
+                  <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+                <div className="relative">
+                  <select
+                    value={transactionTypeFilter}
+                    onChange={(e) => setTransactionTypeFilter(e.target.value)}
+                    className="appearance-none pl-3 pr-8 py-1.5 text-xs text-gray-500 font-semibold bg-white border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer shadow-sm focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="all">All Transactions</option>
+                    <option value="invoice">Sales Invoices</option>
+                    <option value="estimate">Estimates</option>
+                  </select>
+                  <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
               </div>
             </div>
 
@@ -539,7 +609,10 @@ export default function CustomerDetailsPage() {
                   <Printer size={13} />
                   <span>Print PDF</span>
                 </button>
-                <button className="flex items-center gap-1.5 text-xs text-indigo-600 border border-indigo-200 bg-white px-3 py-1.5 rounded hover:bg-indigo-50 font-semibold transition-colors">
+                <button 
+                  onClick={exportToExcel}
+                  className="flex items-center gap-1.5 text-xs text-indigo-600 border border-indigo-200 bg-white px-3 py-1.5 rounded hover:bg-indigo-50 font-semibold transition-colors"
+                >
                   <Download size={13} />
                   <span>Download Excel</span>
                 </button>
@@ -612,8 +685,54 @@ export default function CustomerDetailsPage() {
 
         {/* Tab Content: Item Wise Report */}
         {activeTab === "items" && (
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-8 text-center text-gray-400">
-            <p className="text-xs">No item wise purchase records found for this party.</p>
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+            {(() => {
+              const itemSalesMap = new Map();
+              allInvoices.forEach(inv => {
+                if (inv.invoiceType === "estimate") return;
+                inv.items?.forEach(item => {
+                   if (!itemSalesMap.has(item.name)) {
+                      itemSalesMap.set(item.name, { qty: 0, amount: 0, count: 0 });
+                   }
+                   const curr = itemSalesMap.get(item.name);
+                   curr.qty += Number(item.qty) || 0;
+                   curr.amount += (Number(item.qty) || 0) * (Number(item.price || item.rate) || 0);
+                   curr.count += 1;
+                });
+              });
+              const itemSales = Array.from(itemSalesMap.entries()).map(([name, data]) => ({ name, ...data }));
+
+              if (itemSales.length === 0) {
+                return (
+                  <div className="p-8 text-center text-gray-400">
+                    <p className="text-xs">No item wise purchase records found for this party.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <table className="w-full text-left text-xs text-gray-600 border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100 text-gray-400 font-medium uppercase tracking-wider text-[10px]">
+                      <th className="px-4 py-2.5 font-semibold">Item Name</th>
+                      <th className="px-4 py-2.5 font-semibold text-center">Invoices count</th>
+                      <th className="px-4 py-2.5 font-semibold text-right">Total Quantity Sold</th>
+                      <th className="px-4 py-2.5 font-semibold text-right">Total Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {itemSales.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-4 py-3 font-semibold text-gray-800">{item.name}</td>
+                        <td className="px-4 py-3 text-center text-gray-500 font-mono">{item.count}</td>
+                        <td className="px-4 py-3 text-right text-gray-800 font-mono">{item.qty.toLocaleString("en-IN")}</td>
+                        <td className="px-4 py-3 text-right font-semibold font-mono text-indigo-700">₹ {item.amount.toLocaleString("en-IN")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              );
+            })()}
           </div>
         )}
 

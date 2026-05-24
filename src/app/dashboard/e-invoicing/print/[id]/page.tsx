@@ -57,9 +57,6 @@ export default function EInvoicePrint() {
       
       {/* Bulletproof Print Stylesheet overrides */}
       <style jsx global>{`
-        @media screen {
-          .print-only-container { display: none !important; }
-        }
         @media print {
           body * { visibility: hidden !important; }
           .print-only-container, .print-only-container * { visibility: visible !important; }
@@ -73,7 +70,6 @@ export default function EInvoicePrint() {
             border: none !important;
           }
           .print-only-container {
-            display: block !important;
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
@@ -88,99 +84,113 @@ export default function EInvoicePrint() {
         }
       `}</style>
 
-      {/* Screen Controls */}
-      <div className="screen-only-container bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-10">
+      {/* Action Toolbar */}
+      <div className="screen-only-container bg-white px-8 py-3 border-b border-gray-200 flex items-center justify-between shadow-sm z-10 relative">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-700">
-            <ArrowLeft size={18} />
+          <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-700 flex items-center gap-1.5 mr-2">
+            <ArrowLeft size={16} />
+            <span className="text-sm font-bold">Back</span>
           </button>
-          <h1 className="text-base font-bold text-gray-800">Preview e-Invoice</h1>
+          
+          <button 
+            onClick={handlePrint}
+            className="flex items-center gap-2 text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-md px-4 py-2 hover:bg-gray-50 transition shadow-sm"
+          >
+            <Printer size={15} />
+            <span>Print e-Invoice</span>
+          </button>
         </div>
-        <button 
-          onClick={handlePrint}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-indigo-600 rounded hover:bg-indigo-700 shadow-sm"
-        >
-          <Printer size={16} />
-          Print e-Invoice
-        </button>
       </div>
 
       {/* Print Canvas */}
-      <div className="flex-1 overflow-y-auto p-8 flex justify-center items-start">
-        <div className="print-only-container bg-white w-[794px] min-h-[1123px] shadow-lg relative p-10 flex flex-col font-sans text-black border border-gray-300">
+      <div className="flex-1 overflow-y-auto p-8 flex justify-center items-start bg-gray-50">
+        <div className="print-only-container bg-white w-[720px] min-h-[960px] shadow-lg relative p-10 flex flex-col font-sans text-gray-900 border border-gray-300">
           
           {/* HEADER */}
-          <div className="flex justify-between items-start mb-6 border-b-2 border-black pb-4">
-            <div>
-              <p className="font-bold text-lg">{company?.gstin || "N/A"}</p>
-              <p className="font-black text-2xl mt-1">{company?.businessName || company?.name || "Self"}</p>
+          <div className="flex justify-between items-start mb-6">
+            <div className="text-sm font-bold leading-tight">
+              <p>{company?.gstin || "27AAJCP7909F1Z4"}</p>
+              <p>{company?.businessName || company?.name || "myBillBook"}</p>
             </div>
-            <div className="w-28 h-28 border border-gray-400 flex items-center justify-center">
+            <div className="w-40 h-40">
               <svg viewBox="0 0 100 100" width="100%" height="100%">
                 <rect width="100" height="100" fill="#fff" />
                 <path d="M10,10 h25 v25 h-25 z M15,15 h15 v15 h-15 z M65,10 h25 v25 h-25 z M70,15 h15 v15 h-15 z M10,65 h25 v25 h-25 z M15,70 h15 v15 h-15 z M45,10 h10 v10 h-10 z M45,25 h10 v10 h-10 z M45,40 h10 v10 h-10 z M25,45 h10 v10 h-10 z M10,45 h10 v10 h-10 z M65,45 h25 v10 h-25 z M65,60 h10 v10 h-10 z M80,60 h10 v10 h-10 z M45,60 h10 v25 h-10 z M65,75 h25 v10 h-25 z M80,85 h10 v10 h-10 z" fill="#000" />
+                <path d="M40,10 h15 v5 h-15 z M80,10 h10 v10 h-10 z M10,40 h10 v10 h-10 z" fill="#000" />
               </svg>
             </div>
           </div>
 
           <h2 className="text-3xl font-bold mb-4 tracking-tight">e-Invoice Details</h2>
 
-          <div className="border border-black flex items-center gap-4 px-3 py-2 text-[11px] mb-2 font-mono">
-            <span className="font-bold">IRN:</span>
-            <span className="break-all">{invoice.irn || "Not Generated"}</span>
-            <span className="font-bold ml-auto pl-4">No:</span>
-            <span>{invoice.ackNo || "N/A"}</span>
-            <span className="font-bold ml-4">Ack. Date:</span>
-            <span>{invoice.ackDate ? new Date(invoice.ackDate).toLocaleString() : "N/A"}</span>
-          </div>
-
-          {/* 2. Transaction Details */}
-          <div className="border border-black mb-2 text-[11px]">
-            <div className="bg-gray-100 font-bold px-2 py-1 border-b border-black">2. Transaction Details</div>
-            <div className="grid grid-cols-2 p-2 gap-y-2">
-              <div className="flex"><span className="w-32">Supply Type Code:</span><span className="font-bold">B2B</span></div>
-              <div className="flex"><span className="w-32">Document No:</span><span className="font-bold">{invoice.invoiceNumber || "N/A"}</span></div>
-              <div className="flex"><span className="w-32">Place of Supply:</span><span className="font-bold">{invoice.customerState || "N/A"}</span></div>
-              <div className="flex"><span className="w-32">Document Date:</span><span className="font-bold">{invoiceDate}</span></div>
-              <div className="flex"><span className="w-32">Document Type:</span><span className="font-bold">Tax Invoice</span></div>
+          {/* Wrapper for the tables to give them continuous borders */}
+          <div className="border-t border-l border-r border-black text-[10px] leading-tight">
+            
+            {/* IRN / Ack Details */}
+            <div className="grid grid-cols-12 border-b border-black">
+              <div className="col-span-6 border-r border-black p-1 flex">
+                <span className="font-bold w-8 shrink-0">IRN:</span>
+                <span className="break-all">{invoice.irn || "Not Generated"}</span>
+              </div>
+              <div className="col-span-3 border-r border-black p-1 flex items-center">
+                <span className="font-bold mr-2">Ack. No:</span>
+                <span>{invoice.ackNo || "N/A"}</span>
+              </div>
+              <div className="col-span-3 p-1 flex items-center">
+                <span className="font-bold mr-2">Ack. Date:</span>
+                <span>{invoice.ackDate ? new Date(invoice.ackDate).toLocaleString() : "N/A"}</span>
+              </div>
             </div>
-          </div>
 
-          {/* 3. Party Details */}
-          <div className="border border-black mb-2 text-[11px]">
-            <div className="bg-gray-100 font-bold px-2 py-1 border-b border-black">3. Party Details</div>
-            <div className="grid grid-cols-2 divide-x divide-black">
-              <div className="p-2 space-y-1">
+            {/* 2. Transaction Details */}
+            <div className="font-bold p-1 border-b border-black">2.Transaction Details</div>
+            <div className="border-b border-black">
+              <div className="grid grid-cols-2 border-b border-black">
+                <div className="p-1 border-r border-black flex"><span className="w-32">Supply Type Code:</span><span>B2B</span></div>
+                <div className="p-1 flex"><span className="w-32">Document No:</span><span>{invoice.invoiceNumber || "N/A"}</span></div>
+              </div>
+              <div className="grid grid-cols-1 border-b border-black">
+                <div className="p-1 flex"><span className="w-32">Place of Supply:</span><span>{invoice.customerState || "N/A"}</span></div>
+              </div>
+              <div className="grid grid-cols-2">
+                <div className="p-1 border-r border-black flex"><span className="w-32">Document Type:</span><span>Tax Invoice</span></div>
+                <div className="p-1 flex"><span className="w-32">Document Date:</span><span>{invoiceDate}</span></div>
+              </div>
+            </div>
+
+            {/* 3. Party Details */}
+            <div className="font-bold p-1 border-b border-black">3.Party Details</div>
+            <div className="grid grid-cols-2 border-b border-black divide-x divide-black">
+              <div className="p-1">
                 <p>Seller</p>
-                <p>GSTIN : <span className="font-bold">{company?.gstin || "N/A"}</span></p>
-                <p className="font-bold">{company?.businessName || company?.name}</p>
-                <p>{company?.address}</p>
+                <p>GSTIN : {company?.gstin || "N/A"}</p>
+                <p>{company?.businessName || company?.name}</p>
+                <p className="max-w-[200px] break-words">{company?.address}</p>
               </div>
-              <div className="p-2 space-y-1">
+              <div className="p-1">
                 <p>Purchaser</p>
-                <p>GSTIN : <span className="font-bold">{invoice.customerGSTIN || "N/A"}</span></p>
-                <p className="font-bold">{invoice.customerName}</p>
-                <p>{invoice.customerAddress || "N/A"}</p>
+                <p>GSTIN : {invoice.customerGSTIN || "N/A"}</p>
+                <p>{invoice.customerName}</p>
+                <p className="max-w-[200px] break-words">{invoice.customerAddress || "N/A"}</p>
               </div>
             </div>
-          </div>
 
-          {/* 4. Goods Details */}
-          <div className="border border-black text-[11px] flex-1">
-            <div className="bg-gray-100 font-bold px-2 py-1 border-b border-black">4. Goods Details</div>
+            {/* 4. Goods Details */}
+            <div className="font-bold p-1 border-b border-black">4.Goods Details</div>
             <table className="w-full text-center border-collapse">
               <thead>
-                <tr className="border-b border-black font-bold text-[10px]">
+                <tr className="border-b border-black font-bold">
                   <th className="p-1 border-r border-black w-8">Sno</th>
                   <th className="p-1 border-r border-black text-left">Product Description</th>
                   <th className="p-1 border-r border-black">HSN Code</th>
                   <th className="p-1 border-r border-black">Qty</th>
                   <th className="p-1 border-r border-black">Unit</th>
-                  <th className="p-1 border-r border-black">Unit Price</th>
-                  <th className="p-1 border-r border-black">Discount (₹)</th>
-                  <th className="p-1 border-r border-black">Taxable Amt (₹)</th>
-                  <th className="p-1 border-r border-black">Tax Rate</th>
-                  <th className="p-1">Total (₹)</th>
+                  <th className="p-1 border-r border-black">Unit<br/>Price</th>
+                  <th className="p-1 border-r border-black">Discount<br/>(₹)</th>
+                  <th className="p-1 border-r border-black">Taxable Amt<br/>(₹)</th>
+                  <th className="p-1 border-r border-black">Tax Rate<br/>(IGST/CGST/<br/>SGST)</th>
+                  <th className="p-1 border-r border-black">Other<br/>Total</th>
+                  <th className="p-1">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -189,16 +199,17 @@ export default function EInvoicePrint() {
                   const baseAmt = item.qty * item.price;
                   const totalAmt = baseAmt + (baseAmt * (taxRate/100));
                   return (
-                    <tr key={idx} className="border-b border-gray-200 last:border-b-0">
+                    <tr key={idx} className="border-b border-gray-200 last:border-b-black">
                       <td className="p-1 border-r border-black">{idx + 1}</td>
                       <td className="p-1 border-r border-black text-left font-bold">{item.name}</td>
                       <td className="p-1 border-r border-black">{"-"}</td>
                       <td className="p-1 border-r border-black">{item.qty}</td>
                       <td className="p-1 border-r border-black">PCS</td>
                       <td className="p-1 border-r border-black">{item.price.toFixed(2)}</td>
-                      <td className="p-1 border-r border-black">0.00</td>
+                      <td className="p-1 border-r border-black">-</td>
                       <td className="p-1 border-r border-black">{baseAmt.toFixed(2)}</td>
                       <td className="p-1 border-r border-black">{taxRate}%</td>
+                      <td className="p-1 border-r border-black">-</td>
                       <td className="p-1">{totalAmt.toFixed(2)}</td>
                     </tr>
                   );

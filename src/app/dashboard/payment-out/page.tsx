@@ -85,6 +85,28 @@ export default function PaymentOutPage() {
     return true;
   });
 
+  const handleExportCSV = () => {
+    if (filteredPayments.length === 0) return toast.error("No payments to export");
+    const headers = ["Date", "Payment Number", "Party Name", "Total Amount Settled (INR)", "Amount Paid (INR)", "Payment Mode"];
+    const rows = filteredPayments.map(p => [
+      p.paymentDate,
+      p.paymentNumber,
+      p.partyName,
+      String(p.totalSettled),
+      String(p.amountPaid),
+      p.paymentMode
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `payment_out_export.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Payment records exported successfully!");
+  };
+
   return (
     <div className="max-w-7xl mx-auto w-full flex flex-col min-h-[calc(100vh-80px)]">
       {/* HEADER */}
@@ -93,7 +115,10 @@ export default function PaymentOutPage() {
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">Payment Out</h1>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 bg-white border border-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition shadow-sm">
+          <button 
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition shadow-sm"
+          >
             <Download size={16} />
             Export
           </button>

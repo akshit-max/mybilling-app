@@ -8,6 +8,7 @@ import { db, auth } from "@/lib/firebase";
 import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
 import toast from "react-hot-toast";
 import { sanitizeNumericInput } from "@/lib/sanitize";
+import { useSession } from "@/context/SessionContext";
 
 type ExpenseItem = {
   id: string;
@@ -29,6 +30,7 @@ type Party = {
 
 export default function CreateExpensePage() {
   const router = useRouter();
+  const { activeProfile } = useSession();
 
   const [saving, setSaving] = useState(false);
   const [parties, setParties] = useState<Party[]>([]);
@@ -147,7 +149,8 @@ export default function CreateExpensePage() {
         subTotal,
         totalTax: withGst ? totalTax : 0,
         items: items,
-        createdAt: new Date()
+        createdAt: new Date(),
+        createdBy: activeProfile.name
       };
 
       await addDoc(collection(db, "expenses"), expenseData);

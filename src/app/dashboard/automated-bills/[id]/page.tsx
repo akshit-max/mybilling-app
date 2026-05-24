@@ -35,7 +35,7 @@ type Item = {
   tax?: number; 
 };
 
-type Invoice = {
+type AutomatedBill = {
   customerName: string;
   customerPhone?: string;
   customerGSTIN?: string;
@@ -47,23 +47,17 @@ type Invoice = {
   igst?: number;
   isInterstate?: boolean;
   total: number;
-  status: string;
+  status: string; // "Active", "Paused", "Stopped"
   gstEnabled: boolean;
-  invoiceNumber?: string;
+  startDate?: string;
+  endDate?: string;
+  repeatFrequency?: number;
+  repeatUnit?: string;
+  paymentTerms?: number;
   createdAt?: Timestamp;
-  dueDate?: string;
-  invoiceType?: string;
   signatureType?: "upload" | "empty" | "";
   signatureImage?: string;
   amountReceived?: number;
-  // e-Invoice & e-Way Bill tracking
-  eInvoiceGenerated?: boolean;
-  irn?: string;
-  ackNo?: string;
-  ackDate?: string;
-  ewayBillGenerated?: boolean;
-  ewayBillNo?: string;
-  ewayBillDate?: string;
 };
 
 type Company = {
@@ -103,12 +97,12 @@ function numberToWords(num: number): string {
   return cleanNum.toString(); 
 }
 
-export default function ViewInvoice() {
+export default function ViewAutomatedBill() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
 
   const [company, setCompany] = useState<Company | null>(null);
-  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [invoice, setInvoice] = useState<AutomatedBill | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Sync settings states
@@ -135,36 +129,20 @@ export default function ViewInvoice() {
   const [printFormat, setPrintFormat] = useState<"a4" | "thermal">("a4");
   const [activeLabel, setActiveLabel] = useState<"ORIGINAL FOR RECIPIENT" | "DUPLICATE FOR TRANSPORTER" | "TRIPLICATE FOR SUPPLIER">("ORIGINAL FOR RECIPIENT");
 
-  /* FETCH INVOICE */
+  /* FETCH AUTOMATED BILL */
   useEffect(() => {
     const fetchInvoice = async () => {
       try {
-        // 1. Try Firestore First
-        const ref = doc(db, "invoices", id);
+        const ref = doc(db, "automatedBills", id);
         const snap = await getDoc(ref);
 
         if (snap.exists()) {
-          setInvoice(snap.data() as Invoice);
+          setInvoice(snap.data() as AutomatedBill);
         } else {
-          throw new Error("Not in Firestore");
+          toast.error("Automated Bill not found");
         }
       } catch (err) {
-        // 2. Fallback to IndexedDB
-        console.warn("Falling back to offline invoices", err);
-        try {
-          const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
-          const offlineInvoices = await getOfflineInvoices();
-          const foundOffline = offlineInvoices.find(
-            (inv: any) =>
-              inv.id?.toString() === id || inv.invoiceNumber === id
-          );
-
-          if (foundOffline) {
-            setInvoice(foundOffline as any);
-          }
-        } catch (offlineErr) {
-          console.error("Offline fetch failed", offlineErr);
-        }
+        console.error("Fetch failed", err);
       } finally {
         setLoading(false);
       }
@@ -237,12 +215,8 @@ export default function ViewInvoice() {
     );
   }
 
-  const invoiceTypeTitle = (invoice.invoiceType || "invoice") === "estimate" ? "Estimate" : "Sales Invoice";
-  const formattedDate = invoice.createdAt
-    ? typeof (invoice.createdAt as any).toDate === "function"
-      ? (invoice.createdAt as any).toDate().toLocaleDateString()
-      : new Date(invoice.createdAt as any).toLocaleDateString()
-    : new Date().toLocaleDateString();
+  const invoiceTypeTitle = "Automated Sales Invoice";
+  const formattedDate = invoice.startDate || new Date().toLocaleDateString();
 
   const totalQty = invoice.items
     ? invoice.items.reduce((acc, item) => acc + (Number(item.qty) || 0), 0)
@@ -267,20 +241,31 @@ export default function ViewInvoice() {
       toast.error("Customer phone number is missing");
       return;
     }
-    const message = `Dear ${invoice.customerName},\n\nYour invoice *${invoice.invoiceNumber || "N/A"}* has been generated successfully.\n\nTotal Amount: *₹${invoice.total.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`;
+    const message = `Dear ${invoice.customerName},\n\nYour Automated Bill template has been generated successfully.\n\nTotal Amount: *₹${invoice.total.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`;
     const phone = invoice.customerPhone.replace(/\D/g, "");
     window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   const handleDelete = async () => {
-    if (confirm("Are you sure you want to delete this invoice?")) {
+    if (confirm("Are you sure you want to delete this automated bill?")) {
       try {
-        await deleteDoc(doc(db, "invoices", id));
-        toast.success("Invoice deleted successfully");
-        router.push("/dashboard/invoices");
+        await deleteDoc(doc(db, "automatedBills", id));
+        toast.success("Automated Bill deleted successfully");
+        router.push("/dashboard/automated-bills");
       } catch (err) {
-        toast.error("Failed to delete invoice");
+        toast.error("Failed to delete automated bill");
       }
+    }
+  };
+
+  const updateStatus = async (newStatus: string) => {
+    try {
+      const { updateDoc } = await import("firebase/firestore");
+      await updateDoc(doc(db, "automatedBills", id), { status: newStatus });
+      setInvoice(prev => prev ? { ...prev, status: newStatus } : null);
+      toast.success(`Automated Bill ${newStatus} successfully`);
+    } catch (err) {
+      toast.error(`Failed to update status to ${newStatus}`);
     }
   };
 
@@ -366,15 +351,17 @@ export default function ViewInvoice() {
         {/* 1. Page Header (Screenshot title bar) */}
         <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shrink-0 shadow-xs">
           <div className="flex items-center gap-2">
-            <Link href="/dashboard/invoices" className="text-gray-400 hover:text-gray-700 transition">
+            <Link href="/dashboard/automated-bills" className="text-gray-400 hover:text-gray-700 transition">
               <ArrowLeft size={16} />
             </Link>
             <h1 className="text-base font-bold text-gray-800 flex items-center gap-2">
-              <span>{invoiceTypeTitle} #{invoice.invoiceNumber || "1"}</span>
+              <span>{invoiceTypeTitle}</span>
               <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                invoice.status === "paid" 
+                invoice.status === "Active" 
                   ? "bg-green-50 text-green-600 border border-green-200/50" 
-                  : "bg-amber-50 text-amber-600 border border-amber-200/50"
+                  : invoice.status === "Paused"
+                  ? "bg-gray-100 text-gray-600 border border-gray-200/50"
+                  : "bg-red-50 text-red-600 border border-red-200/50"
               }`}>
                 {invoice.status}
               </span>
@@ -399,9 +386,8 @@ export default function ViewInvoice() {
                 <MoreVertical size={15} />
               </button>
               {isMoreOpen && (
-                <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-md py-1 w-32 z-50 text-xs font-semibold">
-                  <Link href={`/dashboard/invoices/edit/${id}`} className="block px-4 py-2 text-gray-700 hover:bg-gray-50">Edit Invoice</Link>
-                  <button onClick={handleDelete} className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50">Delete Invoice</button>
+                <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-md py-1 w-40 z-50 text-xs font-semibold">
+                  <button onClick={handleDelete} className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50">Delete Bill</button>
                 </div>
               )}
             </div>
@@ -526,30 +512,39 @@ export default function ViewInvoice() {
 
           </div>
 
-          {/* Right Actions Side (Eway / e-Invoice) */}
+          {/* Right Actions Side (Edit / Status Toggles) */}
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => router.push(`/dashboard/e-way-bill/generate/${id}`)}
-              className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50/80 hover:bg-blue-100/80 border border-blue-200 rounded-md px-3.5 py-1.5 transition shadow-sm"
+            <Link 
+              href={`/dashboard/automated-bills/edit/${id}`}
+              className="flex items-center gap-1.5 text-xs font-bold text-gray-700 bg-gray-50/80 hover:bg-gray-100/80 border border-gray-200 rounded-md px-3.5 py-1.5 transition shadow-sm"
             >
-              <FileSpreadsheet size={13} />
-              <span>Generate E-way Bill</span>
-            </button>
+              <span>Edit</span>
+            </Link>
             
-            <button 
-              onClick={() => router.push(`/dashboard/e-invoicing/generate/${id}`)}
-              className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50/80 hover:bg-blue-100/80 border border-blue-200 rounded-md px-3.5 py-1.5 transition shadow-sm"
-            >
-              <CheckSquare size={13} />
-              <span>Generate e-Invoice</span>
-            </button>
+            {invoice.status !== "Stopped" && (
+              <button 
+                onClick={() => updateStatus("Stopped")}
+                className="flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50/80 hover:bg-red-100/80 border border-red-200 rounded-md px-3.5 py-1.5 transition shadow-sm"
+              >
+                <span>Stop</span>
+              </button>
+            )}
 
-            <button 
-              onClick={() => router.push(`/dashboard/payment-in/create?invoiceId=${id}`)}
-              className="flex items-center gap-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 border border-indigo-700 rounded-md px-3.5 py-1.5 transition shadow-sm"
-            >
-              <span>Record Payment In</span>
-            </button>
+            {invoice.status === "Active" ? (
+              <button 
+                onClick={() => updateStatus("Paused")}
+                className="flex items-center gap-1.5 text-xs font-bold text-gray-600 bg-gray-100/80 hover:bg-gray-200/80 border border-gray-300 rounded-md px-3.5 py-1.5 transition shadow-sm"
+              >
+                <span>Pause</span>
+              </button>
+            ) : invoice.status === "Paused" ? (
+              <button 
+                onClick={() => updateStatus("Active")}
+                className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50/80 hover:bg-green-100/80 border border-green-200 rounded-md px-3.5 py-1.5 transition shadow-sm"
+              >
+                <span>Resume</span>
+              </button>
+            ) : null}
           </div>
 
         </div>
@@ -584,7 +579,7 @@ export default function ViewInvoice() {
                           style={{ color: invoiceTheme === "tally" ? "#000000" : accentColor }} 
                           className="text-[12px] font-extrabold uppercase tracking-widest"
                         >
-                          {(invoice.invoiceType || "invoice") === "estimate" ? "ESTIMATE" : "TAX INVOICE"}
+                          {invoiceTypeTitle.toUpperCase()}
                         </span>
                         <span className="text-[9px] border border-gray-400 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase">
                           {activeLabel}
@@ -614,9 +609,11 @@ export default function ViewInvoice() {
                   ></div>
 
                   {/* Meta info layout gray stripe */}
-                  <div className="grid grid-cols-2 border-y border-gray-300 bg-gray-50/60 px-4 py-2 mb-4 text-[10px] font-bold text-gray-700">
-                     <p>Invoice No.: <span className="font-mono text-gray-950 font-extrabold">{invoice.invoiceNumber || "1"}</span></p>
-                     <p className="text-right">Invoice Date: <span className="font-mono text-gray-950 font-extrabold">{formattedDate}</span></p>
+                  <div className="grid grid-cols-4 border-y border-gray-300 bg-gray-50/60 px-4 py-2 mb-4 text-[10px] font-bold text-gray-700 divide-x divide-gray-300">
+                     <p className="px-2">Start Date: <span className="font-mono text-gray-950 font-extrabold block mt-0.5">{invoice.startDate || "-"}</span></p>
+                     <p className="px-2">End Date: <span className="font-mono text-gray-950 font-extrabold block mt-0.5">{invoice.endDate || "-"}</span></p>
+                     <p className="px-2">Repeat: <span className="font-mono text-gray-950 font-extrabold block mt-0.5">Every {invoice.repeatFrequency} {invoice.repeatUnit}</span></p>
+                     <p className="px-2 text-right">Terms: <span className="font-mono text-gray-950 font-extrabold block mt-0.5">{invoice.paymentTerms} Days</span></p>
                   </div>
 
                   {/* Customer details bill to block */}
@@ -886,7 +883,7 @@ export default function ViewInvoice() {
                        style={{ color: invoiceTheme === "tally" ? "#000000" : accentColor }} 
                        className="text-[12px] font-extrabold uppercase tracking-widest"
                      >
-                       {(invoice.invoiceType || "invoice") === "estimate" ? "ESTIMATE" : "TAX INVOICE"}
+                       {invoiceTypeTitle.toUpperCase()}
                      </span>
                      <span className="text-[9px] border border-gray-400 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase">
                        {activeLabel}
@@ -916,9 +913,11 @@ export default function ViewInvoice() {
                  ></div>
 
                 {/* Meta info layout gray stripe */}
-                <div className="grid grid-cols-2 border-y border-gray-300 bg-gray-50/60 px-4 py-2 mb-4 text-[10px] font-bold text-gray-700">
-                   <p>Invoice No.: <span className="font-mono text-gray-950 font-extrabold">{invoice.invoiceNumber || "1"}</span></p>
-                   <p className="text-right">Invoice Date: <span className="font-mono text-gray-950 font-extrabold">{formattedDate}</span></p>
+                <div className="grid grid-cols-4 border-y border-gray-300 bg-gray-50/60 px-4 py-2 mb-4 text-[10px] font-bold text-gray-700 divide-x divide-gray-300">
+                   <p className="px-2">Start Date: <span className="font-mono text-gray-950 font-extrabold block mt-0.5">{invoice.startDate || "-"}</span></p>
+                   <p className="px-2">End Date: <span className="font-mono text-gray-950 font-extrabold block mt-0.5">{invoice.endDate || "-"}</span></p>
+                   <p className="px-2">Repeat: <span className="font-mono text-gray-950 font-extrabold block mt-0.5">Every {invoice.repeatFrequency} {invoice.repeatUnit}</span></p>
+                   <p className="px-2 text-right">Terms: <span className="font-mono text-gray-950 font-extrabold block mt-0.5">{invoice.paymentTerms} Days</span></p>
                 </div>
 
                 {/* Customer details bill to block */}
@@ -1109,8 +1108,10 @@ export default function ViewInvoice() {
              </div>
 
              <div className="border-t border-dashed border-gray-300 pt-2 space-y-0.5">
-               <p className="flex justify-between"><span>Invoice Number:</span><span className="font-bold">#{invoice.invoiceNumber || "1"}</span></p>
-               <p className="flex justify-between"><span>Invoice Date:</span><span>{formattedDate}</span></p>
+               <p className="flex justify-between"><span>Start Date:</span><span className="font-bold">{invoice.startDate || "-"}</span></p>
+               <p className="flex justify-between"><span>End Date:</span><span>{invoice.endDate || "-"}</span></p>
+               <p className="flex justify-between"><span>Repeat Every:</span><span>{invoice.repeatFrequency} {invoice.repeatUnit}</span></p>
+               <p className="flex justify-between"><span>Terms:</span><span>{invoice.paymentTerms} Days</span></p>
                <p className="flex justify-between"><span>Bill To:</span><span className="font-bold">{invoice.customerName}</span></p>
              </div>
 

@@ -117,6 +117,25 @@ export default function PartywiseOutstandingReport() {
   };
 
   const handleExportExcel = () => {
+    if (filteredCustomers.length === 0) return toast.error("No data to export");
+    const headers = ["Name", "Category", "Contact Number", "Closing Balance", "Type"];
+    const rows = filteredCustomers.map(c => [
+      c.name,
+      c.category || "-",
+      c.phone || "-",
+      Math.abs(c.balance || 0).toString(),
+      (c.balance || 0) > 0 ? "To Collect" : (c.balance || 0) < 0 ? "To Pay" : "Settled"
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + headers.join(",") + "\n" 
+      + rows.map(e => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Party_Outstanding_Report.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     toast.success("Excel report exported successfully! 📊");
   };
 
@@ -125,7 +144,7 @@ export default function PartywiseOutstandingReport() {
   };
 
   return (
-    <div className="space-y-0 max-w-full mx-auto pb-10 font-sans bg-gray-50/50 min-h-screen print:bg-white print:pb-0">
+    <div id="print-area" className="space-y-0 max-w-full mx-auto pb-10 font-sans bg-gray-50/50 min-h-screen print:bg-white print:pb-0">
       
       {/* Top Header Sticky Bar */}
       <div className="flex justify-between items-center bg-white px-6 py-3 border-b border-gray-200 shadow-sm print:hidden">

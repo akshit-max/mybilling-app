@@ -12,9 +12,11 @@ import {
   User,
   MessagesSquare, 
   Keyboard,
-  X
+  X,
+  ChevronDown
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useSession } from "@/context/SessionContext";
 
 export function Topbar() {
   const pathname = usePathname();
@@ -22,6 +24,9 @@ export function Topbar() {
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+
+  const { activeProfile, subUsers, switchProfile } = useSession();
 
   // Listen to keyboard shortcuts
   useEffect(() => {
@@ -133,15 +138,72 @@ export function Topbar() {
             <Gift size={20} strokeWidth={1.5} className="hover:text-indigo-600 transition-colors" />
           </Link>
 
-          <a 
-            href="https://mybillbook.featurebase.app/" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center" 
-            title="Share a suggestion"
-          >
-            <User size={20} strokeWidth={1.5} className="hover:text-indigo-600 transition-colors" />
-          </a>
+          {/* Profile Switcher Dropdown */}
+          <div className="relative">
+            <button 
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-50 rounded-full transition-colors border border-transparent hover:border-gray-200"
+              title="Switch Active Profile"
+            >
+              <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 text-xs font-bold">
+                {activeProfile.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex flex-col items-start">
+                <span className="text-[10px] font-bold text-gray-800 leading-tight">{activeProfile.name}</span>
+                <span className="text-[9px] text-gray-500 leading-tight">{activeProfile.role}</span>
+              </div>
+              <ChevronDown size={12} className="text-gray-400 ml-1" />
+            </button>
+
+            {showProfileDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowProfileDropdown(false)}></div>
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Switch Session</p>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto p-1.5 space-y-1">
+                    {/* Admin Option */}
+                    <button
+                      onClick={() => {
+                        switchProfile({ id: "admin", name: "Admin", role: "Admin", isAdmin: true });
+                        setShowProfileDropdown(false);
+                        toast.success("Switched to Admin");
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${activeProfile.id === "admin" ? "bg-indigo-50" : "hover:bg-gray-50"}`}
+                    >
+                      <div className="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold">A</div>
+                      <div>
+                        <p className={`text-xs font-bold ${activeProfile.id === "admin" ? "text-indigo-700" : "text-gray-800"}`}>Admin</p>
+                        <p className="text-[9px] text-gray-500">Full Access</p>
+                      </div>
+                    </button>
+                    
+                    {/* Sub-Users List */}
+                    {subUsers.map(user => (
+                      <button
+                        key={user.id}
+                        onClick={() => {
+                          switchProfile(user);
+                          setShowProfileDropdown(false);
+                          toast.success(`Switched to ${user.name}`);
+                        }}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${activeProfile.id === user.id ? "bg-indigo-50" : "hover:bg-gray-50"}`}
+                      >
+                        <div className="w-7 h-7 bg-amber-100 rounded-full flex items-center justify-center text-amber-700 text-xs font-bold">
+                          {user.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className={`text-xs font-bold ${activeProfile.id === user.id ? "text-indigo-700" : "text-gray-800"}`}>{user.name}</p>
+                          <p className="text-[9px] text-gray-500">{user.role}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           <button 
             onClick={() => setShowChat(!showChat)}

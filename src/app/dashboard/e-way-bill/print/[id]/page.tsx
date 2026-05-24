@@ -57,9 +57,6 @@ export default function EWayBillPrint() {
       
       {/* Bulletproof Print Stylesheet overrides */}
       <style jsx global>{`
-        @media screen {
-          .print-only-container { display: none !important; }
-        }
         @media print {
           body * { visibility: hidden !important; }
           .print-only-container, .print-only-container * { visibility: visible !important; }
@@ -73,7 +70,6 @@ export default function EWayBillPrint() {
             border: none !important;
           }
           .print-only-container {
-            display: block !important;
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
@@ -88,92 +84,101 @@ export default function EWayBillPrint() {
         }
       `}</style>
 
-      {/* Screen Controls */}
-      <div className="screen-only-container bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-10">
+      {/* Action Toolbar */}
+      <div className="screen-only-container bg-white px-8 py-3 border-b border-gray-200 flex items-center justify-between shadow-sm z-10 relative">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-700">
-            <ArrowLeft size={18} />
+          <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-700 flex items-center gap-1.5 mr-2">
+            <ArrowLeft size={16} />
+            <span className="text-sm font-bold">Back</span>
           </button>
-          <h1 className="text-base font-bold text-gray-800">Preview e-Way Bill</h1>
+          
+          <button 
+            onClick={handlePrint}
+            className="flex items-center gap-2 text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-md px-4 py-2 hover:bg-gray-50 transition shadow-sm"
+          >
+            <Printer size={15} />
+            <span>Print e-Way Bill</span>
+          </button>
         </div>
-        <button 
-          onClick={handlePrint}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-indigo-600 rounded hover:bg-indigo-700 shadow-sm"
-        >
-          <Printer size={16} />
-          Print e-Way Bill
-        </button>
       </div>
 
       {/* Print Canvas */}
-      <div className="flex-1 overflow-y-auto p-8 flex justify-center items-start">
-        <div className="print-only-container bg-white w-[794px] min-h-[1123px] shadow-lg relative p-10 flex flex-col font-sans text-black border border-gray-300">
+      <div className="flex-1 overflow-y-auto p-8 flex justify-center items-start bg-gray-50">
+        <div className="print-only-container bg-white w-[720px] min-h-[960px] shadow-lg relative p-10 flex flex-col font-sans text-gray-900 border border-gray-300">
           
           <div className="flex items-center gap-2 mb-6">
-            <span className="text-[12px] font-extrabold uppercase tracking-widest text-black border border-gray-400 px-2 py-0.5 rounded">TAX INVOICE</span>
-            <span className="text-[9px] border border-gray-400 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase">ORIGINAL FOR RECIPIENT</span>
+            <span className="text-[12px] font-extrabold uppercase text-black font-sans">TAX INVOICE</span>
+            <span className="text-[9px] border border-gray-400 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">ORIGINAL FOR RECIPIENT</span>
           </div>
 
-          <h1 className="text-2xl font-bold uppercase tracking-wide mb-1">{company?.businessName || company?.name || "Self"}</h1>
-          <p className="text-xs text-gray-800 font-semibold mb-6">Mobile: {company?.phone || "N/A"}</p>
+          <h1 className="text-3xl font-black uppercase tracking-wide mb-1">{company?.businessName || company?.name || "Self"}</h1>
+          <p className="text-sm text-gray-900 font-bold mb-6">Mobile: {company?.phone || "N/A"}</p>
 
-          <div className="border-b-4 border-black mb-4"></div>
+          <div className="h-2 bg-black mb-1 w-full"></div>
 
-          <div className="grid grid-cols-2 border-y border-gray-300 bg-gray-50/60 px-4 py-2 mb-8 text-xs font-bold text-gray-700">
-             <p>Invoice No.: <span className="font-mono text-gray-950 font-extrabold">{invoice.invoiceNumber || "1"}</span></p>
-             <p className="text-right">Invoice Date: <span className="font-mono text-gray-950 font-extrabold">{invoiceDate}</span></p>
+          <div className="flex justify-between items-center bg-gray-200/60 px-4 py-2 mb-4 text-sm font-bold text-gray-900">
+             <p>Invoice No.: <span className="font-mono ml-2">{invoice.invoiceNumber || "1"}</span></p>
+             <p>Invoice Date: <span className="font-mono ml-2">{invoiceDate}</span></p>
           </div>
 
-          <div className="flex justify-between items-start mb-8">
-             <div className="space-y-1 text-xs">
-               <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">BILL TO</p>
-               <p className="text-sm font-extrabold text-gray-900">{invoice.customerName}</p>
-               <p className="text-gray-600 font-semibold">{invoice.customerAddress || "N/A"}</p>
-               {invoice.customerPhone && <p className="text-gray-600 font-semibold">Mobile: {invoice.customerPhone}</p>}
+          <div className="flex justify-between items-start mb-6 border-b-2 border-black pb-8">
+             <div className="space-y-0.5 text-xs">
+               <p className="text-[11px] font-bold text-gray-800 uppercase tracking-wider mb-1">BILL TO</p>
+               <p className="text-sm font-bold text-black">{invoice.customerName}</p>
+               <p className="text-gray-900 font-medium leading-tight max-w-[200px]">{invoice.customerAddress || "N/A"}</p>
+               {invoice.customerPhone && <p className="text-gray-900 font-medium pt-1">Mobile: {invoice.customerPhone}</p>}
              </div>
              
-             <div className="text-right flex items-center gap-4 bg-gray-50 px-4 py-3 rounded-lg border border-gray-200 shadow-sm">
-               <span className="text-lg font-bold text-gray-800">E-way Bill No.:</span>
-               <span className="font-mono text-3xl font-black text-black tracking-wider">{invoice.ewayBillNo || "Not Generated"}</span>
+             <div className="text-right flex items-center pt-4">
+               <span className="text-xl font-bold text-gray-900 mr-4 tracking-tight">E-way Bill No.:</span>
+               <span className="font-mono text-2xl font-bold text-black tracking-widest">{invoice.ewayBillNo || "Not Generated"}</span>
              </div>
           </div>
 
           {/* Standard responsive columns products table */}
-          <div className="border border-black mb-4">
+          <div className="mb-4">
              <table className="w-full text-xs text-center border-collapse">
                 <thead>
-                   <tr className="font-bold border-b border-black uppercase">
-                      <th className="py-2 px-3 border-r border-black text-left">ITEMS</th>
-                      <th className="py-2 px-3 border-r border-black">QTY.</th>
-                      <th className="py-2 px-3 border-r border-black">RATE</th>
-                      <th className="py-2 px-3 border-r border-black">TAX</th>
-                      <th className="py-2 px-3 text-right">AMOUNT</th>
+                   <tr className="font-bold border-b-2 border-black uppercase text-[11px] text-gray-900">
+                      <th className="py-2 px-1 text-left">ITEMS</th>
+                      <th className="py-2 px-1">QTY.</th>
+                      <th className="py-2 px-1">RATE</th>
+                      <th className="py-2 px-1">TAX</th>
+                      <th className="py-2 px-1 text-right">AMOUNT</th>
                    </tr>
                 </thead>
-                <tbody className="font-semibold divide-y divide-gray-300">
+                <tbody className="font-medium">
                    {invoice.items && invoice.items.map((item: any, idx: number) => {
                      const taxRate = item.tax || (invoice.gstEnabled ? 18 : 0);
+                     const baseAmt = item.qty * item.price;
+                     const taxAmt = baseAmt * (taxRate/100);
+                     const totalAmt = baseAmt + taxAmt;
+                     
                      return (
-                       <tr key={idx}>
-                          <td className="py-2 px-3 border-r border-black text-left">
+                       <tr key={idx} className="border-b border-gray-200">
+                          <td className="py-4 px-1 text-left">
                              <p className="font-bold text-gray-900 uppercase">{item.name}</p>
                           </td>
-                          <td className="py-2 px-3 border-r border-black font-mono text-gray-900">{item.qty} PCS</td>
-                          <td className="py-2 px-3 border-r border-black font-mono text-gray-900">₹{Number(item.price).toFixed(2)}</td>
-                          <td className="py-2 px-3 border-r border-black font-mono text-gray-900">{taxRate}%</td>
-                          <td className="py-2 px-3 text-right font-bold font-mono text-gray-900">₹{(item.qty * item.price).toFixed(2)}</td>
+                          <td className="py-4 px-1 font-mono text-black font-bold">{item.qty} PCS</td>
+                          <td className="py-4 px-1 font-mono text-black">{Number(item.price).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+                          <td className="py-4 px-1 font-mono text-black">
+                            {taxAmt.toLocaleString('en-IN', {minimumFractionDigits:2})} <br/>
+                            <span className="text-[10px] text-gray-500">({taxRate}%)</span>
+                          </td>
+                          <td className="py-4 px-1 text-right font-bold font-mono text-black">{totalAmt.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
                        </tr>
                      );
                    })}
-                   <tr className="bg-gray-100 font-bold border-t-2 border-black text-[12px]">
-                      <td className="py-2 px-3 border-r border-black text-left uppercase">SUBTOTAL</td>
-                      <td className="py-2 px-3 border-r border-black font-mono">{invoice.items?.reduce((a:any,b:any)=>a+Number(b.qty),0)} PCS</td>
-                      <td className="py-2 px-3 border-r border-black">-</td>
-                      <td className="py-2 px-3 border-r border-black">-</td>
-                      <td className="py-2 px-3 text-right font-mono text-xl">₹{invoice.subtotal.toFixed(2)}</td>
+                   <tr className="font-bold border-t-2 border-black text-xs text-black">
+                      <td className="py-3 px-1 text-left uppercase">SUBTOTAL</td>
+                      <td className="py-3 px-1 font-mono">{invoice.items?.reduce((a:any,b:any)=>a+Number(b.qty),0)}</td>
+                      <td className="py-3 px-1"></td>
+                      <td className="py-3 px-1 font-mono">₹{invoice.items?.reduce((a:any,b:any)=>a+((b.qty*b.price)*(b.tax||18)/100),0).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+                      <td className="py-3 px-1 text-right font-mono text-lg tracking-tight">₹{invoice.subtotal.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
                    </tr>
                 </tbody>
              </table>
+             <div className="border-b-2 border-black mt-2"></div>
           </div>
 
         </div>

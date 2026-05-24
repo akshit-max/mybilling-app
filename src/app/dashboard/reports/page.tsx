@@ -1,78 +1,81 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Star, FileText, Share2, Search, ChevronUp } from "lucide-react";
 
 export default function ReportsPage() {
-  const filterChips = ["Party", "Category", "Payment Collection", "Item", "Invoice Details", "Summary"];
+  const filterChips = ["All", "Party", "Category", "Payment", "Item", "Summary"];
+  const [activeFilter, setActiveFilter] = React.useState("All");
+  const [searchQuery, setSearchQuery] = React.useState("");
 
-  const reportSections = [
+  const allReportSections = [
     {
       title: "Favourite",
       icon: <Star size={16} className="text-gray-400" />,
       items: [
-        { name: "Balance Sheet", isFav: true },
-        { name: "GSTR-1 (Sales)", isFav: true },
-        { name: "Profit And Loss Report", isFav: true },
-        { name: "Sales Summary", isFav: true },
+        { name: "Balance Sheet", isFav: true, tags: ["Summary"] },
+        { name: "GSTR-1 (Sales)", isFav: true, tags: ["Summary"] },
+        { name: "Profit And Loss Report", isFav: true, tags: ["Summary"] },
+        { name: "Sales Summary", isFav: true, tags: ["Summary"] },
       ]
     },
     {
       title: "GST",
       icon: <span className="text-xs font-bold bg-gray-200 px-1 rounded text-gray-600">GST</span>,
       items: [
-        { name: "GSTR-2 (Purchase)", isFav: false },
-        { name: "GSTR-3B", isFav: false },
-        { name: "GST Purchase (With HSN)", isFav: false },
-        { name: "GST Sales (With HSN)", isFav: false },
-        { name: "HSN Wise Sales Summary", isFav: false },
-        { name: "TDS Payable", isFav: false },
-        { name: "TDS Receivable", isFav: false },
-        { name: "TCS Payable", isFav: false },
-        { name: "TCS Receivable", isFav: false },
+        { name: "GSTR-2 (Purchase)", isFav: false, tags: ["Summary"] },
+        { name: "GSTR-3B", isFav: false, tags: ["Summary"] },
+        { name: "GST Purchase (With HSN)", isFav: false, tags: ["Summary"] },
+        { name: "GST Sales (With HSN)", isFav: false, tags: ["Summary"] },
+        { name: "HSN Wise Sales Summary", isFav: false, tags: ["Summary"] },
+        { name: "TDS Payable", isFav: false, tags: ["Payment"] },
+        { name: "TDS Receivable", isFav: false, tags: ["Payment"] },
+        { name: "TCS Payable", isFav: false, tags: ["Payment"] },
+        { name: "TCS Receivable", isFav: false, tags: ["Payment"] },
       ],
-      showMore: true
+      showMore: false
     },
     {
       title: "Transaction",
       icon: <FileText size={16} className="text-gray-400" />,
       items: [
-        { name: "Audit Trail", isFav: false },
-        { name: "Bill Wise Profit", isFav: false },
-        { name: "Cash and Bank Report (All Payments)", isFav: false },
-        { name: "Daybook", isFav: false },
-        { name: "Expense Category Report", isFav: false },
-        { name: "Expense Transaction Report", isFav: false },
-        { name: "Purchase Summary", isFav: false },
+        { name: "Audit Trail", isFav: false, tags: ["Summary"] },
+        { name: "Bill Wise Profit", isFav: false, tags: ["Summary"] },
+        { name: "Cash and Bank Report (All Payments)", isFav: false, tags: ["Payment"] },
+        { name: "Daybook", isFav: false, tags: ["Summary"] },
+        { name: "Expense Category Report", isFav: false, tags: ["Category"] },
+        { name: "Expense Transaction Report", isFav: false, tags: ["Summary"] },
+        { name: "Purchase Summary", isFav: false, tags: ["Summary"] },
       ],
-      showMore: true
+      showMore: false
     },
     {
       title: "Item",
       icon: <div className="w-4 h-4 border border-gray-400 rounded-sm" />,
       items: [
-        { name: "Item Report By Party", isFav: false },
-        { name: "Item Sales and Purchase Summary", isFav: false },
-        { name: "Low Stock Summary", isFav: false },
-        { name: "Rate List", isFav: false },
-        { name: "Stock Detail Report", isFav: false },
-        { name: "Stock Summary", isFav: false },
+        { name: "Item Report By Party", isFav: false, tags: ["Item", "Party"] },
+        { name: "Item Sales and Purchase Summary", isFav: false, tags: ["Item", "Summary"] },
+        { name: "Low Stock Summary", isFav: false, tags: ["Item", "Summary"] },
+        { name: "Rate List", isFav: false, tags: ["Item"] },
+        { name: "Stock Detail Report", isFav: false, tags: ["Item"] },
+        { name: "Stock Summary", isFav: false, tags: ["Item", "Summary"] },
       ],
-      showMore: true
+      showMore: false
     },
     {
       title: "Party",
       icon: <UsersIcon />,
       items: [
-        { name: "Receivable Ageing Report", isFav: false },
-        { name: "Party Report By Item", isFav: false },
-        { name: "Party Statement (Ledger)", isFav: false },
-        { name: "Party Wise Outstanding", isFav: false },
-        { name: "Sales Summary - Category Wise", isFav: false },
+        { name: "Receivable Ageing Report", isFav: false, tags: ["Party", "Payment"] },
+        { name: "Party Report By Item", isFav: false, tags: ["Party", "Item"] },
+        { name: "Party Statement (Ledger)", isFav: false, tags: ["Party"] },
+        { name: "Party Wise Outstanding", isFav: false, tags: ["Party", "Payment"] },
+        { name: "Sales Summary - Category Wise", isFav: false, tags: ["Category", "Summary"] },
       ],
-      showMore: true
+      showMore: false
     },
     {
       title: "", // Empty for layout spacing if needed
@@ -81,52 +84,97 @@ export default function ReportsPage() {
     }
   ];
 
+  // Apply search and filter
+  const reportSections = allReportSections.map(section => {
+    return {
+      ...section,
+      items: section.items.filter(item => {
+        const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesFilter = activeFilter === "All" || item.tags.includes(activeFilter);
+        return matchesSearch && matchesFilter;
+      })
+    };
+  });
+
   return (
     <div className="max-w-7xl mx-auto pb-20 relative min-h-[80vh]">
       <PageHeader 
         actions={
-          <button className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
+          <button className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 shadow-sm">
             <Share2 size={16} />
             CA Reports Sharing
           </button>
         }
       />
 
-      {/* Filter Bar */}
-      <div className="flex items-center gap-4 mb-6 text-sm">
-        <span className="text-gray-500 font-medium">Filter By</span>
-        <div className="flex flex-wrap gap-2">
-          {filterChips.map((chip) => (
-            <button key={chip} className="px-4 py-1.5 border border-gray-200 rounded-full text-gray-600 hover:bg-gray-50 transition-colors">
-              {chip}
-            </button>
-          ))}
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6 px-6 md:px-0">
+        <div className="flex items-center gap-4 text-sm overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
+          <span className="text-gray-500 font-semibold whitespace-nowrap">Filter By:</span>
+          <div className="flex flex-wrap gap-2">
+            {filterChips.map((chip) => (
+              <button 
+                key={chip} 
+                onClick={() => setActiveFilter(chip)}
+                className={`px-4 py-1.5 border rounded-full transition-colors text-xs font-semibold ${
+                  activeFilter === chip 
+                    ? "bg-indigo-50 border-indigo-200 text-indigo-700" 
+                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Search Bar */}
+        <div className="relative w-full md:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+          <input 
+            type="text" 
+            placeholder="Search reports..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500 shadow-sm"
+          />
         </div>
       </div>
 
       {/* Reports Grid */}
-      <div className="bg-white border border-gray-200 rounded-lg">
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm mx-6 md:mx-0">
         <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-200">
           
           {/* Top Row */}
           {reportSections.slice(0, 3).map((section, idx) => (
             <div key={idx} className="p-6">
-              <div className="flex items-center gap-2 mb-4 text-gray-500 font-medium border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2 mb-4 text-gray-700 font-bold border-b border-gray-100 pb-3">
                 {section.icon}
                 {section.title}
               </div>
-              <ul className="space-y-4">
-                {section.items.map((item, i) => (
-                  <li key={i} className="flex justify-between items-center text-sm text-gray-700 hover:text-indigo-600 cursor-pointer">
-                    {item.name}
-                    {item.isFav && <Star size={14} className="text-yellow-400 fill-yellow-400" />}
-                  </li>
-                ))}
-              </ul>
-              {section.showMore && (
-                <button className="mt-4 text-blue-500 text-sm flex items-center gap-1 hover:underline">
-                  See less <ChevronUp size={14} />
-                </button>
+              {section.items.length === 0 ? (
+                <div className="text-xs text-gray-400 italic py-2">No reports matching criteria</div>
+              ) : (
+                <ul className="space-y-3.5">
+                  {section.items.map((item, i) => {
+                    const slugMap: Record<string, string> = {
+                      "GSTR-1 (Sales)": "gstr-1",
+                      "GSTR-2 (Purchase)": "gstr-2",
+                      "Party Wise Outstanding": "party-outstanding",
+                      "Receivable Ageing Report": "ageing-report"
+                    };
+                    const slug = slugMap[item.name] || item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                    const href = `/dashboard/reports/${slug}`;
+                    return (
+                      <li key={i} className="flex justify-between items-center text-[13px] font-semibold text-gray-600 hover:text-indigo-600 cursor-pointer transition-colors group">
+                        <Link href={href} className="flex-1 group-hover:underline">
+                          {item.name}
+                        </Link>
+                        {item.isFav && <Star size={14} className="text-amber-400 fill-amber-400" />}
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
             </div>
           ))}
@@ -140,21 +188,32 @@ export default function ReportsPage() {
             <div key={idx} className="p-6">
               {section.title && (
                 <>
-                  <div className="flex items-center gap-2 mb-4 text-gray-500 font-medium border-b border-gray-100 pb-3">
+                  <div className="flex items-center gap-2 mb-4 text-gray-700 font-bold border-b border-gray-100 pb-3">
                     {section.icon}
                     {section.title}
                   </div>
-                  <ul className="space-y-4">
-                    {section.items.map((item, i) => (
-                      <li key={i} className="flex justify-between items-center text-sm text-gray-700 hover:text-indigo-600 cursor-pointer">
-                        {item.name}
-                      </li>
-                    ))}
-                  </ul>
-                  {section.showMore && (
-                    <button className="mt-4 text-blue-500 text-sm flex items-center gap-1 hover:underline">
-                      See less <ChevronUp size={14} />
-                    </button>
+                  {section.items.length === 0 ? (
+                    <div className="text-xs text-gray-400 italic py-2">No reports matching criteria</div>
+                  ) : (
+                    <ul className="space-y-3.5">
+                      {section.items.map((item, i) => {
+                        const slugMap: Record<string, string> = {
+                          "GSTR-1 (Sales)": "gstr-1",
+                          "GSTR-2 (Purchase)": "gstr-2",
+                          "Party Wise Outstanding": "party-outstanding",
+                          "Receivable Ageing Report": "ageing-report"
+                        };
+                        const slug = slugMap[item.name] || item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                        const href = `/dashboard/reports/${slug}`;
+                        return (
+                          <li key={i} className="flex justify-between items-center text-[13px] font-semibold text-gray-600 hover:text-indigo-600 cursor-pointer transition-colors group">
+                            <Link href={href} className="flex-1 group-hover:underline">
+                              {item.name}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   )}
                 </>
               )}
@@ -162,12 +221,6 @@ export default function ReportsPage() {
           ))}
         </div>
       </div>
-
-      {/* Floating Find Action */}
-      <div className="fixed bottom-6 right-8 text-gray-400 text-xs flex items-center gap-2">
-        Find Report <kbd className="bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded text-gray-600">Ctrl + F</kbd>
-      </div>
-
     </div>
   );
 }

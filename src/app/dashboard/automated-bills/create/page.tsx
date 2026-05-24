@@ -2,13 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Settings2, Share2, ScanBarcode, Plus, ChevronDown, Check, Trash2, Eye, FileText, Landmark, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { collection, getDocs, query, where, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
-import { useSession } from "@/context/SessionContext";
 
 import { sanitizeNumericInput } from "@/lib/sanitize";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
@@ -49,10 +48,8 @@ type Product = {
   unit?: string;
 };
 
-export default function CreateSalesInvoice() {
+export default function CreateAutomatedBill() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { activeProfile } = useSession();
 
   // Invoice state
   const [customerName, setCustomerName] = useState("");
@@ -62,14 +59,13 @@ export default function CreateSalesInvoice() {
   const [discountType, setDiscountType] = useState<DiscountType>("flat");
   const [discountValue, setDiscountValue] = useState<number | string>(0);
   const [gstEnabled, setGstEnabled] = useState(true);
-  const [status, setStatus] = useState<"paid" | "pending" | "credit">("paid");
-  const [dueDate, setDueDate] = useState("");
-  const [invoiceType, setInvoiceType] = useState<"invoice" | "estimate">("invoice");
-  const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
-  const [paymentTerms, setPaymentTerms] = useState("30");
-  const [amountReceived, setAmountReceived] = useState<number | string>(0);
-  const [paymentMode, setPaymentMode] = useState("Cash");
+
+  // Automated Bill specific states
+  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState("");
+  const [repeatFrequency, setRepeatFrequency] = useState("2");
+  const [repeatUnit, setRepeatUnit] = useState("Days");
+  const [paymentTerms, setPaymentTerms] = useState("15");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -245,13 +241,7 @@ export default function CreateSalesInvoice() {
           setProducts(cached as any || []);
         }
 
-        // Generate invoice sequential number
-        try {
-          const snap = await getDocs(query(collection(db, "invoices"), where("userId", "==", user.uid)));
-          setInvoiceNumber((snap.size + 1).toString());
-        } catch {
-          setInvoiceNumber((Math.floor(1000 + Math.random() * 9000)).toString());
-        }
+        // No sequential invoice number needed for automated bill templates
 
         // Fetch Company setting state
         try {
@@ -307,14 +297,7 @@ export default function CreateSalesInvoice() {
     }
   }, [customerName, customers]);
 
-  // Update payment terms or dates
-  useEffect(() => {
-    if (paymentTerms && invoiceDate) {
-      const date = new Date(invoiceDate);
-      date.setDate(date.getDate() + Number(paymentTerms || 0));
-      setDueDate(date.toISOString().split("T")[0]);
-    }
-  }, [paymentTerms, invoiceDate]);
+  // Due date logic removed as automated bills use repeat frequencies
 
   // Save new Bank Account to Firestore
   const handleSaveBank = async () => {
@@ -403,16 +386,7 @@ export default function CreateSalesInvoice() {
   const roundOffAmount = roundedTotal - rawTotal;
   const finalTotal = autoRoundOff ? roundedTotal : rawTotal;
 
-  // Sync Amount Received on Fully Paid toggle
-  const handleMarkFullyPaid = (checked: boolean) => {
-    if (checked) {
-      setAmountReceived(finalTotal.toFixed(2));
-      setStatus("paid");
-    } else {
-      setAmountReceived(0);
-      setStatus("pending");
-    }
-  };
+  // Payment tracking removed for automated bill templates
 
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -547,9 +521,11 @@ export default function CreateSalesInvoice() {
         customerName,
         customerGSTIN: selectedCustomer?.gstin || "",
         customerPhone: selectedCustomer?.phone || "",
-        invoiceNumber,
-        date: invoiceDate,
-        dueDate: dueDate,
+        startDate,
+        endDate,
+        repeatFrequency: Number(repeatFrequency),
+        repeatUnit,
+        paymentTerms: Number(paymentTerms),
         items: validItems,
         subtotal: calc.subtotal,
         discountType,
@@ -560,12 +536,11 @@ export default function CreateSalesInvoice() {
         cgst: calc.cgst,
         sgst: calc.sgst,
         igst: calc.igst,
-        status: Number(amountReceived) >= finalTotal ? "paid" : "pending",
-        invoiceType,
-        amountReceived: Number(amountReceived),
-        paymentMode,
+        status: "Active",
         createdAt: new Date(),
-        // New extended fields
+        vouchersMade: 0,
+        pendingVouchers: 0,
+        nextInvoiceDate: startDate, // compute naively
         shippingAddress,
         notes,
         additionalChargeName,
@@ -576,98 +551,20 @@ export default function CreateSalesInvoice() {
         selectedQRBankId,
         settings: invoiceSettings,
         signatureType,
-        signatureImage,
-        createdBy: activeProfile.name
+        signatureImage
       };
 
       if (isOfflineMode) {
-        // --- OFFLINE WORKSPACE SAVING ---
-        const { saveOfflineInvoice } = await import("@/lib/offlineInvoices");
-        const { getCachedProducts, cacheProducts } = await import("@/lib/indexedDB");
-
-        // Deduct stocks from cache if it's a tax invoice
-        if (invoiceType === "invoice") {
-          const cachedProducts = await getCachedProducts();
-          for (const item of validItems) {
-            if (item.productId) {
-              const idx = cachedProducts.findIndex(p => p.id === item.productId);
-              if (idx > -1) {
-                const stock = cachedProducts[idx].stock || 0;
-                if (item.qty > stock) {
-                  return toast.error(`Insufficient local stock for ${item.name}`);
-                }
-                cachedProducts[idx].stock = stock - item.qty;
-              }
-            }
-          }
-          await cacheProducts(cachedProducts);
-        }
-
-        await saveOfflineInvoice(invoiceData as any);
-        toast.success("Invoice saved offline draft ✅");
-        router.push("/dashboard/invoices");
+        toast.error("You must be online to create automated bills");
+        setSaving(false);
         return;
       }
 
-      // --- ONLINE SAVING ---
-      if (invoiceType === "invoice") {
-        // Deduct live stock
-        for (const item of validItems) {
-          if (item.productId) {
-            const ref = doc(db, "products", item.productId);
-            const snap = await getDoc(ref);
-            if (snap.exists()) {
-              const stock = snap.data().stock || 0;
-              if (item.qty > stock) {
-                return toast.error(`Insufficient stock for ${item.name}. (Available: ${stock})`);
-              }
-              await updateDoc(ref, {
-                stock: stock - item.qty,
-              });
-            }
-          }
-        }
-      }
+      // Save to automatedBills
+      await addDoc(collection(db, "automatedBills"), invoiceData);
 
-      const invRef = await addDoc(collection(db, "invoices"), invoiceData);
-      
-      // Update Cash & Bank Balance
-      const amountRec = Number(amountReceived);
-      if (amountRec > 0 && invoiceType === "invoice") {
-        const isCash = paymentMode === "Cash";
-        let newBalance = 0;
-        if (isCash) {
-           const sRef = doc(db, "settings", user.uid);
-           const sSnap = await getDoc(sRef);
-           const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
-           newBalance = current + amountRec;
-           await updateDoc(sRef, { cashInHand: newBalance });
-        } else {
-           const bRef = doc(db, "bankAccounts", paymentMode);
-           const bSnap = await getDoc(bRef);
-           const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
-           newBalance = current + amountRec;
-           await updateDoc(bRef, { balance: newBalance });
-        }
-        
-        await addDoc(collection(db, "cashBankTransactions"), {
-          userId: user.uid,
-          accountId: isCash ? "cash" : paymentMode,
-          type: "Sales Invoice",
-          txnNo: invoiceNumber,
-          date: invoiceDate,
-          party: customerName,
-          mode: isCash ? "Cash" : "Bank",
-          paid: 0,
-          received: amountRec,
-          balanceAfter: newBalance,
-          remarks: `Received against Invoice #${invoiceNumber}`,
-          createdAt: new Date()
-        });
-      }
-
-      toast.success("Sales Invoice created successfully! ✅");
-      router.push("/dashboard/invoices");
+      toast.success("Automated Bill created successfully! ✅");
+      router.push("/dashboard/automated-bills");
 
     } catch (err) {
       console.error(err);
@@ -692,12 +589,12 @@ export default function CreateSalesInvoice() {
       {/* ENTERPRISE ACTION HEADER */}
       <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-20 shadow-xs">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/invoices" className="text-gray-400 hover:text-gray-700 transition-colors">
+          <Link href="/dashboard/automated-bills" className="text-gray-400 hover:text-gray-700 transition-colors">
             <ArrowLeft size={18} />
           </Link>
           <div className="space-y-0.5">
-            <h1 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Create Sales Invoice</h1>
-            <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">New Transaction</span>
+            <h1 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Create Automated Sales Invoice</h1>
+            <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">New Automation</span>
           </div>
         </div>
 
@@ -848,23 +745,45 @@ export default function CreateSalesInvoice() {
             <div className="bg-white border border-gray-200 rounded-lg p-4 grid grid-cols-2 gap-x-4 gap-y-3 shadow-xs">
               
               <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Invoice No.</label>
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Start Date</label>
                 <input 
-                  type="text"
-                  value={invoiceNumber}
-                  onChange={(e) => setInvoiceNumber(e.target.value)}
-                  className="w-full border-b border-gray-200 py-1 text-xs focus:outline-none focus:border-indigo-500 text-gray-700 font-mono font-bold" 
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full border-b border-gray-200 py-1 text-xs focus:outline-none focus:border-indigo-500 text-gray-700" 
                 />
               </div>
 
               <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Invoice Date</label>
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">End Date</label>
                 <input 
                   type="date"
-                  value={invoiceDate}
-                  onChange={(e) => setInvoiceDate(e.target.value)}
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
                   className="w-full border-b border-gray-200 py-1 text-xs focus:outline-none focus:border-indigo-500 text-gray-600" 
                 />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Repeat Every</label>
+                <div className="flex items-center gap-2 border-b border-gray-200 py-1">
+                  <input
+                    type="number"
+                    min="1"
+                    value={repeatFrequency}
+                    onChange={(e) => setRepeatFrequency(e.target.value)}
+                    className="w-16 text-xs font-semibold focus:outline-none font-mono text-gray-700"
+                  />
+                  <select
+                    value={repeatUnit}
+                    onChange={(e) => setRepeatUnit(e.target.value)}
+                    className="w-full text-xs font-semibold focus:outline-none text-gray-700 bg-transparent"
+                  >
+                    <option value="Days">Days</option>
+                    <option value="Weeks">Weeks</option>
+                    <option value="Months">Months</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -876,20 +795,10 @@ export default function CreateSalesInvoice() {
                     value={paymentTerms}
                     onChange={(e) => setPaymentTerms(e.target.value)}
                     className="w-full text-xs font-semibold focus:outline-none font-mono text-gray-700"
-                    placeholder="e.g. 30"
+                    placeholder="e.g. 15"
                   />
                   <span className="text-[10px] text-gray-400 font-bold uppercase">days</span>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Due Date</label>
-                <input 
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full border-b border-gray-200 py-1 text-xs text-gray-600 focus:outline-none focus:border-indigo-500 bg-transparent" 
-                />
               </div>
 
             </div>
@@ -1320,73 +1229,7 @@ export default function CreateSalesInvoice() {
                 </span>
               </div>
 
-              {/* Fully Paid toggle + Received Cash */}
-              <div className="border-t border-gray-100 pt-3 space-y-3">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-500">Amount Received</span>
-                  <div className="flex items-center gap-2">
-                    <div className="relative bg-white rounded">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">₹</span>
-                      <input 
-                        type="number"
-                        value={amountReceived}
-                        onChange={(e) => setAmountReceived(sanitizeNumericInput(e.target.value))}
-                        className="border border-gray-200 rounded py-1 pl-4 pr-1 text-xs focus:outline-none font-mono text-right w-24"
-                      />
-                    </div>
-                    <select
-                      value={paymentMode}
-                      onChange={(e) => setPaymentMode(e.target.value)}
-                      className="border border-gray-200 rounded py-1 px-1 text-[10px] focus:outline-none bg-white text-gray-600 font-semibold cursor-pointer max-w-[100px]"
-                    >
-                      <option value="Cash">Cash</option>
-                      {bankAccounts.filter((b: any) => b.status !== "inactive").map((b: any) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <label className="flex items-center gap-1.5 text-[10px] text-gray-400 font-bold uppercase tracking-wider cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setAmountReceived(finalTotal.toFixed(2));
-                          setStatus("paid");
-                        } else {
-                          setAmountReceived(0);
-                          setStatus("pending");
-                        }
-                      }}
-                      className="rounded border-gray-300 text-indigo-600" 
-                    />
-                    <span>Mark as fully paid</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Balance remaining */}
-              <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                <span className="font-bold text-green-600 text-xs">Balance Amount</span>
-                <span className="font-bold font-mono text-green-600">
-                  ₹ {Math.max(0, finalTotal - Number(amountReceived || 0)).toFixed(2)}
-                </span>
-              </div>
-
-              {/* Billing transaction Type selection */}
-              <div className="border-t border-gray-150 pt-3">
-                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Invoice Type</label>
-                <select
-                  value={invoiceType}
-                  onChange={(e) => setInvoiceType(e.target.value as any)}
-                  className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white font-semibold text-gray-600"
-                >
-                  <option value="invoice">Tax Invoice (Deducts Stock)</option>
-                  <option value="estimate">Estimate / Quotation (Skips Stock)</option>
-                </select>
-              </div>
+              {/* Removed upfront payment tracking inputs and estimate toggle for automated templates */}
 
               {/* Signature container */}
               <div className="pt-4 flex justify-end">

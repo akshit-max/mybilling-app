@@ -235,11 +235,7 @@ export default function QuotationsPage() {
           <p className="text-[11px] text-gray-400 font-medium">Create, track and generate professional quotations & estimates</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 text-xs text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded bg-white hover:bg-indigo-50 font-semibold transition-colors">
-            <FileText size={13} />
-            <span>Reports</span>
-            <ChevronDown size={12} />
-          </button>
+
           <button className="p-2 text-gray-400 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center shrink-0">
             <Filter size={13} />
           </button>

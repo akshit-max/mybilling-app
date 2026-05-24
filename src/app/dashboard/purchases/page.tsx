@@ -17,6 +17,7 @@ export default function PurchasesPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+  const [showReportsDropdown, setShowReportsDropdown] = useState(false);
 
   const [totalPurchases, setTotalPurchases] = useState(0);
   const [paidAmount, setPaidAmount] = useState(0);
@@ -217,9 +218,27 @@ export default function PurchasesPage() {
         <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
           <h1 className="text-lg font-bold text-gray-800">Purchase Invoices</h1>
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-1.5 text-blue-600 border border-blue-200 px-3 py-1.5 rounded text-xs font-semibold hover:bg-blue-50 transition-colors">
-              <FileText size={14} /> Reports <ChevronDown size={12} />
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowReportsDropdown(!showReportsDropdown)}
+                className="flex items-center gap-1.5 text-blue-600 border border-blue-200 px-3 py-1.5 rounded text-xs font-semibold hover:bg-blue-50 transition-colors"
+              >
+                <FileText size={14} /> Reports <ChevronDown size={12} />
+              </button>
+              {showReportsDropdown && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowReportsDropdown(false)}></div>
+                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 py-1.5 text-left text-xs font-medium text-gray-700">
+                    <Link href="/dashboard/reports/gstr-2" className="block px-4 py-2 hover:bg-blue-50 hover:text-blue-600 w-full text-left">
+                      GSTR-2 (Purchase)
+                    </Link>
+                    <Link href="/dashboard/reports/daybook-purchase" className="block px-4 py-2 hover:bg-blue-50 hover:text-blue-600 w-full text-left">
+                      DayBook
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
             <button className="flex items-center gap-2 text-gray-600 border border-gray-200 px-2.5 py-1.5 rounded hover:bg-gray-50 transition-colors">
               <Settings2 size={14} />
             </button>

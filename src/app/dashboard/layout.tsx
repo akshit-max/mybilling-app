@@ -4,6 +4,8 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { usePathname } from "next/navigation";
+import AutomatedBillsProcessor from "@/components/AutomatedBillsProcessor";
+import { SessionProvider } from "@/context/SessionContext";
 
 export default function DashboardLayout({
   children,
@@ -15,19 +17,22 @@ export default function DashboardLayout({
 
   return (
     <ProtectedRoute>
-      <div className="flex h-screen print:h-auto print:block w-full bg-[#f4f5f7] overflow-hidden print:overflow-visible font-sans text-gray-800">
-        <div className="print:hidden">
-          {!isSettings && <Sidebar />}
-        </div>
-        <div className="flex flex-col flex-1 min-w-0 print:block">
+      <SessionProvider>
+        <AutomatedBillsProcessor />
+        <div className="flex h-screen print:h-auto print:block w-full bg-[#f4f5f7] overflow-hidden print:overflow-visible font-sans text-gray-800">
           <div className="print:hidden">
-            {!isSettings && <Topbar />}
+            {!isSettings && <Sidebar />}
           </div>
-          <main className={`flex-1 overflow-y-auto print:overflow-visible ${isSettings ? "" : "p-6 print:p-0"}`}>
-            {children}
-          </main>
+          <div className="flex flex-col flex-1 min-w-0 print:block">
+            <div className="print:hidden">
+              {!isSettings && <Topbar />}
+            </div>
+            <main className={`flex-1 overflow-y-auto print:overflow-visible ${isSettings ? "" : "p-6 print:p-0"}`}>
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </SessionProvider>
     </ProtectedRoute>
   );
 }

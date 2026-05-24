@@ -29,6 +29,7 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+import { useSession } from "@/context/SessionContext";
 
 type SubItem = {
   name: string;
@@ -57,6 +58,19 @@ export function Sidebar() {
   const [businessName, setBusinessName] = useState("Loading...");
   const [phone, setPhone] = useState("...");
   const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
+
+  const { activeProfile } = useSession();
+  const role = activeProfile.role;
+
+  // RBAC Permission Helper
+  const isAllowed = (itemName: string) => {
+    if (role === "Admin" || role === "Partner") return true;
+    if (role === "Salesman") return ["Dashboard", "Parties", "Sales", "Items", "POS Billing"].includes(itemName);
+    if (role === "Stock Manager") return ["Dashboard", "Items", "Purchases"].includes(itemName);
+    if (role === "CA") return ["Dashboard", "Sales", "Purchases", "Reports", "Expenses", "E-Invoicing"].includes(itemName);
+    if (role === "Delivery Boy") return ["Dashboard", "Sales"].includes(itemName);
+    return false;
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -182,7 +196,10 @@ export function Sidebar() {
         { name: "SMS Marketing", href: "/dashboard/sms", icon: MessageSquare },
       ],
     },
-  ];
+  ].map(group => ({
+    ...group,
+    items: group.items.filter(item => isAllowed(item.name))
+  })).filter(group => group.items.length > 0);
 
   return (
     <aside className="w-64 bg-[#141725] text-white flex flex-col h-screen flex-shrink-0 font-sans border-r border-gray-800 relative z-50">
@@ -336,17 +353,19 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="p-4 border-t border-gray-800 space-y-3">
-        <Link
-          href="/dashboard/settings"
-          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-            pathname?.startsWith("/dashboard/settings")
-              ? "bg-indigo-600/20 text-indigo-300"
-              : "text-gray-400 hover:bg-white/5 hover:text-white"
-          }`}
-        >
-          <Settings size={17} />
-          <span>Settings</span>
-        </Link>
+        {(role === "Admin" || role === "Partner") && (
+          <Link
+            href="/dashboard/settings"
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+              pathname?.startsWith("/dashboard/settings")
+                ? "bg-indigo-600/20 text-indigo-300"
+                : "text-gray-400 hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            <Settings size={17} />
+            <span>Settings</span>
+          </Link>
+        )}
         <div className="flex items-center gap-2 text-[11px] text-gray-600 px-3">
           <ShieldCheck size={13} />
           <span>100% Secure • ISO Certified</span>

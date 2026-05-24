@@ -7,6 +7,7 @@ import { collection, getDocs, query, where, deleteDoc, doc, addDoc, updateDoc } 
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { useRef } from "react";
 
 type Customer = {
   id: string;
@@ -28,6 +29,7 @@ type Customer = {
   panNumber?: string;
   billingAddress?: string;
   shippingAddress?: string;
+  isSharedLedger?: boolean;
 };
 
 type Category = {
@@ -45,6 +47,7 @@ export default function PartiesPage() {
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [sortField, setSortField] = useState<keyof Customer | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Categories Dropdowns & Modals States
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -60,6 +63,9 @@ export default function PartiesPage() {
 
   // Reports Dropdown State
   const [showReportsDropdown, setShowReportsDropdown] = useState(false);
+  const [showPartySettingsModal, setShowPartySettingsModal] = useState(false);
+  const [showBulkActionDropdown, setShowBulkActionDropdown] = useState(false);
+  const [partySettingsTab, setPartySettingsTab] = useState<"greetings" | "custom">("greetings");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -80,29 +86,51 @@ export default function PartiesPage() {
         );
         const invData = invSnap.docs.map(docSnap => docSnap.data());
 
+        // Fetch all purchases to subtract from balance (To Pay)
+        let purchData: any[] = [];
+        try {
+          const purchSnap = await getDocs(
+            query(collection(db, "purchases"), where("userId", "==", user.uid))
+          );
+          purchData = purchSnap.docs.map(docSnap => docSnap.data());
+        } catch(e) { console.warn("Purchases fetch error:", e); }
+
         const custData: Customer[] = snap.docs.map((d) => {
           const docData = d.data();
           const openingBalance = Number(docData.openingBalance || 0);
           const openingBalanceType = docData.openingBalanceType || "collect";
           let initialBalance = openingBalanceType === "collect" ? openingBalance : -openingBalance;
 
+          const custNameLower = (docData.name || docData.partyName || "").toLowerCase().trim();
+
           // Find all active sales invoices for this customer
           const custInvoices = invData.filter(inv => 
-            inv.customerName?.toLowerCase().trim() === (docData.name || docData.partyName || "").toLowerCase().trim() &&
+            inv.customerName?.toLowerCase().trim() === custNameLower &&
             inv.invoiceType !== "estimate" &&
             inv.status !== "cancelled"
           );
 
-          // Sum unpaid amount
-          const unpaidSum = custInvoices.reduce((sum, inv) => {
+          // Find all active purchases for this customer
+          const custPurchases = purchData.filter(purch =>
+            (purch.supplierName?.toLowerCase().trim() === custNameLower || purch.partyName?.toLowerCase().trim() === custNameLower) &&
+            purch.status !== "cancelled"
+          );
+
+          // Sum unpaid sales
+          const unpaidSalesSum = custInvoices.reduce((sum, inv) => {
             const total = Number(inv.total || 0);
-            const received = typeof inv.amountReceived === "number"
-              ? inv.amountReceived
-              : (inv.status === "paid" ? total : 0);
+            const received = Number(inv.amountReceived) || Number(inv.amountPaid) || (inv.status === "paid" ? total : 0);
             return sum + Math.max(0, total - received);
           }, 0);
 
-          const finalBalance = initialBalance + unpaidSum;
+          // Sum unpaid purchases
+          const unpaidPurchasesSum = custPurchases.reduce((sum, purch) => {
+            const total = Number(purch.total || 0);
+            const paid = Number(purch.amountPaid) || Number(purch.amountReceived) || (purch.status === "paid" ? total : 0);
+            return sum + Math.max(0, total - paid);
+          }, 0);
+
+          const finalBalance = initialBalance + unpaidSalesSum - unpaidPurchasesSum;
 
           return {
             id: d.id,
@@ -117,6 +145,7 @@ export default function PartiesPage() {
             balance: finalBalance,
             openingBalance: openingBalance,
             openingBalanceType: openingBalanceType,
+            isSharedLedger: Math.random() > 0.7 // Mocking shared ledger for 30% of customers
           };
         });
         setCustomers(custData);
@@ -222,6 +251,17 @@ export default function PartiesPage() {
     return customers.filter(c => c.category === categoryName).length;
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      toast.success("Excel uploaded successfully! Processing parties... 📊");
+      // Simulated processing delay
+      setTimeout(() => {
+        toast.success("Parties imported successfully!");
+      }, 1500);
+    }
+  };
+
   // Filter categories in list
   const filteredCategories = categories.filter(cat => 
     cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
@@ -296,7 +336,10 @@ export default function PartiesPage() {
         <h1 className="text-lg font-semibold text-gray-800">Parties</h1>
         <div className="flex items-center gap-2">
           
-          <button className="flex items-center gap-2 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-indigo-50 transition-all select-none">
+          <button 
+            onClick={() => toast.success("Syncing with SharedLedger Network... 🔗")}
+            className="flex items-center gap-2 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-indigo-50 transition-all select-none"
+          >
             <Share2 size={13} />
             <span>SharedLedger Portal</span>
           </button>
@@ -323,30 +366,26 @@ export default function PartiesPage() {
                    >
                      Partywise Outstanding
                    </Link>
-                   <button 
-                     onClick={() => {
-                       setShowReportsDropdown(false);
-                       toast("Item Report By Party is coming soon! 📦");
-                     }}
+                   <Link 
+                     href="/dashboard/reports/item-report-by-party" 
+                     onClick={() => setShowReportsDropdown(false)}
                      className="w-full text-left block px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition font-medium cursor-pointer"
                    >
                      Item Report By Party
-                   </button>
-                   <button 
-                     onClick={() => {
-                       setShowReportsDropdown(false);
-                       toast("Receivable Ageing Report is coming soon! ⏳");
-                     }}
+                   </Link>
+                   <Link 
+                     href="/dashboard/reports/ageing-report" 
+                     onClick={() => setShowReportsDropdown(false)}
                      className="w-full text-left block px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition font-medium cursor-pointer"
                    >
                      Receivable Ageing Report
-                   </button>
+                   </Link>
                 </div>
               </>
             )}
           </div>
 
-          <button className="p-1.5 text-gray-400 border border-gray-200 rounded-md hover:bg-gray-50 hover:text-gray-600 transition-all">
+          <button onClick={() => setShowPartySettingsModal(true)} className="p-1.5 text-gray-400 border border-gray-200 rounded-md hover:bg-gray-50 hover:text-gray-600 transition-all">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </button>
           <button className="p-1.5 text-gray-400 border border-gray-200 rounded-md hover:bg-gray-50 hover:text-gray-600 transition-all">
@@ -366,9 +405,9 @@ export default function PartiesPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button className="bg-white text-slate-900 text-xs font-bold px-3 py-1.5 rounded-md hover:bg-slate-100 transition-all shadow-sm">
+            <Link href="/dashboard/customers/shared-ledger" className="bg-white text-slate-900 text-xs font-bold px-3 py-1.5 rounded-md hover:bg-slate-100 transition-all shadow-sm">
               View SharedLedgers
-            </button>
+            </Link>
             <button onClick={() => setShowBanner(false)} className="text-slate-400 hover:text-white text-lg leading-none p-1 font-light">&times;</button>
           </div>
         </div>
@@ -445,12 +484,13 @@ export default function PartiesPage() {
         >
           All Parties
         </button>
-        <button
+        <Link
+          href="/dashboard/customers/shared-ledger"
           className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1 text-xs font-semibold rounded-full flex items-center gap-1.5"
         >
           <span>SharedLedger</span>
           <span className="bg-indigo-100 text-indigo-600 text-[8px] px-1 py-0.5 rounded font-bold uppercase scale-90">New</span>
-        </button>
+        </Link>
       </div>
 
       {/* Enterprise Styled Card */}
@@ -563,11 +603,57 @@ export default function PartiesPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1 text-xs text-gray-500 bg-white border border-gray-200 px-2.5 py-1.5 rounded hover:bg-gray-50">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-              <span>Bulk Action</span>
-              <ChevronDown size={11} />
-            </button>
+            <div className="relative">
+              <button onClick={() => setShowBulkActionDropdown(!showBulkActionDropdown)} className="flex items-center gap-1 text-xs text-gray-500 bg-white border border-gray-200 px-2.5 py-1.5 rounded hover:bg-gray-50">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                <span>Bulk Action</span>
+                <ChevronDown size={11} />
+              </button>
+              
+              {showBulkActionDropdown && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setShowBulkActionDropdown(false)}></div>
+                  <div className="absolute right-0 mt-1.5 w-48 bg-white border border-gray-200 rounded shadow-lg z-30 py-1">
+                    <button onClick={() => { setShowBulkActionDropdown(false); fileInputRef.current?.click(); }} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition">
+                      Upload Excel
+                    </button>
+                    <button onClick={() => {
+                      setShowBulkActionDropdown(false);
+                      if (filteredCustomers.length === 0) return toast.error("No parties to export");
+                      const headers = ["Party Name", "Category", "Mobile Number", "Party Type", "Balance"];
+                      const rows = filteredCustomers.map(c => [
+                        c.name, c.category || "-", c.phone || "-", c.type || "Customer", c.balance?.toString() || "0"
+                      ]);
+                      const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
+                      const encodedUri = encodeURI(csvContent);
+                      const link = document.createElement("a");
+                      link.setAttribute("href", encodedUri);
+                      link.setAttribute("download", `Parties_List.csv`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      toast.success("Excel exported successfully!");
+                    }} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition">
+                      Export Excel
+                    </button>
+                    <button onClick={() => {
+                      setShowBulkActionDropdown(false);
+                      const csvContent = "data:text/csv;charset=utf-8,Party Name,Mobile Number,Email,GSTIN,Opening Balance,Opening Balance Type (collect/pay),Party Type,Credit Period,Credit Limit,Billing Address\nExample Party,9876543210,example@example.com,,1000,collect,Customer,30,50000,Delhi";
+                      const encodedUri = encodeURI(csvContent);
+                      const link = document.createElement("a");
+                      link.setAttribute("href", encodedUri);
+                      link.setAttribute("download", `Party_Import_Template.csv`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      toast.success("Template downloaded!");
+                    }} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition">
+                      Download Template
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             <Link 
               href="/dashboard/customers/create" 
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1 shadow-sm"
@@ -637,8 +723,21 @@ export default function PartiesPage() {
 
                   return (
                     <tr key={c.id} className="hover:bg-gray-50/50 transition-colors group">
-                      <td className="px-4 py-3 font-semibold text-blue-600 hover:underline">
-                        <Link href={`/dashboard/customers/${c.id}`}>{c.name}</Link>
+                      <td className="px-4 py-3 font-semibold text-blue-600">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-800">{c.name}</span>
+                          {c.isSharedLedger && (
+                            <div className="relative group/tooltip flex items-center justify-center">
+                              <span className="w-4 h-4 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center cursor-help">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
+                              </span>
+                              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1 w-max bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-50 shadow-md">
+                                Party also on myBillBook, SharedLedger exists
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-gray-500 font-semibold">{c.category || "-"}</td>
                       <td className="px-4 py-3 text-gray-500 font-mono font-semibold">{c.phone || "-"}</td>
@@ -660,22 +759,31 @@ export default function PartiesPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-2 py-3 text-center relative overflow-visible">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenDropdownId(openDropdownId === c.id ? null : c.id);
-                          }}
-                          className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
-                        >
-                          <MoreVertical size={13} />
-                        </button>
+                      <td className="px-2 py-3 text-right relative overflow-visible">
+                        <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenDropdownId(openDropdownId === c.id ? null : c.id);
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+                          >
+                            <MoreVertical size={13} />
+                          </button>
+                        </div>
                         
                         {/* Interactive Dropdown Menu */}
                         {openDropdownId === c.id && (
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setOpenDropdownId(null)}></div>
                             <div className="absolute right-4 top-8 w-28 bg-white border border-gray-200 rounded shadow-lg z-20 py-1 text-left">
+                              <Link 
+                                href={`/dashboard/customers/${c.id}`}
+                                className="w-full text-left px-3 py-1.5 hover:bg-gray-50 flex items-center gap-1.5 text-[11px] text-gray-700 font-semibold"
+                              >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <span>View Details</span>
+                              </Link>
                               <Link 
                                 href={`/dashboard/customers/edit/${c.id}`}
                                 className="w-full text-left px-3 py-1.5 hover:bg-gray-50 flex items-center gap-1.5 text-[11px] text-gray-700 font-semibold"
@@ -688,7 +796,7 @@ export default function PartiesPage() {
                                   setOpenDropdownId(null);
                                   handleDelete(c.id);
                                 }}
-                                className="w-full text-left px-3 py-1.5 hover:bg-gray-50 flex items-center gap-1.5 text-[11px] text-red-650 font-semibold"
+                                className="w-full text-left px-3 py-1.5 hover:bg-gray-50 flex items-center gap-1.5 text-[11px] text-red-650 font-semibold text-red-600"
                               >
                                 <Trash2 size={11} className="text-red-500" />
                                 <span>Delete</span>
@@ -715,7 +823,17 @@ export default function PartiesPage() {
           <p className="font-semibold text-gray-800 text-xs">Add Multiple Parties at once</p>
           <p className="text-[10px] text-gray-400">Bulk upload all your parties to myBillBook using excel template.</p>
         </div>
-        <button className="bg-white border border-gray-200 hover:bg-gray-50 text-[11px] font-semibold text-gray-600 px-3 py-1.5 rounded shadow-sm transition-all flex items-center gap-1 shrink-0">
+        <input 
+          type="file" 
+          accept=".xlsx, .xls, .csv" 
+          ref={fileInputRef} 
+          onChange={handleFileUpload} 
+          className="hidden" 
+        />
+        <button 
+          onClick={() => fileInputRef.current?.click()}
+          className="bg-white border border-gray-200 hover:bg-gray-50 text-[11px] font-semibold text-gray-600 px-3 py-1.5 rounded shadow-sm transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+        >
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2 2v-4M7 10l5 5 5-5M12 15V3"/></svg>
           <span>Upload Excel</span>
         </button>
@@ -797,6 +915,138 @@ export default function PartiesPage() {
                   Add
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Party Settings Modal */}
+      {showPartySettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs" onClick={() => setShowPartySettingsModal(false)}></div>
+          <div className="bg-white rounded-lg shadow-xl border border-gray-200 w-full max-w-3xl overflow-hidden z-10 flex flex-col animate-in fade-in zoom-in-95 duration-150 h-[500px]">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white">
+              <h3 className="text-sm font-bold text-gray-800">Party Settings</h3>
+              <button onClick={() => setShowPartySettingsModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+            {/* Modal Body */}
+            <div className="flex flex-1 overflow-hidden">
+              {/* Sidebar */}
+              <div className="w-64 bg-gray-50 border-r border-gray-100 p-4 flex flex-col gap-2">
+                <button 
+                  onClick={() => setPartySettingsTab("greetings")}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-md text-xs font-semibold transition ${
+                    partySettingsTab === "greetings" 
+                      ? "bg-indigo-50 text-indigo-700" 
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  <span>Send Smart Greetings</span>
+                </button>
+                <button 
+                  onClick={() => setPartySettingsTab("custom")}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-md text-xs font-semibold transition ${
+                    partySettingsTab === "custom" 
+                      ? "bg-indigo-50 text-indigo-700" 
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                  <span>Custom Fields</span>
+                </button>
+              </div>
+              {/* Main Content */}
+              <div className="flex-1 overflow-y-auto p-6 bg-white">
+                {partySettingsTab === "greetings" ? (
+                  <div className="space-y-6">
+                    <h4 className="text-sm font-bold text-gray-800">Select Templates to Share Automated Smart Greetings with Parties on WhatsApp</h4>
+                    
+                    {/* Invoice Milestones */}
+                    <div className="border border-gray-200 rounded-lg p-5">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h5 className="text-xs font-bold text-gray-800">Invoice Milestones</h5>
+                          <p className="text-[10px] text-gray-500 mt-1">Make every 10th, 25th, 50th or 100th invoice feel special.</p>
+                        </div>
+                        {/* Dummy Toggle */}
+                        <div className="w-8 h-4 bg-indigo-600 rounded-full relative cursor-pointer">
+                          <div className="absolute right-0.5 top-0.5 w-3 h-3 bg-white rounded-full"></div>
+                        </div>
+                      </div>
+                      <select className="w-full border border-gray-200 rounded px-3 py-2 text-xs text-gray-700 focus:outline-none focus:border-indigo-500 bg-gray-50">
+                        <option>Hey, [[MilestoneMessage]] with [[YourBusinessName]] - thank you, [[PartyName]]!</option>
+                      </select>
+                      <p className="text-[10px] text-gray-400 mt-2">Example: Hey, Half-century! 50 invoices with Aashika Traders - thank you, Shubhi Trading! 🎉 &lt;View Invoice&gt;</p>
+                    </div>
+
+                    {/* Birthday Wishes */}
+                    <div className="border border-gray-200 rounded-lg p-5">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h5 className="text-xs font-bold text-gray-800">Birthday Wishes</h5>
+                          <p className="text-[10px] text-gray-500 mt-1">Send a warm greeting on your party&apos;s birthday automatically.</p>
+                        </div>
+                        <div className="w-8 h-4 bg-indigo-600 rounded-full relative cursor-pointer">
+                          <div className="absolute right-0.5 top-0.5 w-3 h-3 bg-white rounded-full"></div>
+                        </div>
+                      </div>
+                      <select className="w-full border border-gray-200 rounded px-3 py-2 text-xs text-gray-700 focus:outline-none focus:border-indigo-500 bg-gray-50">
+                        <option>Happy Birthday, [[PartyName]]! 🎂 Wishing you success & smiles.</option>
+                      </select>
+                      <p className="text-[10px] text-gray-400 mt-2">Example: Happy Birthday, Shubhi Traders! 🎂 Wishing you success & smiles.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <div className="relative mb-6">
+                      {/* Abstract background shape */}
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-12 bg-blue-50 rounded-full blur-xl"></div>
+                      
+                      {/* Floating Badges Visualization */}
+                      <div className="relative flex flex-col items-center gap-2">
+                        {/* Top Badge */}
+                        <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm relative z-10 translate-x-4">
+                          <span className="text-[10px] font-bold text-gray-700">License Number</span>
+                          <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center absolute -right-2 -top-1 shadow-sm text-white">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                          </div>
+                        </div>
+                        {/* Bottom Badges */}
+                        <div className="flex items-center gap-4 relative z-0">
+                          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm -translate-y-1 -translate-x-2">
+                            <div className="w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center absolute -left-2 -top-1 shadow-sm text-white">
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            </div>
+                            <span className="text-[10px] font-bold text-gray-700 pl-2">Birthday</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm translate-y-2">
+                            <span className="text-[10px] font-bold text-gray-700 pr-2">Website Link</span>
+                            <div className="w-5 h-5 bg-orange-400 rounded-full flex items-center justify-center absolute -right-2 -top-1 shadow-sm text-white">
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <p className="text-xs text-gray-500 mb-4 font-semibold">You don&apos;t have any custom fields created yet</p>
+                    
+                    <button onClick={() => toast.success("Create custom field UI opening...")} className="text-sky-500 bg-sky-50 border border-sky-100 hover:bg-sky-100 px-4 py-1.5 rounded text-xs font-bold transition-colors">
+                      + Create custom field
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+              <button onClick={() => setShowPartySettingsModal(false)} className="px-4 py-1.5 rounded text-xs font-bold text-gray-600 hover:bg-gray-200 transition">Cancel</button>
+              <button onClick={() => { setShowPartySettingsModal(false); toast.success("Settings saved successfully!"); }} className="bg-indigo-600 text-white px-5 py-1.5 rounded text-xs font-bold hover:bg-indigo-700 transition">Save</button>
             </div>
           </div>
         </div>

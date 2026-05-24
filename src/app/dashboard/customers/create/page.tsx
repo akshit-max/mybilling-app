@@ -8,9 +8,11 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { ArrowLeft, Settings, Landmark } from "lucide-react";
+import { useSession } from "@/context/SessionContext";
 
 export default function CreatePartyPage() {
   const router = useRouter();
+  const { activeProfile } = useSession();
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
@@ -126,6 +128,7 @@ export default function CreatePartyPage() {
         contactPersonName: contactPersonName.trim(),
         contactPersonDob,
         createdAt: serverTimestamp(),
+        createdBy: activeProfile.name,
         // Keep these fields for backward compatibility with old logic
         address: billingAddress.trim(),
       };
@@ -190,7 +193,11 @@ export default function CreatePartyPage() {
           <h1 className="text-base font-semibold text-gray-800">Create Party</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 text-xs text-gray-600 border border-gray-200 bg-white px-3 py-1.5 rounded hover:bg-gray-50 font-medium">
+          <button 
+            type="button"
+            onClick={() => toast.success("Opening Party Settings...")} 
+            className="flex items-center gap-1.5 text-xs text-gray-600 border border-gray-200 bg-white px-3 py-1.5 rounded hover:bg-gray-50 font-medium"
+          >
             <Settings size={13} />
             <span>Party Settings</span>
           </button>
@@ -284,6 +291,14 @@ export default function CreatePartyPage() {
                   />
                   <button 
                     type="button"
+                    onClick={() => {
+                      if (!gstin.trim() || gstin.trim().length !== 15) {
+                        toast.error("Please enter a valid 15-character GSTIN");
+                        return;
+                      }
+                      toast.success("Fetching GSTIN details...");
+                      setTimeout(() => toast.success("GSTIN details auto-populated! (Mock)"), 1000);
+                    }}
                     className="bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 text-xs px-4 py-1.5 rounded font-semibold transition-colors"
                   >
                     Get Details

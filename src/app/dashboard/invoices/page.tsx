@@ -36,12 +36,12 @@ export default function SalesInvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Filters & State
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState<"365" | "today" | "all">("365");
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending" | "credit" | "cancelled">("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "invoice" | "estimate">("all");
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+  const [showReportsDropdown, setShowReportsDropdown] = useState(false);
 
   const fetchInvoicesList = async (userId: string) => {
     try {
@@ -235,11 +235,35 @@ export default function SalesInvoicesPage() {
           <p className="text-[11px] text-gray-400 font-medium">Create, track and generate professional tax invoices & estimates</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 text-xs text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded bg-white hover:bg-indigo-50 font-semibold transition-colors">
-            <FileText size={13} />
-            <span>Reports</span>
-            <ChevronDown size={12} />
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setShowReportsDropdown(!showReportsDropdown)}
+              className="flex items-center gap-1.5 text-xs text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded bg-white hover:bg-indigo-50 font-semibold transition-colors"
+            >
+              <FileText size={13} />
+              <span>Reports</span>
+              <ChevronDown size={12} />
+            </button>
+            {showReportsDropdown && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowReportsDropdown(false)}></div>
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 py-1.5 text-left text-xs font-medium text-gray-700">
+                  <Link href="/dashboard/reports/sales-summary" className="block px-4 py-2 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left">
+                    Sales Summary
+                  </Link>
+                  <Link href="/dashboard/reports/gstr-1" className="block px-4 py-2 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left">
+                    GSTR-1 (Sales)
+                  </Link>
+                  <Link href="/dashboard/reports/daybook" className="block px-4 py-2 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left">
+                    DayBook
+                  </Link>
+                  <Link href="/dashboard/reports/bill-wise-profit" className="block px-4 py-2 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left">
+                    Bill Wise Profit
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
           <button className="p-2 text-gray-400 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center shrink-0">
             <Filter size={13} />
           </button>

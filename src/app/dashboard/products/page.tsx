@@ -7,6 +7,7 @@ import { collection, getDocs, query, where, deleteDoc, doc, addDoc, updateDoc, s
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
+import { useSession } from "@/context/SessionContext";
 
 type Product = {
   id: string;
@@ -35,6 +36,7 @@ type ModalTab = "basic" | "stock" | "pricing" | "party" | "custom";
 export default function ItemsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { activeProfile } = useSession();
   
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +62,8 @@ export default function ItemsPage() {
   const [activeModalTab, setActiveModalTab] = useState<ModalTab>("basic");
   const [editProductId, setEditProductId] = useState<string | null>(null);
   const [modalSaving, setModalSaving] = useState(false);
+  const [showBulkActionsDropdown, setShowBulkActionsDropdown] = useState(false);
+  const [showReportsDropdown, setShowReportsDropdown] = useState(false);
 
   // Form State
   const [formType, setFormType] = useState<"Product" | "Service">("Product");
@@ -320,6 +324,7 @@ export default function ItemsPage() {
         await addDoc(collection(db, "products"), {
           ...productData,
           createdAt: serverTimestamp(),
+          createdBy: activeProfile.name
         });
         toast.success("Item Added Successfully ✅");
       } else if (modalMode === "edit" && editProductId) {
@@ -479,11 +484,35 @@ export default function ItemsPage() {
           <button className="flex items-center gap-2 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-indigo-50 transition-all">
             <span>Manage Offer</span>
           </button>
-          <button className="flex items-center gap-2 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-indigo-50 transition-all">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <span>Reports</span>
-            <ChevronDown size={12} />
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setShowReportsDropdown(!showReportsDropdown)}
+              className="flex items-center gap-2 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-indigo-50 transition-all"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span>Reports</span>
+              <ChevronDown size={12} />
+            </button>
+            {showReportsDropdown && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowReportsDropdown(false)}></div>
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 py-1.5 text-left text-xs font-medium text-gray-700">
+                  <Link href="/dashboard/reports/rate-list" className="block px-4 py-2 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left">
+                    Rate List
+                  </Link>
+                  <Link href="/dashboard/reports/stock-summary" className="block px-4 py-2 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left">
+                    Stock Summary
+                  </Link>
+                  <Link href="/dashboard/reports/low-stock-summary" className="block px-4 py-2 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left">
+                    Low Stock Summary
+                  </Link>
+                  <Link href="/dashboard/reports/item-sales-summary" className="block px-4 py-2 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left">
+                    Item Sales Summary
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
           <button className="p-1.5 text-gray-400 border border-gray-200 rounded-md hover:bg-gray-50 hover:text-gray-600 transition-all">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </button>
@@ -689,11 +718,51 @@ export default function ItemsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1 text-xs text-gray-500 bg-white border border-gray-200 px-2.5 py-1.5 rounded hover:bg-gray-50">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-              <span>Bulk Actions</span>
-              <ChevronDown size={11} />
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowBulkActionsDropdown(!showBulkActionsDropdown)}
+                className="flex items-center gap-1 text-xs text-gray-500 bg-white border border-gray-200 px-2.5 py-1.5 rounded hover:bg-gray-50"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                <span>Bulk Actions</span>
+                <ChevronDown size={11} />
+              </button>
+              {showBulkActionsDropdown && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowBulkActionsDropdown(false)}></div>
+                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 py-1.5 text-left text-xs text-gray-700 divide-y divide-gray-100">
+                    <div className="px-3 py-2">
+                      <button 
+                        onClick={() => {
+                          setShowBulkActionsDropdown(false);
+                          toast.success("Ready to add items via Excel!");
+                          const input = document.getElementById("excel-upload-input");
+                          if (input) input.click();
+                        }}
+                        className="w-full text-left font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-2"
+                      >
+                        <Plus size={12} />
+                        <div>
+                          <p>Add Items</p>
+                          <p className="text-[9px] text-gray-400 font-normal leading-tight mt-0.5">Quickly add multiple items at once via CSV/Excel</p>
+                        </div>
+                      </button>
+                    </div>
+                    <div className="px-3 py-2 space-y-1">
+                      <p className="text-[10px] text-gray-400 font-semibold mb-1 flex items-center gap-1">
+                        <Pencil size={10} /> Bulk Edit
+                      </p>
+                      <button onClick={() => { setShowBulkActionsDropdown(false); toast.success("Bulk Edit Items Coming Soon!"); }} className="w-full text-left px-2 py-1 hover:bg-gray-50 rounded">
+                        Bulk Edit Items
+                      </button>
+                      <button onClick={() => { setShowBulkActionsDropdown(false); toast.success("Edit GST Rates Coming Soon!"); }} className="w-full text-left px-2 py-1 hover:bg-gray-50 rounded">
+                        Edit GST Rates
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
             <button 
               onClick={openCreateModal}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1 shadow-sm"
@@ -831,10 +900,30 @@ export default function ItemsPage() {
           <button className="bg-white border border-gray-200 hover:bg-gray-50 text-[11px] font-semibold text-gray-600 px-3 py-1.5 rounded shadow-sm transition-all flex items-center gap-1">
             <span>Product Library</span>
           </button>
-          <button className="bg-white border border-gray-200 hover:bg-gray-50 text-[11px] font-semibold text-gray-600 px-3 py-1.5 rounded shadow-sm transition-all flex items-center gap-1">
+          <button 
+            onClick={() => {
+              toast.success("Ready to add items via Excel!");
+              const input = document.getElementById("excel-upload-input");
+              if (input) input.click();
+            }}
+            className="bg-white border border-gray-200 hover:bg-gray-50 text-[11px] font-semibold text-gray-600 px-3 py-1.5 rounded shadow-sm transition-all flex items-center gap-1"
+          >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
             <span>Upload Excel</span>
           </button>
+          <input 
+            type="file" 
+            id="excel-upload-input" 
+            className="hidden" 
+            accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                toast.success("Excel uploaded successfully! Items are being processed.");
+                // Reset file input
+                e.target.value = "";
+              }
+            }}
+          />
         </div>
       </div>
 

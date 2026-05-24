@@ -54,9 +54,10 @@ export default function Dashboard() {
       const isnap = await getDocs(iq);
 
       let toCollect = 0;
-      let toPay = 0; // standard cash book payables
+      let toPay = 0;
       let totalSales = 0;
 
+      // Sales Invoices Logic
       const allInvoices = isnap.docs.map(doc => {
         const d = doc.data();
         return { id: doc.id, ...d } as Invoice;
@@ -69,6 +70,20 @@ export default function Dashboard() {
           : (inv.status === "paid" ? inv.total : 0);
         toCollect += Math.max(0, (inv.total || 0) - received);
       });
+
+      // Purchases Logic for 'To Pay'
+      try {
+        const pq = query(collection(db, "purchases"), where("userId", "==", userUid));
+        const psnap = await getDocs(pq);
+        psnap.docs.forEach(doc => {
+          const p = doc.data();
+          if (p.status !== "cancelled") {
+            const total = p.total || 0;
+            const paid = typeof p.amountPaid === "number" ? p.amountPaid : (p.status === "paid" ? total : 0);
+            toPay += Math.max(0, total - paid);
+          }
+        });
+      } catch(e) { console.warn("Purchases fetch error:", e); }
 
       setStats({ toCollect, toPay, totalSales });
 
@@ -291,7 +306,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           
           {/* Card 1: To Collect */}
-          <Link href="/dashboard/invoices" className="bg-[#EAF6EC] hover:bg-[#DDF0E2] border border-[#C8E6C9] hover:border-[#A5D6A7] rounded-xl p-5 relative flex flex-col justify-between h-28 transition-all duration-200 group shadow-3xs cursor-pointer">
+          <Link href="/dashboard/customers" className="bg-[#EAF6EC] hover:bg-[#DDF0E2] border border-[#C8E6C9] hover:border-[#A5D6A7] rounded-xl p-5 relative flex flex-col justify-between h-28 transition-all duration-200 group shadow-3xs cursor-pointer">
              <div className="absolute top-4 right-4 text-[#2E7D32]/60 opacity-0 group-hover:opacity-100 transition-opacity">
                <ArrowUpRight size={13} />
              </div>
@@ -307,7 +322,10 @@ export default function Dashboard() {
           </Link>
 
           {/* Card 2: To Pay */}
-          <div className="bg-[#FDF2F2] hover:bg-[#FBE3E3] border border-[#FFCDD2] rounded-xl p-5 relative flex flex-col justify-between h-28 transition-all duration-200 shadow-3xs">
+          <Link href="/dashboard/customers" className="bg-[#FDF2F2] hover:bg-[#FBE3E3] border border-[#FFCDD2] hover:border-[#F8BBD0] rounded-xl p-5 relative flex flex-col justify-between h-28 transition-all duration-200 group shadow-3xs cursor-pointer">
+             <div className="absolute top-4 right-4 text-[#C62828]/60 opacity-0 group-hover:opacity-100 transition-opacity">
+               <ArrowUpRight size={13} />
+             </div>
              <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full bg-[#FFCDD2] flex items-center justify-center text-[#C62828]">
                   <ArrowUpRight size={14} className="stroke-[3]" />
@@ -317,10 +335,10 @@ export default function Dashboard() {
              <h3 className="text-2xl font-bold text-[#C62828] tracking-tight mt-3">
                ₹ {stats.toPay.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
              </h3>
-          </div>
+          </Link>
 
           {/* Card 3: Total Cash + Bank Balance */}
-          <Link href="/dashboard/invoices" className="bg-[#E8F0FE] hover:bg-[#D2E3FC] border border-[#D2E3FC] hover:border-[#B4D1FA] rounded-xl p-5 relative flex flex-col justify-between h-28 transition-all duration-200 group shadow-3xs cursor-pointer">
+          <Link href="/dashboard/cash-bank" className="bg-[#E8F0FE] hover:bg-[#D2E3FC] border border-[#D2E3FC] hover:border-[#B4D1FA] rounded-xl p-5 relative flex flex-col justify-between h-28 transition-all duration-200 group shadow-3xs cursor-pointer">
              <div className="absolute top-4 right-4 text-[#1A73E8]/60 opacity-0 group-hover:opacity-100 transition-opacity">
                <ArrowUpRight size={13} />
              </div>

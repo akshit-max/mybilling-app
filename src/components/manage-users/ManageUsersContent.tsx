@@ -15,10 +15,11 @@ import {
   UserCog,
   Eye,
   X,
-  HelpCircle
+  HelpCircle,
+  Trash2
 } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, query, getDocs, limit, orderBy, addDoc, where } from "firebase/firestore";
+import { collection, query, getDocs, limit, orderBy, addDoc, where, deleteDoc, doc } from "firebase/firestore";
 import toast from "react-hot-toast";
 
 type ActivityLog = {
@@ -223,6 +224,18 @@ export default function ManageUsersContent() {
     }
   };
 
+  const handleDeleteUser = async (id: string) => {
+    if (!confirm("Are you sure you want to remove this user?")) return;
+    try {
+      await deleteDoc(doc(db, "subusers", id));
+      setSubUsers(subUsers.filter((u) => u.id !== id));
+      toast.success("User removed successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to remove user");
+    }
+  };
+
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "Salesman": return <Users size={14} className="text-amber-500" />;
@@ -350,7 +363,16 @@ export default function ManageUsersContent() {
                            <span className="text-[11px] font-bold text-gray-800 truncate max-w-[90px]">{user.name}</span>
                         </div>
                         {user.role !== 'Empty' && (
-                          <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded truncate max-w-[60px]">{user.role}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded truncate max-w-[60px]">{user.role}</span>
+                            <button 
+                              onClick={() => handleDeleteUser(user.id)}
+                              className="text-gray-400 hover:text-red-500 transition-colors"
+                              title="Remove user"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
