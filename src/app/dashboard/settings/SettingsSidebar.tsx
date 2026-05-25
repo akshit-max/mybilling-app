@@ -60,7 +60,7 @@ export default function SettingsSidebar() {
     { name: "CA Reports Sharing", icon: <Share2 size={15} />, href: "/dashboard/settings/ca-reports" },
     { name: "Pricing", icon: <Tag size={15} />, href: "/dashboard/settings/pricing" },
     { name: "Refer & Earn", icon: <Gift size={15} />, href: "/dashboard/settings/refer-and-earn" },
-    { name: "Help And Support", icon: <HelpCircle size={15} />, href: "#" },
+    { name: "Help And Support", icon: <HelpCircle size={15} />, href: "/dashboard/settings/help-support" },
   ];
 
   return (

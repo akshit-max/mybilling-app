@@ -42,7 +42,7 @@
 //                 ].map((item, i) => (
 //                   <Link
 //                     key={i}
-//                     href="/features"
+//                     href="/login"
 //                     className="block px-3 py-2 rounded-md text-sm hover:bg-gray-50 hover:text-purple-600 transition"
 //                   >
 //                     {item}
@@ -57,7 +57,7 @@
 //                   (item, i) => (
 //                     <Link
 //                       key={i}
-//                       href="/features"
+//                       href="/login"
 //                       className="block px-3 py-2 rounded-md text-sm hover:bg-gray-50 hover:text-purple-600 transition"
 //                     >
 //                       {item}
@@ -80,19 +80,19 @@
 //                 <div>
 //                   <p className="text-xs text-gray-500 mb-2">Industry</p>
 //                   <Link
-//                     href="/solutions"
+//                     href="/login"
 //                     className="block text-sm hover:text-purple-600 transition"
 //                   >
 //                     Retail
 //                   </Link>
 //                   <Link
-//                     href="/solutions"
+//                     href="/login"
 //                     className="block text-sm hover:text-purple-600 transition"
 //                   >
 //                     Wholesale
 //                   </Link>
 //                   <Link
-//                     href="/solutions"
+//                     href="/login"
 //                     className="block text-sm hover:text-purple-600 transition"
 //                   >
 //                     Manufacturing
@@ -102,19 +102,19 @@
 //                 <div>
 //                   <p className="text-xs text-gray-500 mb-2">Sectors</p>
 //                   <Link
-//                     href="/solutions"
+//                     href="/login"
 //                     className="block text-sm hover:text-purple-600 transition"
 //                   >
 //                     Restaurant
 //                   </Link>
 //                   <Link
-//                     href="/solutions"
+//                     href="/login"
 //                     className="block text-sm hover:text-purple-600 transition"
 //                   >
 //                     Pharmacy
 //                   </Link>
 //                   <Link
-//                     href="/solutions"
+//                     href="/login"
 //                     className="block text-sm hover:text-purple-600 transition"
 //                   >
 //                     FMCG
@@ -125,7 +125,7 @@
 //           </div>
 
 //           {/* PRICING */}
-//           <Link href="/pricing" className="hover:text-gray-900 transition">
+//           <Link href="/login" className="hover:text-gray-900 transition">
 //             Pricing
 //           </Link>
 //         </div>
@@ -232,7 +232,7 @@ export default function Navbar() {
                   ].map((item, i) => (
                     <Link
                       key={i}
-                      href="/features"
+                      href="/login"
                       className="block px-3 py-2 rounded-md text-xs hover:bg-gray-50 hover:text-indigo-600 transition"
                     >
                       {item}
@@ -243,7 +243,7 @@ export default function Navbar() {
                   {["E-Invoicing", "E-Way Billing", "Marketing Tools"].map((item, i) => (
                     <Link
                       key={i}
-                      href="/features"
+                      href="/login"
                       className="block px-3 py-2 rounded-md text-xs hover:bg-gray-50 hover:text-indigo-600 transition"
                     >
                       {item}
@@ -266,7 +266,7 @@ export default function Navbar() {
                     <p className="text-[10px] text-gray-400 mb-3 font-bold uppercase tracking-wider">Industry</p>
                     <div className="space-y-2">
                       {["Retail", "Wholesale", "Manufacturing"].map((item) => (
-                        <Link key={item} href="/solutions" className="block text-xs hover:text-indigo-600 transition">
+                        <Link key={item} href="/login" className="block text-xs hover:text-indigo-600 transition">
                           {item}
                         </Link>
                       ))}
@@ -276,7 +276,7 @@ export default function Navbar() {
                     <p className="text-[10px] text-gray-400 mb-3 font-bold uppercase tracking-wider">Sectors</p>
                     <div className="space-y-2">
                       {["Restaurant", "Pharmacy", "FMCG"].map((item) => (
-                        <Link key={item} href="/solutions" className="block text-xs hover:text-indigo-600 transition">
+                        <Link key={item} href="/login" className="block text-xs hover:text-indigo-600 transition">
                           {item}
                         </Link>
                       ))}
@@ -296,7 +296,7 @@ export default function Navbar() {
               {open === "knowledge" && (
                 <div className="absolute top-14 left-0 w-48 bg-white border border-gray-200 rounded-xl shadow-lg p-3 animate-in fade-in slide-in-from-top-2 duration-200">
                   {["Help Guides", "GST Updates", "Video Tutorials"].map((item) => (
-                    <Link key={item} href="/knowledge" className="block px-3 py-1.5 rounded-md text-xs hover:bg-gray-50 hover:text-indigo-600 transition">
+                    <Link key={item} href="/login" className="block px-3 py-1.5 rounded-md text-xs hover:bg-gray-50 hover:text-indigo-600 transition">
                       {item}
                     </Link>
                   ))}
@@ -304,7 +304,7 @@ export default function Navbar() {
               )}
             </div>
 
-            <Link href="/pricing" className="hover:text-gray-900 transition">
+            <Link href="/login" className="hover:text-gray-900 transition">
               Pricing
             </Link>
           </div>
@@ -346,9 +346,9 @@ export default function Navbar() {
                 <div>
                   <p className="text-xs font-bold text-gray-400 uppercase mb-4">Product</p>
                   <div className="grid grid-cols-1 gap-4 text-lg font-medium text-gray-900">
-                    <Link href="/features" onClick={() => setMobileMenuOpen(false)}>Features</Link>
-                    <Link href="/solutions" onClick={() => setMobileMenuOpen(false)}>Solutions</Link>
-                    <Link href="/pricing" onClick={() => setMobileMenuOpen(false)}>Pricing</Link>
+                    <Link href="/login" onClick={() => setMobileMenuOpen(false)}>Features</Link>
+                    <Link href="/login" onClick={() => setMobileMenuOpen(false)}>Solutions</Link>
+                    <Link href="/login" onClick={() => setMobileMenuOpen(false)}>Pricing</Link>
                   </div>
                 </div>
                 

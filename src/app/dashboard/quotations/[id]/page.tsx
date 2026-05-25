@@ -517,7 +517,7 @@ export default function ViewQuotation() {
           </div>
 
           {/* Right Actions Side (Eway / e-Invoice) */}
-          <div className="flex items-center gap-2">
+          {/* <div className="flex items-center gap-2">
             <button 
               onClick={() => toast.success("Generating E-way Bill workflow... 🚚")}
               className="flex items-center gap-1 text-xs font-bold text-indigo-600 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100 rounded px-3 py-1.5 transition shadow-3xs"
@@ -533,7 +533,7 @@ export default function ViewQuotation() {
               <CheckSquare size={13} />
               <span>Generate e-Invoice</span>
             </button>
-          </div>
+          </div> */}
 
         </div>
 

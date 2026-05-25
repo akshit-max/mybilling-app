@@ -11,6 +11,9 @@ import {
   Download,
   Share2,
   MoreVertical,
+  FileText,
+  FileSpreadsheet,
+  CheckSquare,
   X,
   ChevronDown,
   AlertCircle

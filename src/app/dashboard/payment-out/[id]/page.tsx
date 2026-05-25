@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Printer, Download, Share2, Edit, Trash2 } from "lucide-react";
+import { ArrowLeft, Printer, Download, Share2, Edit, Trash2, ChevronDown } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { doc, getDoc, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
@@ -33,6 +33,7 @@ export default function PaymentOutReceipt() {
   
   const [payment, setPayment] = useState<PaymentOut | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showShareDropdown, setShowShareDropdown] = useState(false);
 
   useEffect(() => {
     const fetchPayment = async () => {
@@ -134,9 +135,7 @@ export default function PaymentOutReceipt() {
            <button onClick={() => window.print()} className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm font-semibold hover:bg-gray-50 transition">
              <Printer size={14} /> Print PDF
            </button>
-           <button onClick={() => toast.success("Share link copied to clipboard!")} className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm font-semibold hover:bg-gray-50 transition">
-             <Share2 size={14} /> Share
-           </button>
+
         </div>
 
         {/* PAYMENT DETAILS */}

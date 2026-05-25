@@ -8,6 +8,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useRef } from "react";
+import * as XLSX from "xlsx";
 
 type Customer = {
   id: string;
@@ -586,32 +587,39 @@ export default function PartiesPage() {
                     <button onClick={() => {
                       setShowBulkActionDropdown(false);
                       if (filteredCustomers.length === 0) return toast.error("No parties to export");
-                      const headers = ["Party Name", "Category", "Mobile Number", "Party Type", "Balance"];
-                      const rows = filteredCustomers.map(c => [
-                        c.name, c.category || "-", c.phone || "-", c.type || "Customer", c.balance?.toString() || "0"
-                      ]);
-                      const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
-                      const encodedUri = encodeURI(csvContent);
-                      const link = document.createElement("a");
-                      link.setAttribute("href", encodedUri);
-                      link.setAttribute("download", `Parties_List.csv`);
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
+                      const data = filteredCustomers.map(c => ({
+                        "Party Name": c.name,
+                        "Category": c.category || "-",
+                        "Mobile Number": c.phone || "-",
+                        "Party Type": c.type || "Customer",
+                        "Balance": c.balance?.toString() || "0"
+                      }));
+                      const worksheet = XLSX.utils.json_to_sheet(data);
+                      const workbook = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(workbook, worksheet, "Parties");
+                      XLSX.writeFile(workbook, "Parties_List.xlsx");
                       toast.success("Excel exported successfully!");
                     }} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition">
                       Export Excel
                     </button>
                     <button onClick={() => {
                       setShowBulkActionDropdown(false);
-                      const csvContent = "data:text/csv;charset=utf-8,Party Name,Mobile Number,Email,GSTIN,Opening Balance,Opening Balance Type (collect/pay),Party Type,Credit Period,Credit Limit,Billing Address\nExample Party,9876543210,example@example.com,,1000,collect,Customer,30,50000,Delhi";
-                      const encodedUri = encodeURI(csvContent);
-                      const link = document.createElement("a");
-                      link.setAttribute("href", encodedUri);
-                      link.setAttribute("download", `Party_Import_Template.csv`);
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
+                      const data = [{
+                        "Party Name": "Example Party",
+                        "Mobile Number": "9876543210",
+                        "Email": "example@example.com",
+                        "GSTIN": "",
+                        "Opening Balance": 1000,
+                        "Opening Balance Type (collect/pay)": "collect",
+                        "Party Type": "Customer",
+                        "Credit Period": 30,
+                        "Credit Limit": 50000,
+                        "Billing Address": "Delhi"
+                      }];
+                      const worksheet = XLSX.utils.json_to_sheet(data);
+                      const workbook = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+                      XLSX.writeFile(workbook, "Party_Import_Template.xlsx");
                       toast.success("Template downloaded!");
                     }} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition">
                       Download Template
@@ -791,7 +799,7 @@ export default function PartiesPage() {
         </div>
         <input 
           type="file" 
-          accept=".xlsx, .xls, .csv" 
+          accept=".xlsx, .xls" 
           ref={fileInputRef} 
           onChange={handleFileUpload} 
           className="hidden" 

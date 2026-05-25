@@ -788,7 +788,7 @@ export default function ItemsPage() {
                                 setShowEditModal(true);
                                 setShowCategoryDropdown(false);
                               }}
-                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-gray-600 transition"
+                              className="opacity-100 p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-gray-600 transition"
                             >
                               <Pencil size={10} className="text-indigo-500" />
                             </button>

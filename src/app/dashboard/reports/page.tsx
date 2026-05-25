@@ -34,7 +34,7 @@ export default function ReportsPage() {
       items: [
         { name: "Bill Wise Profit", isFav: false, tags: ["Summary"] },
         { name: "Daybook", isFav: false, tags: ["Summary"] },
-        { name: "Purchase Daybook", isFav: false, tags: ["Summary"] },
+        // { name: "Purchase Daybook", isFav: false, tags: ["Summary"] },
         { name: "Expense Transaction Report", isFav: false, tags: ["Summary", "Expense"] },
         { name: "Expense Category Report", isFav: false, tags: ["Category", "Expense"] },
       ],

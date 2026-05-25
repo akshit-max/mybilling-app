@@ -193,7 +193,7 @@ export default function CreditNotePage() {
                       </span>
                     </td>
                     <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition">
+                      <div className="flex items-center justify-center gap-2 opacity-100 transition">
                         <button
                           onClick={() => router.push(`/dashboard/proforma-invoice/${cn.id}`)}
                           className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition"

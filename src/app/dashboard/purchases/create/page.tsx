@@ -628,12 +628,7 @@ export default function CreateSalesInvoice() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button 
-            className="flex items-center gap-1 text-xs text-orange-600 border border-orange-200 px-3 py-1.5 rounded bg-white hover:bg-orange-50 font-bold transition-colors shadow-sm"
-          >
-            <ScanBarcode size={13} />
-            <span>Upload using Phone</span>
-          </button>
+
           <button 
             onClick={() => setShowSettingsModal(true)}
             className="flex items-center gap-1 text-xs text-gray-600 border border-gray-200 px-3 py-1.5 rounded bg-white hover:bg-gray-50 font-semibold transition-colors shadow-sm"

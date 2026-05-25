@@ -124,22 +124,7 @@ export default function Login() {
           </Link>
         </p>
 
-        {/* OR Line Divider */}
-        <div className="w-full flex items-center my-6">
-          <div className="flex-1 h-px bg-slate-200"></div>
-          <span className="px-3 text-xs font-semibold text-slate-400 select-none">Or</span>
-          <div className="flex-1 h-px bg-slate-200"></div>
-        </div>
 
-        {/* QR Scan Button */}
-        <button
-          type="button"
-          onClick={() => toast.success("QR Scan opened! Please present your device.")}
-          className="w-full flex items-center justify-center gap-2.5 py-3.5 border border-slate-200 rounded-xl bg-[#2D3748] text-white hover:bg-slate-800 transition text-sm font-bold active:scale-[0.98] duration-150 shadow-sm"
-        >
-          <QrCode size={18} />
-          Login by scanning QR code
-        </button>
 
         {/* Security tags at the bottom */}
         <div className="w-full flex justify-center gap-6 mt-8 pt-6 border-t border-slate-100">

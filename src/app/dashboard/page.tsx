@@ -307,7 +307,7 @@ export default function Dashboard() {
           
           {/* Card 1: To Collect */}
           <Link href="/dashboard/customers" className="bg-[#EAF6EC] hover:bg-[#DDF0E2] border border-[#C8E6C9] hover:border-[#A5D6A7] rounded-xl p-5 relative flex flex-col justify-between h-28 transition-all duration-200 group shadow-3xs cursor-pointer">
-             <div className="absolute top-4 right-4 text-[#2E7D32]/60 opacity-0 group-hover:opacity-100 transition-opacity">
+             <div className="absolute top-4 right-4 text-[#2E7D32]/60 opacity-100 transition-opacity">
                <ArrowUpRight size={13} />
              </div>
              <div className="flex items-center gap-2">
@@ -323,7 +323,7 @@ export default function Dashboard() {
 
           {/* Card 2: To Pay */}
           <Link href="/dashboard/customers" className="bg-[#FDF2F2] hover:bg-[#FBE3E3] border border-[#FFCDD2] hover:border-[#F8BBD0] rounded-xl p-5 relative flex flex-col justify-between h-28 transition-all duration-200 group shadow-3xs cursor-pointer">
-             <div className="absolute top-4 right-4 text-[#C62828]/60 opacity-0 group-hover:opacity-100 transition-opacity">
+             <div className="absolute top-4 right-4 text-[#C62828]/60 opacity-100 transition-opacity">
                <ArrowUpRight size={13} />
              </div>
              <div className="flex items-center gap-2">
@@ -339,7 +339,7 @@ export default function Dashboard() {
 
           {/* Card 3: Total Cash + Bank Balance */}
           <Link href="/dashboard/cash-bank" className="bg-[#E8F0FE] hover:bg-[#D2E3FC] border border-[#D2E3FC] hover:border-[#B4D1FA] rounded-xl p-5 relative flex flex-col justify-between h-28 transition-all duration-200 group shadow-3xs cursor-pointer">
-             <div className="absolute top-4 right-4 text-[#1A73E8]/60 opacity-0 group-hover:opacity-100 transition-opacity">
+             <div className="absolute top-4 right-4 text-[#1A73E8]/60 opacity-100 transition-opacity">
                <ArrowUpRight size={13} />
              </div>
              <div className="flex items-center gap-2">
