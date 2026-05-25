@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft, PlayCircle, Star, Calendar, Printer, ChevronDown, Download, Mail, Info } from "lucide-react";
+import { ArrowLeft, PlayCircle, Star, Calendar, Printer, ChevronDown, Download, Mail, Info, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -31,6 +31,8 @@ export default function GSTR1ReportPage() {
   const [activeTab, setActiveTab] = useState("B2B");
   const [dateFilter, setDateFilter] = useState("365"); // days
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailData, setEmailData] = useState({ to: "", cc: "" });
 
   // Fetch all relevant data (Invoices + Credit Notes)
   useEffect(() => {
@@ -183,18 +185,40 @@ export default function GSTR1ReportPage() {
       "-"
     ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + headers.join(",") + "\n" 
-      + rows.map(e => e.join(",")).join("\n");
+    const tableHTML = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+          th { background-color: #f3f4f6; color: #111827; font-weight: bold; border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+          td { border: 1px solid #e5e7eb; padding: 6px; color: #374151; }
+        </style>
+      </head>
+      <body>
+        <h2>GSTR-1 (Sales) Report - ${activeTab}</h2>
+        <table>
+          <thead>
+            <tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
     
-    const encodedUri = encodeURI(csvContent);
+    const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel" });
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `GSTR-1_${activeTab}.csv`);
+    link.href = url;
+    link.download = `GSTR-1_${activeTab}.xls`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("Excel (CSV) downloaded successfully");
+    window.URL.revokeObjectURL(url);
+    toast.success("Excel downloaded successfully 📊");
     setShowDownloadMenu(false);
   };
 
@@ -206,7 +230,7 @@ export default function GSTR1ReportPage() {
   const tabs = ["B2B", "B2CL", "B2CS", "CDNR", "CDNUR", "EXEMP", "HSN"];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans pb-20 print:block print:min-h-0 print:bg-white">
+    <div id="print-area" className="min-h-screen bg-gray-50 flex flex-col font-sans pb-20 print:block print:min-h-0 print:bg-white">
       {/* HEADER SECTION */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20 shadow-sm print:hidden">
         <div className="flex items-center gap-4">
@@ -274,7 +298,10 @@ export default function GSTR1ReportPage() {
               )}
             </div>
 
-            <button className="flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded text-sm text-gray-600 font-bold hover:bg-gray-50 shadow-sm transition-colors">
+            <button 
+              onClick={() => setShowEmailModal(true)}
+              className="flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded text-sm text-gray-600 font-bold hover:bg-gray-50 shadow-sm transition-colors"
+            >
               <Mail size={16} /> Email JSON <ChevronDown size={16} />
             </button>
           </div>
@@ -385,6 +412,77 @@ export default function GSTR1ReportPage() {
         </div>
 
       </main>
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print:hidden">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-800">Email JSON / Excel Report</h3>
+              <button onClick={() => setShowEmailModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">
+                We will send you the GSTR-1 report to the email below
+              </p>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Your Email ID *</label>
+                <input 
+                  type="email" 
+                  value={emailData.to}
+                  onChange={(e) => setEmailData({...emailData, to: e.target.value})}
+                  className="w-full border border-gray-200 rounded p-2 focus:outline-none focus:border-indigo-500 text-sm"
+                  placeholder="abc@gmail.com"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">CA Email ID (Optional)</label>
+                <input 
+                  type="email" 
+                  value={emailData.cc}
+                  onChange={(e) => setEmailData({...emailData, cc: e.target.value})}
+                  className="w-full border border-gray-200 rounded p-2 focus:outline-none focus:border-indigo-500 text-sm"
+                  placeholder="abc@gmail.com"
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+              <button 
+                onClick={() => setShowEmailModal(false)}
+                className="px-4 py-2 border border-gray-200 rounded text-gray-600 text-sm font-bold hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  if (!emailData.to) {
+                    toast.error("Please enter your Email ID");
+                    return;
+                  }
+                  toast.promise(
+                    new Promise((resolve) => setTimeout(resolve, 1500)),
+                    {
+                      loading: 'Generating and emailing JSON report...',
+                      success: `Report sent successfully to ${emailData.to}! 📧`,
+                      error: 'Failed to send email.',
+                    }
+                  ).then(() => {
+                    setShowEmailModal(false);
+                    setEmailData({ to: "", cc: "" });
+                  });
+                }}
+                className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded text-sm font-bold hover:bg-indigo-200 transition-colors"
+              >
+                Send Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

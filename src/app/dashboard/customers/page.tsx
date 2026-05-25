@@ -336,14 +336,6 @@ export default function PartiesPage() {
         <h1 className="text-lg font-semibold text-gray-800">Parties</h1>
         <div className="flex items-center gap-2">
           
-          <button 
-            onClick={() => toast.success("Syncing with SharedLedger Network... 🔗")}
-            className="flex items-center gap-2 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-indigo-50 transition-all select-none"
-          >
-            <Share2 size={13} />
-            <span>SharedLedger Portal</span>
-          </button>
-
           {/* Dynamic Reports Dropdown Container */}
           <div className="relative">
             <button 
@@ -393,25 +385,6 @@ export default function PartiesPage() {
           </button>
         </div>
       </div>
-
-      {/* SharedLedger dismissable Promo Banner */}
-      {showBanner && (
-        <div className="mx-6 mt-4 bg-slate-900 text-slate-100 px-6 py-2.5 rounded-lg flex items-center justify-between border border-slate-800 shadow-sm transition-all duration-300">
-          <div className="flex items-center gap-3">
-            <span className="text-xl">📒</span>
-            <div>
-              <p className="text-xs font-semibold">Are you Tired of asking Party&apos;s Ledger?</p>
-              <p className="text-[10px] text-slate-400">Access sharedledgers and turn invoices into purchases instantly.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard/customers/shared-ledger" className="bg-white text-slate-900 text-xs font-bold px-3 py-1.5 rounded-md hover:bg-slate-100 transition-all shadow-sm">
-              View SharedLedgers
-            </Link>
-            <button onClick={() => setShowBanner(false)} className="text-slate-400 hover:text-white text-lg leading-none p-1 font-light">&times;</button>
-          </div>
-        </div>
-      )}
 
       {/* Modern Stats Cards Navigation */}
       <div className="grid grid-cols-3 gap-4 px-6 pt-4">
@@ -484,13 +457,6 @@ export default function PartiesPage() {
         >
           All Parties
         </button>
-        <Link
-          href="/dashboard/customers/shared-ledger"
-          className="bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1 text-xs font-semibold rounded-full flex items-center gap-1.5"
-        >
-          <span>SharedLedger</span>
-          <span className="bg-indigo-100 text-indigo-600 text-[8px] px-1 py-0.5 rounded font-bold uppercase scale-90">New</span>
-        </Link>
       </div>
 
       {/* Enterprise Styled Card */}

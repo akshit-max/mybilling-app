@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Star, Search, Mail, Download, Printer } from "lucide-react";
+import { ArrowLeft, Star, Search, Mail, Download, Printer, ChevronDown, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -31,6 +31,8 @@ export default function ItemReportByParty() {
   const [dateRange, setDateRange] = useState<string>("This Week");
 
   const [isFavourite, setIsFavourite] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailData, setEmailData] = useState({ to: "", cc: "" });
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -86,6 +88,26 @@ export default function ItemReportByParty() {
           if (inv.invoiceType === "estimate" || inv.status === "cancelled") return;
           if ((inv.customerName || "Cash Sale").toLowerCase() !== selectedParty.toLowerCase()) return;
 
+          // Date Filter Logic
+          const itemDate = inv.date ? new Date(inv.date) : (inv.createdAt?.toDate ? inv.createdAt.toDate() : new Date(inv.createdAt || Date.now()));
+          const today = new Date();
+          let inRange = true;
+          if (dateRange === "This Week") {
+            const cutoff = new Date(today);
+            cutoff.setDate(cutoff.getDate() - 7);
+            if (itemDate < cutoff) inRange = false;
+          } else if (dateRange === "This Month") {
+            const cutoff = new Date(today);
+            cutoff.setMonth(cutoff.getMonth() - 1);
+            if (itemDate < cutoff) inRange = false;
+          } else if (dateRange === "This Year") {
+            const cutoff = new Date(today);
+            cutoff.setFullYear(cutoff.getFullYear() - 1);
+            if (itemDate < cutoff) inRange = false;
+          }
+
+          if (!inRange) return;
+
           const items = inv.items || [];
           items.forEach((it: any) => {
             const iName = it.name || "Unknown Item";
@@ -107,6 +129,26 @@ export default function ItemReportByParty() {
             if (purch.status === "cancelled") return;
             const purchParty = purch.supplierName || purch.partyName || "";
             if (purchParty.toLowerCase() !== selectedParty.toLowerCase()) return;
+
+            // Date Filter Logic
+            const itemDate = purch.date ? new Date(purch.date) : (purch.createdAt?.toDate ? purch.createdAt.toDate() : new Date(purch.createdAt || Date.now()));
+            const today = new Date();
+            let inRange = true;
+            if (dateRange === "This Week") {
+              const cutoff = new Date(today);
+              cutoff.setDate(cutoff.getDate() - 7);
+              if (itemDate < cutoff) inRange = false;
+            } else if (dateRange === "This Month") {
+              const cutoff = new Date(today);
+              cutoff.setMonth(cutoff.getMonth() - 1);
+              if (itemDate < cutoff) inRange = false;
+            } else if (dateRange === "This Year") {
+              const cutoff = new Date(today);
+              cutoff.setFullYear(cutoff.getFullYear() - 1);
+              if (itemDate < cutoff) inRange = false;
+            }
+
+            if (!inRange) return;
 
             const items = purch.items || [];
             items.forEach((it: any) => {
@@ -131,7 +173,7 @@ export default function ItemReportByParty() {
     };
 
     fetchReport();
-  }, [selectedParty]);
+  }, [selectedParty, dateRange]);
 
   const filteredParties = parties.filter(p => !selectedCategory || p.category === selectedCategory);
 
@@ -145,28 +187,70 @@ export default function ItemReportByParty() {
       d.purchaseQty.toString(),
       d.purchaseAmount.toString()
     ]);
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + headers.join(",") + "\n" 
-      + rows.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
+
+    const tableHTML = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+          th { background-color: #f3f4f6; color: #111827; font-weight: bold; border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+          td { border: 1px solid #e5e7eb; padding: 6px; color: #374151; }
+        </style>
+      </head>
+      <body>
+        <h2>Item Report By Party - ${selectedParty || "All"}</h2>
+        <table>
+          <thead>
+            <tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel" });
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Item_Report_By_Party.csv`);
+    link.href = url;
+    link.download = `Item_Report_By_Party_${selectedParty || 'All'}.xls`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("Excel downloaded successfully");
+    window.URL.revokeObjectURL(url);
+    toast.success("Excel downloaded successfully 📊");
   };
 
   const handlePrint = () => {
     window.print();
   };
 
+  const handleEmailExcel = () => {
+    if (!emailData.to) {
+      toast.error("Please enter your Email ID");
+      return;
+    }
+    toast.promise(
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+      {
+        loading: 'Generating and emailing Excel report...',
+        success: `Excel Report sent successfully to ${emailData.to}! 📧`,
+        error: 'Failed to send email.',
+      }
+    ).then(() => {
+      setShowEmailModal(false);
+      setEmailData({ to: "", cc: "" });
+    });
+  };
+
   return (
     <div id="print-area" className="space-y-0 max-w-full mx-auto pb-10 font-sans bg-gray-50/50 min-h-screen print:bg-white print:pb-0">
       
       {/* Top Header */}
-      <div className="flex justify-between items-center bg-white px-6 py-3 border-b border-gray-200 shadow-sm">
+      <div className="flex justify-between items-center bg-white px-6 py-3 border-b border-gray-200 shadow-sm print:hidden">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/customers" className="p-1 hover:bg-gray-100 rounded-md text-gray-500 hover:text-gray-800 transition-colors">
             <ArrowLeft size={16} />
@@ -185,10 +269,10 @@ export default function ItemReportByParty() {
             <span>Favourite</span>
           </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 print:hidden">
           <button 
-            onClick={() => toast.success("Emailing report...")}
-            className="flex items-center gap-1.5 text-xs text-gray-600 border border-gray-200 bg-white px-3 py-1.5 rounded hover:bg-gray-50 font-semibold transition"
+            onClick={() => setShowEmailModal(true)}
+            className="flex items-center gap-1.5 text-xs text-gray-600 border border-gray-200 bg-white px-3 py-1.5 rounded hover:bg-gray-50 font-semibold transition shadow-sm"
           >
             <Mail size={13} className="text-gray-500" />
             <span>Email Excel</span>
@@ -196,15 +280,16 @@ export default function ItemReportByParty() {
           
           <button 
             onClick={exportToExcel}
-            className="flex items-center gap-1.5 text-xs text-gray-600 border border-gray-200 bg-white px-3 py-1.5 rounded hover:bg-gray-50 font-semibold transition"
+            className="flex items-center gap-1.5 text-xs text-gray-600 border border-gray-200 bg-white px-3 py-1.5 rounded hover:bg-gray-50 font-semibold transition shadow-sm"
           >
             <Download size={13} className="text-gray-500" />
             <span>Download Excel</span>
+            <ChevronDown size={11} className="text-gray-400 ml-0.5" />
           </button>
 
           <button 
             onClick={handlePrint}
-            className="flex items-center gap-1.5 text-xs text-white bg-indigo-650 bg-indigo-600 border border-indigo-600 px-4 py-1.5 rounded hover:bg-indigo-750 hover:bg-indigo-700 font-bold transition shadow-sm"
+            className="flex items-center gap-1.5 text-xs text-white bg-indigo-600 border border-indigo-600 px-4 py-1.5 rounded hover:bg-indigo-700 font-bold transition shadow-sm"
           >
             <Printer size={13} />
             <span>Print PDF</span>
@@ -212,8 +297,15 @@ export default function ItemReportByParty() {
         </div>
       </div>
 
+      {/* Print Only Header */}
+      <div className="hidden print:block text-center py-6 border-b border-gray-200 mb-4">
+        <h1 className="text-2xl font-bold text-gray-800 uppercase tracking-wider">Item Report By Party</h1>
+        <p className="text-sm text-gray-500 mt-1 font-semibold">Party: {selectedParty || "All"} | {dateRange}</p>
+        <p className="text-xs text-gray-400 mt-1">Generated on: {new Date().toLocaleDateString('en-IN')}</p>
+      </div>
+
       {/* Filters Bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-4">
+      <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-4 print:hidden">
         <select 
           className="border border-gray-200 rounded px-3 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:border-indigo-500 min-w-[150px]"
           value={selectedCategory}
@@ -244,7 +336,7 @@ export default function ItemReportByParty() {
       </div>
 
       {/* Table Section */}
-      <div className="bg-white border border-gray-200 rounded-lg mx-6 mt-4 flex flex-col shadow-sm min-h-[400px]">
+      <div className="bg-white border border-gray-200 rounded-lg mx-6 mt-4 flex flex-col shadow-sm min-h-[400px] print:mx-0 print:border-none print:shadow-none print:min-h-0">
         <div className="flex-1 overflow-x-auto print:overflow-visible">
           {loading ? (
             <div className="flex items-center justify-center py-32 text-gray-400 gap-2">
@@ -264,7 +356,7 @@ export default function ItemReportByParty() {
           ) : (
             <table className="w-full text-left text-xs text-gray-600 border-collapse">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold text-[10px] uppercase tracking-wider text-center">
+                <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold text-[10px] uppercase tracking-wider text-center print:bg-gray-100">
                   <th className="px-5 py-3 text-left">Item Name</th>
                   <th className="px-5 py-3">Item Code</th>
                   <th className="px-5 py-3 text-right">Sales Quantity</th>
@@ -289,6 +381,60 @@ export default function ItemReportByParty() {
           )}
         </div>
       </div>
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print:hidden">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-800">Email Excel Report</h3>
+              <button onClick={() => setShowEmailModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">
+                We will send you the item report by party to the email below
+              </p>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Your Email ID *</label>
+                <input 
+                  type="email" 
+                  value={emailData.to}
+                  onChange={(e) => setEmailData({...emailData, to: e.target.value})}
+                  className="w-full border border-gray-200 rounded p-2 focus:outline-none focus:border-indigo-500 text-sm"
+                  placeholder="abc@gmail.com"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">CA Email ID (Optional)</label>
+                <input 
+                  type="email" 
+                  value={emailData.cc}
+                  onChange={(e) => setEmailData({...emailData, cc: e.target.value})}
+                  className="w-full border border-gray-200 rounded p-2 focus:outline-none focus:border-indigo-500 text-sm"
+                  placeholder="abc@gmail.com"
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+              <button 
+                onClick={() => setShowEmailModal(false)}
+                className="px-4 py-2 border border-gray-200 rounded text-gray-600 text-sm font-bold hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleEmailExcel}
+                className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded text-sm font-bold hover:bg-indigo-200 transition-colors"
+              >
+                Send Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

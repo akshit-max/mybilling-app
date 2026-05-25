@@ -25,6 +25,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import toast from "react-hot-toast";
 
 import SettingsSidebar from "../SettingsSidebar";
+import { useChat } from "@/context/ChatContext";
 
 type TabType = "thermal" | "barcode";
 type ThermalWidthType = "2" | "3";
@@ -32,6 +33,7 @@ type BarcodeThemeType = "label" | "a4";
 
 export default function PrintSettingsPage() {
   const [loading, setLoading] = useState(true);
+  const { openChat } = useChat();
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -116,7 +118,7 @@ export default function PrintSettingsPage() {
             <p className="text-[10px] text-gray-500 font-medium font-sans">Choose printer paper sizes and manage barcode tag generations</p>
           </div>
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-md font-semibold">
+            <button onClick={openChat} className="flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-md font-semibold transition-colors">
               <MessageSquare size={13} /> Chat Support
             </button>
             <button 

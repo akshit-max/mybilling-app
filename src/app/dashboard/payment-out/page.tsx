@@ -87,24 +87,51 @@ export default function PaymentOutPage() {
 
   const handleExportCSV = () => {
     if (filteredPayments.length === 0) return toast.error("No payments to export");
-    const headers = ["Date", "Payment Number", "Party Name", "Total Amount Settled (INR)", "Amount Paid (INR)", "Payment Mode"];
-    const rows = filteredPayments.map(p => [
-      p.paymentDate,
-      p.paymentNumber,
-      p.partyName,
-      String(p.totalSettled),
-      String(p.amountPaid),
-      p.paymentMode
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
+    
+    let tableHTML = `
+      <table border="1">
+        <thead>
+          <tr style="background-color: #f3f4f6; font-weight: bold;">
+            <th>Date</th>
+            <th>Payment Number</th>
+            <th>Party Name</th>
+            <th>Total Amount Settled (INR)</th>
+            <th>Amount Paid (INR)</th>
+            <th>Payment Mode</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    filteredPayments.forEach(p => {
+      tableHTML += `
+        <tr>
+          <td>${p.paymentDate}</td>
+          <td>${p.paymentNumber}</td>
+          <td>${p.partyName}</td>
+          <td>${p.totalSettled}</td>
+          <td>${p.amountPaid}</td>
+          <td>${p.paymentMode}</td>
+        </tr>
+      `;
+    });
+
+    tableHTML += `
+        </tbody>
+      </table>
+    `;
+
+    const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `payment_out_export.csv`);
+    link.href = url;
+    link.download = `Payment_Out_Export_${new Date().toISOString().slice(0, 10)}.xls`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("Payment records exported successfully!");
+    URL.revokeObjectURL(url);
+    
+    toast.success("Payment records exported successfully! ✅");
   };
 
   return (

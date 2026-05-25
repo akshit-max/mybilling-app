@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Calendar, Printer, Download, Search, Info } from "lucide-react";
+import { ArrowLeft, Calendar, Printer, Download, Search, Info, Mail, ChevronDown, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -23,6 +23,10 @@ export default function GenericReportPage({ params }: { params: { slug: string }
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
+
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailData, setEmailData] = useState({ to: "", cc: "" });
+  const [isExporting, setIsExporting] = useState(false);
 
   const isProductReport = ["rate-list", "stock-summary", "low-stock-summary"].includes(params.slug);
   const isInvoiceReport = ["item-sales-summary"].includes(params.slug);
@@ -45,18 +49,18 @@ export default function GenericReportPage({ params }: { params: { slug: string }
             const snap = await getDocs(q);
             const invoices = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
-            const itemSalesMap = new Map();
+            const rawItems: any[] = [];
             invoices.forEach((inv: any) => {
               if (inv.invoiceType === "estimate") return;
               inv.items?.forEach((item: any) => {
-                 if (!itemSalesMap.has(item.name)) itemSalesMap.set(item.name, { qty: 0, amount: 0, count: 0, date: inv.date || inv.createdAt });
-                 const curr = itemSalesMap.get(item.name);
-                 curr.qty += Number(item.qty) || 0;
-                 curr.amount += (Number(item.qty) || 0) * (Number(item.price || item.rate) || 0);
-                 curr.count += 1;
+                 rawItems.push({
+                   ...item,
+                   date: inv.date || inv.createdAt,
+                   invId: inv.id,
+                 });
               });
             });
-            setData(Array.from(itemSalesMap.entries()).map(([name, d]) => ({ name, ...d })));
+            setData(rawItems);
           } else if (isPurchaseLedgerReport) {
             const q = query(collection(db, "purchases"), where("userId", "==", user.uid));
             const snap = await getDocs(q);
@@ -94,46 +98,106 @@ export default function GenericReportPage({ params }: { params: { slug: string }
       if (!matchName && !matchCustomer && !matchInv) return false;
     }
     
-    // Date filter (only applies to data with dates like item-sales-summary or generic invoice ledger)
+    // Date filter
     if (dateFilter !== "all" && (item.date || item.createdAt)) {
-      const days = parseInt(dateFilter);
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - days);
-      const itemDate = item.date ? new Date(item.date) : (item.createdAt?.toDate ? item.createdAt.toDate() : new Date(item.createdAt));
-      if (itemDate < cutoff) return false;
+      const today = new Date();
+      // Format local today as YYYY-MM-DD
+      const localYear = today.getFullYear();
+      const localMonth = String(today.getMonth() + 1).padStart(2, '0');
+      const localDay = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${localYear}-${localMonth}-${localDay}`;
+      
+      let itemDateStr = "";
+      let itemDateObj: Date;
+
+      if (item.date) {
+        itemDateStr = item.date.split("T")[0]; // YYYY-MM-DD
+        itemDateObj = new Date(item.date);
+      } else {
+        itemDateObj = item.createdAt?.toDate ? item.createdAt.toDate() : new Date(item.createdAt);
+        const iy = itemDateObj.getFullYear();
+        const im = String(itemDateObj.getMonth() + 1).padStart(2, '0');
+        const id = String(itemDateObj.getDate()).padStart(2, '0');
+        itemDateStr = `${iy}-${im}-${id}`;
+      }
+
+      if (dateFilter === "today") {
+        if (itemDateStr !== todayStr) return false;
+      } else {
+        const days = parseInt(dateFilter);
+        const cutoff = new Date();
+        cutoff.setHours(0, 0, 0, 0);
+        cutoff.setDate(cutoff.getDate() - days);
+        if (itemDateObj < cutoff) return false;
+      }
     }
     return true;
   });
 
+  const finalData = React.useMemo(() => {
+    if (isInvoiceReport) {
+      const itemSalesMap = new Map();
+      filteredData.forEach((item) => {
+         if (!itemSalesMap.has(item.name)) itemSalesMap.set(item.name, { name: item.name, qty: 0, amount: 0, count: 0 });
+         const curr = itemSalesMap.get(item.name);
+         curr.qty += Number(item.qty) || 0;
+         curr.amount += (Number(item.qty) || 0) * (Number(item.price || item.rate) || 0);
+         curr.count += 1;
+      });
+      return Array.from(itemSalesMap.values());
+    }
+    return filteredData;
+  }, [filteredData, isInvoiceReport]);
+
   const totalAmount = isProductReport 
-    ? filteredData.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.stock || 0)), 0)
-    : filteredData.reduce((sum, item) => sum + (Number(item.amount || item.total) || 0), 0);
+    ? finalData.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.stock || 0)), 0)
+    : finalData.reduce((sum, item) => sum + (Number(item.amount || item.total) || 0), 0);
 
   const totalQty = isProductReport
-    ? filteredData.reduce((sum, item) => sum + (Number(item.stock) || 0), 0)
-    : filteredData.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+    ? finalData.reduce((sum, item) => sum + (Number(item.stock) || 0), 0)
+    : finalData.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
 
   const handlePrint = () => {
     window.print();
   };
 
-  const exportToCsv = () => {
+  const handleEmailExcel = () => {
+    if (!emailData.to) {
+      toast.error("Please enter your Email ID");
+      return;
+    }
+    toast.promise(
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+      {
+        loading: 'Generating and emailing Excel report...',
+        success: `Excel Report sent successfully to ${emailData.to}! 📧`,
+        error: 'Failed to send email.',
+      }
+    ).then(() => {
+      setShowEmailModal(false);
+      setEmailData({ to: "", cc: "" });
+    });
+  };
+
+  const exportToExcel = () => {
     if (filteredData.length === 0) return toast.error("No data to export");
+    
+    setIsExporting(true);
     let headers: string[] = [];
     let rows: string[][] = [];
 
     if (params.slug === "rate-list") {
       headers = ["Item Name", "Item Code", "MRP (Purchase)", "Selling Price"];
-      rows = filteredData.map(item => [item.name || "-", item.itemCode || "-", String(item.costPrice || 0), String(item.price || 0)]);
+      rows = finalData.map(item => [item.name || "-", item.itemCode || "-", String(item.costPrice || 0), String(item.price || 0)]);
     } else if (params.slug === "stock-summary" || params.slug === "low-stock-summary") {
       headers = ["Item Name", "Batch Number", "Item Code", "Purchase Price", "Selling Price", "Stock Quantity", "Stock Value"];
-      rows = filteredData.map(item => [item.name || "-", "-", item.itemCode || "-", String(item.costPrice || 0), String(item.price || 0), String(item.stock || 0), String((item.price || 0) * (item.stock || 0))]);
+      rows = finalData.map(item => [item.name || "-", "-", item.itemCode || "-", String(item.costPrice || 0), String(item.price || 0), String(item.stock || 0), String((item.price || 0) * (item.stock || 0))]);
     } else if (params.slug === "item-sales-summary") {
       headers = ["Item Name", "Invoices Count", "Quantity Sold", "Total Sales Amount"];
-      rows = filteredData.map(item => [item.name || "-", String(item.count || 0), String(item.qty || 0), String(item.amount || 0)]);
+      rows = finalData.map(item => [item.name || "-", String(item.count || 0), String(item.qty || 0), String(item.amount || 0)]);
     } else if (params.slug === "sales-summary") {
       headers = ["Date", "Invoice No.", "Party Name", "Status", "Amount"];
-      rows = filteredData.map(item => [
+      rows = finalData.map(item => [
         item.date || new Date(item.createdAt).toISOString().split("T")[0] || "-",
         item.invoiceNumber || "-",
         item.customerName || item.partyName || "Cash Sale",
@@ -142,7 +206,7 @@ export default function GenericReportPage({ params }: { params: { slug: string }
       ]);
     } else if (params.slug === "gstr-1") {
       headers = ["Date", "Invoice No.", "Customer Name", "Taxable Value", "Total Tax", "Total Amount"];
-      rows = filteredData.map(item => [
+      rows = finalData.map(item => [
         item.date || "-",
         item.invoiceNumber || "-",
         item.customerName || "Cash Sale",
@@ -152,7 +216,7 @@ export default function GenericReportPage({ params }: { params: { slug: string }
       ]);
     } else if (params.slug === "gstr-2") {
       headers = ["Date", "Purchase Invoice No.", "Supplier Name", "Taxable Value", "Total Tax", "Total Amount"];
-      rows = filteredData.map(item => [
+      rows = finalData.map(item => [
         item.date || "-",
         item.purchaseInvoiceNumber || "-",
         item.customerName || item.partyName || "Cash Purchase",
@@ -162,7 +226,7 @@ export default function GenericReportPage({ params }: { params: { slug: string }
       ]);
     } else if (params.slug === "daybook") {
       headers = ["Date", "Ref No.", "Party", "Type", "Value"];
-      rows = filteredData.map(item => [
+      rows = finalData.map(item => [
         item.date || "-",
         item.invoiceNumber || "-",
         item.customerName || "Cash Sale",
@@ -171,7 +235,7 @@ export default function GenericReportPage({ params }: { params: { slug: string }
       ]);
     } else if (params.slug === "daybook-purchase") {
       headers = ["Date", "Ref No.", "Party", "Type", "Value"];
-      rows = filteredData.map(item => [
+      rows = finalData.map(item => [
         item.date || "-",
         item.purchaseInvoiceNumber || "-",
         item.customerName || item.partyName || "Cash Purchase",
@@ -180,7 +244,7 @@ export default function GenericReportPage({ params }: { params: { slug: string }
       ]);
     } else if (params.slug === "bill-wise-profit") {
       headers = ["Date", "Invoice No.", "Party", "Sales Value", "Estimated Cost", "Profit"];
-      rows = filteredData.map(item => [
+      rows = finalData.map(item => [
         item.date || "-",
         item.invoiceNumber || "-",
         item.customerName || "Cash Sale",
@@ -190,7 +254,7 @@ export default function GenericReportPage({ params }: { params: { slug: string }
       ]);
     } else {
       headers = ["Date", "Reference No.", "Party Name", "Value"];
-      rows = filteredData.map(item => [
+      rows = finalData.map(item => [
         item.date ? new Date(item.date).toLocaleDateString("en-IN") : "-",
         item.invoiceNumber || item.id.substring(0,8),
         item.customerName || "Cash Sale",
@@ -198,19 +262,46 @@ export default function GenericReportPage({ params }: { params: { slug: string }
       ]);
     }
 
-    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
+    // Generate HTML-based Excel Table (Supported natively by Excel)
+    const tableHTML = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+          th { background-color: #f3f4f6; color: #111827; font-weight: bold; border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+          td { border: 1px solid #e5e7eb; padding: 6px; color: #374151; }
+        </style>
+      </head>
+      <body>
+        <h2>${reportName}</h2>
+        <table>
+          <thead>
+            <tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel" });
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${params.slug}_report.csv`);
+    link.href = url;
+    link.download = `${params.slug}_report.xls`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("Report Exported Successfully! 📊");
+    window.URL.revokeObjectURL(url);
+    setIsExporting(false);
+    toast.success("Excel Report Downloaded! 📊");
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans pb-20 print:block print:min-h-0 print:bg-white" id="print-area">
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans pb-20 print:bg-white print:p-8" id="print-area">
       {/* HEADER SECTION */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20 shadow-sm print:hidden">
         <div className="flex items-center gap-4">
@@ -225,11 +316,15 @@ export default function GenericReportPage({ params }: { params: { slug: string }
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={handlePrint} className="flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded text-sm text-gray-600 font-bold hover:bg-gray-50 shadow-sm transition-colors">
-            <Printer size={16} /> Print PDF
+          <button onClick={() => setShowEmailModal(true)} className="flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded text-sm text-gray-600 font-bold hover:bg-gray-50 shadow-sm transition-colors">
+            <Mail size={16} /> Email Excel
           </button>
-          <button onClick={exportToCsv} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-indigo-700 shadow-sm transition-colors">
-            <Download size={16} /> Download Excel
+          <button onClick={exportToExcel} disabled={isExporting} className="flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded text-sm text-gray-600 font-bold hover:bg-gray-50 shadow-sm transition-colors">
+            <Download size={16} /> {isExporting ? "Exporting..." : "Download Excel"}
+            <ChevronDown size={14} className="ml-1 text-gray-400" />
+          </button>
+          <button onClick={handlePrint} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-indigo-700 shadow-sm transition-colors">
+            <Printer size={16} /> Print PDF
           </button>
         </div>
       </header>
@@ -300,6 +395,12 @@ export default function GenericReportPage({ params }: { params: { slug: string }
               <option value="365">This Year</option>
             </select>
           </div>
+        </div>
+
+        {/* Print-Only Header */}
+        <div className="hidden print:block mb-6 border-b-2 border-gray-800 pb-4">
+          <h2 className="text-2xl font-bold text-gray-800 mb-1">{reportName}</h2>
+          <p className="text-sm text-gray-600">Generated on: {new Date().toLocaleDateString('en-IN')} | Filter: {dateFilter === "all" ? "All Time" : dateFilter === "today" ? "Today" : `Last ${dateFilter} Days`}</p>
         </div>
 
         {/* Data Workspace */}
@@ -392,15 +493,26 @@ export default function GenericReportPage({ params }: { params: { slug: string }
                       <th className="px-6 py-3 text-right">Profit</th>
                     </>
                   )}
+                  {![
+                    "rate-list", "stock-summary", "low-stock-summary", "item-sales-summary", 
+                    "sales-summary", "gstr-1", "gstr-2", "daybook", "daybook-purchase", "bill-wise-profit"
+                  ].includes(params.slug) && (
+                    <>
+                      <th className="px-6 py-3">Date</th>
+                      <th className="px-6 py-3">Reference No.</th>
+                      <th className="px-6 py-3">Party Name</th>
+                      <th className="px-6 py-3 text-right">Value</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   <tr><td colSpan={7} className="py-12 text-center text-gray-400 font-medium">Loading report data...</td></tr>
-                ) : filteredData.length === 0 ? (
+                ) : finalData.length === 0 ? (
                   <tr><td colSpan={7} className="py-12 text-center text-gray-400 font-medium">No records found for this criteria.</td></tr>
                 ) : (
-                  filteredData.map((item, idx) => (
+                  finalData.map((item, idx) => (
                     <tr key={item.id || idx} className="hover:bg-gray-50 transition-colors print:break-inside-avoid">
                       
                       {params.slug === "rate-list" && (
@@ -496,6 +608,18 @@ export default function GenericReportPage({ params }: { params: { slug: string }
                         </>
                       )}
 
+                      {![
+                        "rate-list", "stock-summary", "low-stock-summary", "item-sales-summary", 
+                        "sales-summary", "gstr-1", "gstr-2", "daybook", "daybook-purchase", "bill-wise-profit"
+                      ].includes(params.slug) && (
+                        <>
+                          <td className="px-6 py-3 font-semibold text-gray-800 font-mono">{item.date ? new Date(item.date).toLocaleDateString("en-IN") : "-"}</td>
+                          <td className="px-6 py-3 text-gray-600 font-mono">{item.invoiceNumber || item.id.substring(0,8)}</td>
+                          <td className="px-6 py-3 font-semibold text-gray-800">{item.customerName || "Cash Sale"}</td>
+                          <td className="px-6 py-3 text-right font-bold text-gray-800 font-mono">₹ {(item.total || 0).toLocaleString('en-IN')}</td>
+                        </>
+                      )}
+
                     </tr>
                   ))
                 )}
@@ -505,6 +629,61 @@ export default function GenericReportPage({ params }: { params: { slug: string }
         </div>
 
       </main>
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print:hidden">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-800">Email Excel Report</h3>
+              <button onClick={() => setShowEmailModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">
+                We will send you the {reportName.toLowerCase()} to the email below
+              </p>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Your Email ID *</label>
+                <input 
+                  type="email" 
+                  value={emailData.to}
+                  onChange={(e) => setEmailData({...emailData, to: e.target.value})}
+                  className="w-full border border-gray-200 rounded p-2 focus:outline-none focus:border-indigo-500 text-sm"
+                  placeholder="abc@gmail.com"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">CA Email ID (Optional)</label>
+                <input 
+                  type="email" 
+                  value={emailData.cc}
+                  onChange={(e) => setEmailData({...emailData, cc: e.target.value})}
+                  className="w-full border border-gray-200 rounded p-2 focus:outline-none focus:border-indigo-500 text-sm"
+                  placeholder="abc@gmail.com"
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+              <button 
+                onClick={() => setShowEmailModal(false)}
+                className="px-4 py-2 border border-gray-200 rounded text-gray-600 text-sm font-bold hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleEmailExcel}
+                className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded text-sm font-bold hover:bg-indigo-200 transition-colors"
+              >
+                Send Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, ArrowRightLeft, Download, Building2, Calendar, FileText, ChevronDown, Landmark, Trash2, Pencil, Search, Share2 } from "lucide-react";
+import { Plus, ArrowRightLeft, Download, Building2, Calendar, FileText, ChevronDown, Landmark, Trash2, Pencil, Search, Share2, Printer } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc, deleteDoc, orderBy } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -396,12 +396,86 @@ export default function CashAndBankPage() {
     }
   };
 
+  const handleDownloadStatement = () => {
+    const accTxns = transactions.filter(t => t.accountId === selectedAccount);
+    if (accTxns.length === 0) return toast.error("No transactions to export");
+    
+    const accountName = selectedAccount === "cash" ? "Cash" : (selectedAccount === "unlinked" ? "Unlinked Transactions" : bankAccounts.find(b => b.id === selectedAccount)?.name || "Unknown");
+    
+    const headers = ["Date", "Type", "Transaction No", "Party", "Mode", "Paid (Debit)", "Received (Credit)", "Balance"];
+    const rows = accTxns.map(t => {
+      const dateStr = new Date(t.date).toLocaleDateString("en-IN");
+      const typeStr = t.type === "add" ? "Add Money" : t.type === "reduce" ? "Reduce Money" : t.type === "transfer" ? "Transfer" : t.type;
+      return [
+        dateStr, typeStr, t.txnNo, t.party, t.mode, t.paid.toString(), t.received.toString(), t.balanceAfter.toString()
+      ];
+    });
+
+    const tableHTML = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+          th { background-color: #f3f4f6; color: #111827; font-weight: bold; border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+          td { border: 1px solid #e5e7eb; padding: 6px; color: #374151; }
+          .debit { color: #dc2626; }
+          .credit { color: #16a34a; }
+        </style>
+      </head>
+      <body>
+        <h2>${accountName} — Bank Statement</h2>
+        <p>Generated on: ${new Date().toLocaleDateString("en-IN")}</p>
+        <table>
+          <thead>
+            <tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map((cell, i) => `<td class="${i === 5 && cell !== "0" ? "debit" : i === 6 && cell !== "0" ? "credit" : ""}">${cell}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${accountName}_Statement.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    toast.success("Statement downloaded successfully! 📊");
+  };
+
+  const handlePrintPDF = () => {
+    window.print();
+  };
+
   // Filtering transactions for the selected pane
   const filteredTxns = transactions.filter(t => t.accountId === selectedAccount);
   const selectedAccountName = selectedAccount === "cash" ? "Cash" : (selectedAccount === "unlinked" ? "Unlinked Transactions" : bankAccounts.find(b => b.id === selectedAccount)?.name || "Unknown");
 
   return (
     <div className="min-h-screen bg-[#f4f5f7] flex flex-col font-sans">
+      <style jsx global>{`
+        @media screen {
+          .print-only-container { display: none !important; }
+        }
+        @media print {
+          body * { visibility: hidden !important; }
+          .print-only-container, .print-only-container * { visibility: visible !important; }
+          html, body, main, div, section {
+            background: white !important; color: black !important; height: auto !important; min-height: 0 !important; overflow: visible !important; box-shadow: none !important; border: none !important;
+          }
+          .print-only-container {
+            display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; margin: 0 !important; padding: 0 !important;
+          }
+          @page { size: A4 portrait; margin: 12mm; }
+        }
+      `}</style>
       {/* HEADER SECTION */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10 shadow-sm">
         <h1 className="text-lg font-bold text-gray-800">Cash and Bank</h1>
@@ -517,11 +591,14 @@ export default function CashAndBankPage() {
                       <Pencil size={12} /> Update Bank Details
                     </button>
                   )}
-                  <button onClick={() => { setUpdateBankData(b); setShowShareBank(true); }} className="flex items-center justify-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-indigo-600 bg-white border border-gray-200 px-3 py-1.5 rounded transition shadow-sm">
+                  <button onClick={() => { setUpdateBankData(b); setShowShareBank(true); }} className="flex items-center justify-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-indigo-600 bg-white border border-gray-200 px-3 py-1.5 rounded transition shadow-sm print:hidden">
                     <Share2 size={12} /> Share Bank Details
                   </button>
-                  <button className="flex items-center justify-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-indigo-600 bg-white border border-gray-200 px-3 py-1.5 rounded transition shadow-sm">
-                    <Download size={12} /> Download Statement
+                  <button onClick={handleDownloadStatement} className="flex items-center justify-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-indigo-600 bg-white border border-gray-200 px-3 py-1.5 rounded transition shadow-sm print:hidden">
+                    <Download size={12} /> Download Excel
+                  </button>
+                  <button onClick={handlePrintPDF} className="flex items-center justify-center gap-1.5 text-xs font-bold text-white bg-indigo-600 border border-indigo-600 px-3 py-1.5 rounded transition shadow-sm print:hidden">
+                    <Printer size={12} /> Print PDF
                   </button>
                 </div>
               </div>
@@ -556,7 +633,19 @@ export default function CashAndBankPage() {
               <p className="text-xs text-gray-400 font-medium text-center">You don't have any transaction in selected period</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto print-only-container">
+              
+              {/* Print Header */}
+              <div className="hidden print:block mb-6 border-b-2 border-gray-800 pb-4 pt-4 px-4">
+                <h2 className="text-2xl font-bold text-gray-800 mb-1">{selectedAccountName} - Bank Statement</h2>
+                <p className="text-sm text-gray-600">Generated on: {new Date().toLocaleDateString('en-IN')}</p>
+                <div className="grid grid-cols-3 mt-4 text-sm font-semibold">
+                  <div>Account No: {bankAccounts.find(x => x.id === selectedAccount)?.accountNumber || "-"}</div>
+                  <div>IFSC: {bankAccounts.find(x => x.id === selectedAccount)?.ifsc || "-"}</div>
+                  <div className="text-right">Balance: ₹ {Number(bankAccounts.find(x => x.id === selectedAccount)?.balance || 0).toLocaleString('en-IN')}</div>
+                </div>
+              </div>
+
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wider text-gray-500 font-bold">

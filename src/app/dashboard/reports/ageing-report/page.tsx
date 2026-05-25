@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Star, Mail, Download, Printer, Search, Users } from "lucide-react";
+import { ArrowLeft, Star, Mail, Download, Printer, Search, Users, X, ChevronDown } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -26,6 +26,8 @@ export default function AgeingReport() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isFavourite, setIsFavourite] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailData, setEmailData] = useState({ to: "", cc: "" });
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -124,11 +126,79 @@ export default function AgeingReport() {
   );
 
   const handlePrint = () => window.print();
-  const handleExportExcel = () => toast.success("Excel report downloaded successfully! 📊");
-  const handleEmailExcel = () => toast.success("Excel report has been sent to your email! 📧");
+
+  const handleExportExcel = () => {
+    if (filteredParties.length === 0) return toast.error("No data to export");
+
+    const headers = ["Party Name", "By Tomorrow", "Upcoming", "Total Due", "1-15 Days Overdue", "16-30 Days Overdue", "30+ Days Overdue", "Total Overdue", "Total Amount"];
+    const rows = filteredParties.map(p => [
+      p.name,
+      p.byTomorrow.toString(),
+      p.upcoming.toString(),
+      p.totalDue.toString(),
+      p.overdue1_15.toString(),
+      p.overdue16_30.toString(),
+      p.overdue30Plus.toString(),
+      p.totalOverdue.toString(),
+      p.totalAmount.toString()
+    ]);
+
+    const tableHTML = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+          th { background-color: #f3f4f6; color: #111827; font-weight: bold; border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+          td { border: 1px solid #e5e7eb; padding: 6px; color: #374151; }
+        </style>
+      </head>
+      <body>
+        <h2>Ageing Report</h2>
+        <table>
+          <thead>
+            <tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Ageing_Report.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    toast.success("Excel downloaded successfully 📊");
+  };
+
+  const handleEmailExcel = () => {
+    if (!emailData.to) {
+      toast.error("Please enter your Email ID");
+      return;
+    }
+    toast.promise(
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+      {
+        loading: 'Generating and emailing Excel report...',
+        success: `Excel Report sent successfully to ${emailData.to}! 📧`,
+        error: 'Failed to send email.',
+      }
+    ).then(() => {
+      setShowEmailModal(false);
+      setEmailData({ to: "", cc: "" });
+    });
+  };
 
   return (
-    <div className="space-y-0 max-w-full mx-auto pb-10 font-sans bg-gray-50/50 min-h-screen print:bg-white print:pb-0">
+    <div id="print-area" className="space-y-0 max-w-full mx-auto pb-10 font-sans bg-gray-50/50 min-h-screen print:bg-white print:pb-0">
       
       {/* Top Header */}
       <div className="flex justify-between items-center bg-white px-6 py-3 border-b border-gray-200 shadow-sm print:hidden">
@@ -152,7 +222,7 @@ export default function AgeingReport() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={handleEmailExcel} className="flex items-center gap-1.5 text-xs text-gray-600 border border-gray-200 bg-white px-3 py-1.5 rounded hover:bg-gray-50 font-semibold transition">
+          <button onClick={() => setShowEmailModal(true)} className="flex items-center gap-1.5 text-xs text-gray-600 border border-gray-200 bg-white px-3 py-1.5 rounded hover:bg-gray-50 font-semibold transition">
             <Mail size={13} className="text-gray-500" />
             <span>Email Excel</span>
           </button>
@@ -168,8 +238,10 @@ export default function AgeingReport() {
         </div>
       </div>
 
-      <div className="hidden print:block text-center py-6 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-gray-800">Ageing Report</h1>
+      <div className="hidden print:block text-center py-6 border-b border-gray-200 mb-4">
+        <h1 className="text-2xl font-bold text-gray-800 uppercase tracking-wider">Ageing Report</h1>
+        <p className="text-sm text-gray-500 mt-1 font-semibold">All Parties</p>
+        <p className="text-xs text-gray-400 mt-1">Generated on: {new Date().toLocaleDateString('en-IN')}</p>
       </div>
 
       <div className="px-6 pt-4 pb-2 print:hidden">
@@ -186,8 +258,8 @@ export default function AgeingReport() {
       </div>
 
       {/* Table Section */}
-      <div className="bg-white border border-gray-200 rounded-lg mx-6 mt-2 flex flex-col shadow-sm print:border-none print:shadow-none print:mx-0 overflow-hidden">
-        <div className="flex-1 overflow-x-auto">
+      <div className="bg-white border border-gray-200 rounded-lg mx-6 mt-2 flex flex-col shadow-sm print:border-none print:shadow-none print:mx-0 overflow-hidden print:overflow-visible">
+        <div className="flex-1 overflow-x-auto print:overflow-visible">
           {loading ? (
             <div className="flex items-center justify-center py-20 text-gray-400 gap-2">
               <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
@@ -245,11 +317,61 @@ export default function AgeingReport() {
         </div>
       </div>
 
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print:hidden">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-800">Email Excel Report</h3>
+              <button onClick={() => setShowEmailModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">
+                We will send you the ageing report to the email below
+              </p>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Your Email ID *</label>
+                <input 
+                  type="email" 
+                  value={emailData.to}
+                  onChange={(e) => setEmailData({...emailData, to: e.target.value})}
+                  className="w-full border border-gray-200 rounded p-2 focus:outline-none focus:border-indigo-500 text-sm"
+                  placeholder="abc@gmail.com"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">CA Email ID (Optional)</label>
+                <input 
+                  type="email" 
+                  value={emailData.cc}
+                  onChange={(e) => setEmailData({...emailData, cc: e.target.value})}
+                  className="w-full border border-gray-200 rounded p-2 focus:outline-none focus:border-indigo-500 text-sm"
+                  placeholder="abc@gmail.com"
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+              <button 
+                onClick={() => setShowEmailModal(false)}
+                className="px-4 py-2 border border-gray-200 rounded text-gray-600 text-sm font-bold hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleEmailExcel}
+                className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded text-sm font-bold hover:bg-indigo-200 transition-colors"
+              >
+                Send Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
-
-// Dummy lucide-react chevron down import since it wasn't added to top level:
-const ChevronDown = ({ size, className }: { size: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className} strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-);

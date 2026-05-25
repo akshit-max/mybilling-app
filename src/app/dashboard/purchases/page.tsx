@@ -10,6 +10,7 @@ import { db, auth } from "@/lib/firebase";
 import { collection, query, where, getDocs, deleteDoc, doc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
+import { syncInventory } from "@/lib/inventorySync";
 
 export default function PurchasesPage() {
   const router = useRouter();
@@ -88,10 +89,21 @@ export default function PurchasesPage() {
     return () => window.removeEventListener("click", handleOutsideClick);
   }, []);
 
-  const handleDelete = async (id: string, invoiceNumber: string) => {
-    if (!confirm(`Are you sure you want to delete purchase invoice ${invoiceNumber}?`)) return;
+  const handleDelete = async (row: any) => {
+    if (!confirm(`Are you sure you want to delete purchase invoice ${row.purchaseInvoiceNumber}?`)) return;
     try {
-      await deleteDoc(doc(db, "purchases", id));
+      const user = auth.currentUser;
+      if (user && row.items && row.items.length > 0) {
+        const itemsToSync = row.items.map((i: any) => ({
+          id: i.productId,
+          quantity: i.qty
+        })).filter((i: any) => i.id);
+        if (itemsToSync.length > 0) {
+          await syncInventory(user.uid, itemsToSync, "DECREASE");
+        }
+      }
+      
+      await deleteDoc(doc(db, "purchases", row.id));
       toast.success("Purchase invoice deleted successfully");
       fetchPurchases();
     } catch (err) {
@@ -187,7 +199,7 @@ export default function PurchasesPage() {
           <button 
             onClick={(e) => {
               e.stopPropagation();
-              handleDelete(row.id, row.purchaseInvoiceNumber);
+              handleDelete(row);
             }}
             className="text-gray-400 hover:text-red-500 transition-colors"
             title="Delete"

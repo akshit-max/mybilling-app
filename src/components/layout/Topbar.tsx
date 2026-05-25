@@ -13,16 +13,19 @@ import {
   MessagesSquare, 
   Keyboard,
   X,
-  ChevronDown
+  ChevronDown,
+  Menu,
+  Indent
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSession } from "@/context/SessionContext";
+import { useChat } from "@/context/ChatContext";
 
-export function Topbar() {
+export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: () => void, toggleMobileMenu?: () => void }) {
   const pathname = usePathname();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallModal, setShowInstallModal] = useState(false);
-  const [showChat, setShowChat] = useState(false);
+  const { isChatOpen, openChat, closeChat } = useChat();
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
@@ -34,6 +37,11 @@ export function Topbar() {
       if (e.key === "Alt") {
         e.preventDefault();
         setShowShortcuts(prev => !prev);
+      }
+      if (e.key === "h" && e.altKey) {
+        e.preventDefault();
+        if (isChatOpen) closeChat();
+        else openChat();
       }
     };
     window.addEventListener("keyup", handleKeyUp);
@@ -105,10 +113,25 @@ export function Topbar() {
   };
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0 font-sans relative">
-      <h1 className="text-lg font-medium text-gray-800">{getPageTitle()}</h1>
+    <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-6 flex-shrink-0 font-sans relative">
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={toggleMobileMenu} 
+          className="md:hidden p-1.5 -ml-1.5 text-gray-600 hover:bg-gray-100 rounded-md"
+        >
+          <Menu size={20} />
+        </button>
+        <button 
+          onClick={toggleSidebar} 
+          className="hidden md:block p-1.5 -ml-2 text-gray-500 hover:bg-gray-100 hover:text-indigo-600 rounded-md transition-colors"
+          title="Toggle Sidebar"
+        >
+          <Indent size={18} />
+        </button>
+        <h1 className="text-lg font-medium text-gray-800">{getPageTitle()}</h1>
+      </div>
       
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4">
         {/* Icon Nav */}
         <div className="flex items-center gap-3 text-gray-500">
           <button 
@@ -206,7 +229,7 @@ export function Topbar() {
           </div>
 
           <button 
-            onClick={() => setShowChat(!showChat)}
+            onClick={() => isChatOpen ? closeChat() : openChat()}
             className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center" 
             title="Chat Support"
           >
@@ -268,7 +291,6 @@ export function Topbar() {
         </div>
       )}
 
-      {showChat && <ChatBot onClose={() => setShowChat(false)} />}
       {showShortcuts && <ShortcutsPanel onClose={() => setShowShortcuts(false)} />}
     </header>
   );

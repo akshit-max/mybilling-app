@@ -11,6 +11,7 @@ import toast from "react-hot-toast";
 
 import { sanitizeNumericInput } from "@/lib/sanitize";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
+import { syncInventory } from "@/lib/inventorySync";
 import { v4 as uuidv4 } from "uuid";
 import { INDIAN_STATES } from "@/lib/indianStates";
 
@@ -573,17 +574,15 @@ export default function CreateSalesInvoice() {
 
       // --- ONLINE SAVING ---
       if (invoiceType === "invoice") {
-        // Increase live stock (Purchase)
-        for (const item of validItems) {
-          if (item.productId) {
-            const ref = doc(db, "products", item.productId);
-            const snap = await getDoc(ref);
-            if (snap.exists()) {
-              const stock = snap.data().stock || 0;
-              await updateDoc(ref, {
-                stock: stock + item.qty,
-              });
-            }
+        const itemsToSync = validItems.filter(i => i.productId).map(i => ({
+          id: i.productId!,
+          quantity: i.qty
+        }));
+        if (itemsToSync.length > 0) {
+          try {
+            await syncInventory(user.uid, itemsToSync, "INCREASE");
+          } catch (err: any) {
+            return toast.error(err.message || "Failed to sync inventory stock.");
           }
         }
       }

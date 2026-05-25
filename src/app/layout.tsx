@@ -59,6 +59,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { AuthProvider } from "@/context/AuthContext";
+import { ChatProvider } from "@/context/ChatContext";
 import { Toaster } from "react-hot-toast";
 
 import OfflineWatcher from "@/components/OfflineWatcher";
@@ -111,9 +112,11 @@ export default function RootLayout({
 
         <PWAInstallButton />
 
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <ChatProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </ChatProvider>
 
         <Toaster position="top-right" />
 

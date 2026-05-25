@@ -7,7 +7,8 @@ import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Trash2, Search, Plus, Package, FileText, ChevronDown, Check, AlertTriangle, X, Landmark } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Search, Plus, Package, FileText, ChevronDown, Check, AlertTriangle, X, Landmark, QrCode, Printer } from "lucide-react";
+import QRCode from "react-qr-code";
 
 type Product = {
   id: string;
@@ -33,10 +34,13 @@ type Product = {
 
 type InvoiceItem = {
   name: string;
-  quantity: number;
-  price: number;
+  quantity?: number;
+  qty?: number;
+  price?: number;
+  rate?: number;
   gst?: number;
-  total: number;
+  total?: number;
+  amount?: number;
 };
 
 type Invoice = {
@@ -71,7 +75,7 @@ export default function ItemDetailsPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [productsList, setProductsList] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState<"details" | "stock" | "report" | "prices">("details");
+  const [activeSubTab, setActiveSubTab] = useState<"details" | "stock" | "report" | "prices" | "qr">("details");
   const [searchTerm, setSearchTerm] = useState("");
 
   // Invoices & Analytics State
@@ -185,10 +189,13 @@ export default function ItemDetailsPage() {
       matchingInvoices.forEach(inv => {
         const matchingItem = inv.items.find(item => item.name.toLowerCase() === mainProduct.name.toLowerCase());
         if (matchingItem) {
+          const itemQty = Number(matchingItem.qty || matchingItem.quantity || 0);
+          const itemTotal = Number(matchingItem.amount || matchingItem.total || (itemQty * (matchingItem.price || matchingItem.rate || 0)) || 0);
+
           txs.unshift({
             date: inv.date,
             type: "Sales Invoices",
-            quantity: `- ${matchingItem.quantity} ${mainProduct.unit}`,
+            quantity: `- ${itemQty} ${mainProduct.unit}`,
             invoiceNo: inv.invoiceNumber,
             closingStock: `${mainProduct.stock} ${mainProduct.unit}`, // Simple reference
           });
@@ -204,8 +211,8 @@ export default function ItemDetailsPage() {
               purchaseAmt: "-",
             };
           }
-          reportsMap[party].salesQty += matchingItem.quantity;
-          reportsMap[party].salesAmt += matchingItem.total;
+          reportsMap[party].salesQty += itemQty;
+          reportsMap[party].salesAmt += itemTotal;
         }
       });
 
@@ -440,6 +447,15 @@ export default function ItemDetailsPage() {
           >
             Party Wise Prices
           </button>
+          <button 
+            onClick={() => setActiveSubTab("qr")}
+            className={`pb-2 transition-all flex items-center gap-1.5 ${
+              activeSubTab === "qr" ? "border-b-2 border-indigo-600 text-indigo-600" : "text-gray-400 hover:text-gray-700"
+            }`}
+          >
+            <QrCode size={13} />
+            <span>Barcode / QR</span>
+          </button>
         </div>
 
         {/* GRID SPECIFICATIONS CARDS */}
@@ -622,6 +638,78 @@ export default function ItemDetailsPage() {
                 To specify custom selling margins, party discounts or pre-negotiated wholesale prices for specific customers, unlock our Business Plan.
               </p>
             </div>
+          </div>
+        )}
+
+        {/* View Tab: Barcode / QR */}
+        {activeSubTab === "qr" && (
+          <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-sm flex flex-col items-center justify-center max-w-lg mx-auto mt-4 space-y-6">
+            <div className="text-center space-y-1">
+              <h3 className="text-sm font-bold text-gray-800">Item Label & QR Code</h3>
+              <p className="text-xs text-gray-500">Scan this code using the Webcam Barcode Scanner in Sales to quickly add this item.</p>
+            </div>
+            
+            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+              <QRCode 
+                id="product-qr-code"
+                value={product.barcode || product.itemCode || product.name} 
+                size={180}
+                level="H"
+                fgColor="#1e1b4b"
+              />
+            </div>
+            
+            <div className="text-center">
+              <p className="text-xs font-bold text-gray-800">{product.name}</p>
+              <p className="text-[10px] font-mono text-gray-500 mt-1 uppercase tracking-widest">{product.barcode || product.itemCode || product.name}</p>
+            </div>
+
+            <button 
+              onClick={() => {
+                const qrValue = product.barcode || product.itemCode || product.name;
+                const printWindow = window.open('', '', 'width=400,height=500');
+                if (!printWindow) return toast.error("Pop-up blocked. Please allow pop-ups to print.");
+                
+                const svgElement = document.getElementById('product-qr-code');
+                const svgHtml = svgElement ? svgElement.outerHTML : '';
+
+                printWindow.document.write(`
+                  <html>
+                    <head>
+                      <title>Print QR Code - ${product.name}</title>
+                      <style>
+                        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                        h2 { font-size: 18px; font-weight: bold; margin-bottom: 5px; color: #111827; }
+                        p { font-size: 12px; color: #6b7280; margin-bottom: 20px; font-family: monospace; }
+                        .qr-container { padding: 20px; border: 2px dashed #e5e7eb; border-radius: 8px; }
+                        @media print {
+                          @page { size: auto; margin: 0mm; }
+                          body { height: auto; padding: 20px; }
+                        }
+                      </style>
+                    </head>
+                    <body>
+                      <h2>${product.name}</h2>
+                      <p>${qrValue}</p>
+                      <div class="qr-container">
+                        ${svgHtml}
+                      </div>
+                      <script>
+                        window.onload = () => {
+                          window.print();
+                          setTimeout(() => window.close(), 500);
+                        };
+                      </script>
+                    </body>
+                  </html>
+                `);
+                printWindow.document.close();
+              }}
+              className="flex items-center justify-center gap-2 w-full max-w-xs bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded text-xs font-bold transition-colors shadow-sm"
+            >
+              <Printer size={14} />
+              <span>Print Label</span>
+            </button>
           </div>
         )}
 

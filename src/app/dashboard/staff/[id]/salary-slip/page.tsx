@@ -169,9 +169,6 @@ export default function SalarySlipPrintView() {
 
       {/* Header */}
       <div className="flex items-center gap-4 mb-12">
-        <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center border border-orange-200 overflow-hidden">
-          <img src="/icons/icon-192x192.png" alt="Logo" className="w-10 h-10 object-contain" />
-        </div>
         <div>
           <h2 className="text-lg font-bold">{businessName}</h2>
           <p className="text-xs text-gray-600 font-semibold mt-1">Mobile: {businessPhone}</p>

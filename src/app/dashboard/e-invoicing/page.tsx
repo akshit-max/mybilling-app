@@ -6,6 +6,7 @@ import { db, auth } from "@/lib/firebase";
 import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useChat } from "@/context/ChatContext";
 
 export default function EInvoicingPage() {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function EInvoicingPage() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [ewayBills, setEwayBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { openChat } = useChat();
 
   useEffect(() => {
     const fetchEInvoices = async () => {
@@ -60,7 +62,10 @@ export default function EInvoicingPage() {
           </button>
         </div>
         <div>
-          <button className="flex items-center gap-1.5 text-[11px] text-blue-600 bg-blue-50 px-4 py-1.5 rounded hover:bg-blue-100 font-bold uppercase tracking-wider transition-colors">
+          <button 
+            onClick={openChat}
+            className="flex items-center gap-1.5 text-[11px] text-blue-600 bg-blue-50 px-4 py-1.5 rounded hover:bg-blue-100 font-bold uppercase tracking-wider transition-colors"
+          >
             <MessageCircle size={14} />
             <span>Chat Support</span>
           </button>

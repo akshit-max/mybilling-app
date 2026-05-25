@@ -20,9 +20,11 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import toast from "react-hot-toast";
 
 import SettingsSidebar from "../SettingsSidebar";
+import { useChat } from "@/context/ChatContext";
 
 export default function AccountSettingsPage() {
   const [loading, setLoading] = useState(true);
+  const { openChat } = useChat();
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -133,7 +135,7 @@ export default function AccountSettingsPage() {
             <p className="text-[10px] text-gray-500 font-medium">Manage your subscription account and profile details</p>
           </div>
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-md font-semibold">
+            <button onClick={openChat} className="flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-md font-semibold transition-colors">
               <MessageSquare size={13} /> Chat Support
             </button>
             <button 

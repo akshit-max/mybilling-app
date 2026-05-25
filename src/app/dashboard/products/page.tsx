@@ -64,6 +64,11 @@ export default function ItemsPage() {
   const [modalSaving, setModalSaving] = useState(false);
   const [showBulkActionsDropdown, setShowBulkActionsDropdown] = useState(false);
   const [showReportsDropdown, setShowReportsDropdown] = useState(false);
+  
+  // Bulk Edit State
+  const [showBulkEditModal, setShowBulkEditModal] = useState(false);
+  const [bulkEditData, setBulkEditData] = useState<Product[]>([]);
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   // Form State
   const [formType, setFormType] = useState<"Product" | "Service">("Product");
@@ -347,6 +352,36 @@ export default function ItemsPage() {
     }
   };
 
+  const handleBulkEditChange = (id: string, field: keyof Product, value: any) => {
+    setBulkEditData(prev => 
+      prev.map(p => p.id === id ? { ...p, [field]: value } : p)
+    );
+  };
+
+  const handleSaveBulkEdit = async () => {
+    try {
+      setBulkSaving(true);
+      const batchPromises = bulkEditData.map(item => 
+        updateDoc(doc(db, "products", item.id), {
+          name: item.name,
+          price: Number(item.price) || 0,
+          costPrice: Number(item.costPrice) || 0,
+          stock: Number(item.stock) || 0,
+          gst: Number(item.gst) || 0
+        })
+      );
+      await Promise.all(batchPromises);
+      toast.success("Items updated successfully! ✅");
+      setShowBulkEditModal(false);
+      fetchProductsList();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to update items");
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this item?")) return;
     try {
@@ -357,6 +392,81 @@ export default function ItemsPage() {
       console.error(err);
       toast.error("Failed to delete item");
     }
+  };
+
+  const handleUploadExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast.error('Please upload a valid .csv file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (!text) return;
+        
+        const lines = text.split('\n').filter(line => line.trim());
+        if (lines.length < 2) {
+          toast.error("CSV is empty or missing data rows");
+          return;
+        }
+
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const nameIdx = headers.findIndex(h => h.includes('name'));
+        const priceIdx = headers.findIndex(h => h.includes('price'));
+        const stockIdx = headers.findIndex(h => h.includes('stock'));
+        const catIdx = headers.findIndex(h => h.includes('category'));
+        const gstIdx = headers.findIndex(h => h.includes('gst'));
+        const codeIdx = headers.findIndex(h => h.includes('code'));
+
+        if (nameIdx === -1) {
+          toast.error("CSV must contain a 'Name' column");
+          return;
+        }
+
+        const user = auth.currentUser;
+        if (!user) return;
+
+        setLoading(true);
+        toast.loading("Uploading items...", { id: "bulk-upload" });
+
+        let addedCount = 0;
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+          if (!cols[nameIdx]) continue;
+
+          await addDoc(collection(db, "products"), {
+            userId: user.uid,
+            name: cols[nameIdx],
+            price: priceIdx !== -1 ? Number(cols[priceIdx]) || 0 : 0,
+            stock: stockIdx !== -1 ? Number(cols[stockIdx]) || 0 : 0,
+            category: catIdx !== -1 && cols[catIdx] ? cols[catIdx] : "-",
+            gst: gstIdx !== -1 ? Number(cols[gstIdx]) || 18 : 18,
+            itemCode: codeIdx !== -1 && cols[codeIdx] ? cols[codeIdx] : null,
+            barcode: codeIdx !== -1 && cols[codeIdx] ? cols[codeIdx] : null,
+            type: "Product",
+            unit: "PCS",
+            createdAt: serverTimestamp(),
+            createdBy: activeProfile?.name || "Admin"
+          });
+          addedCount++;
+        }
+
+        toast.success(`Successfully added ${addedCount} items! ✅`, { id: "bulk-upload" });
+        fetchProductsList();
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to parse and upload CSV", { id: "bulk-upload" });
+      } finally {
+        setLoading(false);
+        e.target.value = '';
+      }
+    };
+    reader.readAsText(file);
   };
 
   // Derived Analytics Stats
@@ -752,10 +862,19 @@ export default function ItemsPage() {
                       <p className="text-[10px] text-gray-400 font-semibold mb-1 flex items-center gap-1">
                         <Pencil size={10} /> Bulk Edit
                       </p>
-                      <button onClick={() => { setShowBulkActionsDropdown(false); toast.success("Bulk Edit Items Coming Soon!"); }} className="w-full text-left px-2 py-1 hover:bg-gray-50 rounded">
+                      <button onClick={() => { 
+                        setShowBulkActionsDropdown(false); 
+                        setBulkEditData([...products]); 
+                        setShowBulkEditModal(true); 
+                      }} className="w-full text-left px-2 py-1 hover:bg-gray-50 rounded">
                         Bulk Edit Items
                       </button>
-                      <button onClick={() => { setShowBulkActionsDropdown(false); toast.success("Edit GST Rates Coming Soon!"); }} className="w-full text-left px-2 py-1 hover:bg-gray-50 rounded">
+                      <button onClick={() => { 
+                        setShowBulkActionsDropdown(false); 
+                        setBulkEditData([...products]); 
+                        setShowBulkEditModal(true); 
+                        toast.success("Edit the GST % column for any item");
+                      }} className="w-full text-left px-2 py-1 hover:bg-gray-50 rounded">
                         Edit GST Rates
                       </button>
                     </div>
@@ -915,14 +1034,8 @@ export default function ItemsPage() {
             type="file" 
             id="excel-upload-input" 
             className="hidden" 
-            accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
-            onChange={(e) => {
-              if (e.target.files && e.target.files.length > 0) {
-                toast.success("Excel uploaded successfully! Items are being processed.");
-                // Reset file input
-                e.target.value = "";
-              }
-            }}
+            accept=".csv" 
+            onChange={handleUploadExcel}
           />
         </div>
       </div>
@@ -1463,6 +1576,115 @@ export default function ItemsPage() {
                   className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-1.5 rounded text-xs font-bold shadow-sm transition select-none"
                 >
                   Add
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Bulk Edit Modal */}
+      {showBulkEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs" onClick={() => setShowBulkEditModal(false)}></div>
+          <div className="bg-white rounded-lg shadow-xl border border-gray-200 w-full max-w-5xl h-[80vh] flex flex-col z-10 animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide flex items-center gap-2">
+                <Pencil size={16} className="text-indigo-600" /> Bulk Edit Items
+              </h3>
+              <button onClick={() => setShowBulkEditModal(false)} className="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
+            </div>
+            
+            <div className="flex-1 overflow-auto p-4 bg-gray-50/30">
+              <table className="w-full text-left text-xs text-gray-600 border-collapse bg-white border border-gray-200 rounded">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-700 font-bold uppercase text-[10px]">
+                    <th className="px-3 py-2 border-r border-gray-100">Item Name</th>
+                    <th className="px-3 py-2 border-r border-gray-100">Sales Price</th>
+                    <th className="px-3 py-2 border-r border-gray-100">Purchase Price</th>
+                    <th className="px-3 py-2 border-r border-gray-100">Stock Qty</th>
+                    <th className="px-3 py-2">GST %</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {bulkEditData.map((item) => (
+                    <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="px-2 py-1.5 border-r border-gray-100">
+                        <input 
+                          type="text" 
+                          value={item.name} 
+                          onChange={(e) => handleBulkEditChange(item.id, 'name', e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-transparent hover:border-gray-300 focus:border-indigo-500 rounded bg-transparent focus:bg-white transition-all outline-none font-semibold text-gray-800"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 border-r border-gray-100">
+                        <div className="flex items-center">
+                          <span className="text-gray-400 mr-1">₹</span>
+                          <input 
+                            type="number" 
+                            value={item.price} 
+                            onChange={(e) => handleBulkEditChange(item.id, 'price', e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-transparent hover:border-gray-300 focus:border-indigo-500 rounded bg-transparent focus:bg-white transition-all outline-none font-mono"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-2 py-1.5 border-r border-gray-100">
+                        <div className="flex items-center">
+                          <span className="text-gray-400 mr-1">₹</span>
+                          <input 
+                            type="number" 
+                            value={item.costPrice} 
+                            onChange={(e) => handleBulkEditChange(item.id, 'costPrice', e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-transparent hover:border-gray-300 focus:border-indigo-500 rounded bg-transparent focus:bg-white transition-all outline-none font-mono"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-2 py-1.5 border-r border-gray-100">
+                        <input 
+                          type="number" 
+                          value={item.stock} 
+                          onChange={(e) => handleBulkEditChange(item.id, 'stock', e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-transparent hover:border-gray-300 focus:border-indigo-500 rounded bg-transparent focus:bg-white transition-all outline-none font-mono text-center"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 border-gray-100">
+                        <div className="flex items-center">
+                          <input 
+                            type="number" 
+                            value={item.gst} 
+                            onChange={(e) => handleBulkEditChange(item.id, 'gst', e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-transparent hover:border-gray-300 focus:border-indigo-500 rounded bg-transparent focus:bg-white transition-all outline-none font-mono text-center"
+                          />
+                          <span className="text-gray-400 ml-1">%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {bulkEditData.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="text-center py-10 text-gray-400">
+                        No items available to edit.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+              <span className="text-xs text-gray-500 font-semibold">{bulkEditData.length} items</span>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setShowBulkEditModal(false)}
+                  className="border border-gray-200 text-gray-600 hover:bg-gray-100 px-5 py-1.5 rounded text-xs font-bold transition select-none"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleSaveBulkEdit}
+                  disabled={bulkSaving}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-1.5 rounded text-xs font-bold shadow-sm transition select-none disabled:opacity-50"
+                >
+                  {bulkSaving ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </div>

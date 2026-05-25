@@ -187,25 +187,49 @@ export default function SharedLedgerPage() {
     return diffDays <= days;
   }) || [];
 
-  const downloadLedgerCSV = () => {
+  const downloadLedgerExcel = () => {
     if (!selectedParty || filteredTransactions.length === 0) {
       return toast.error("No transactions to download");
     }
     const headers = ["Date", "Transaction Type", "Transaction Number", "Amount", "Status"];
     const rows = filteredTransactions.map(t => [
-      t.date, t.type, t.number, t.amount, t.status
+      t.date, t.type, t.number, t.amount.toString(), t.status
     ]);
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + headers.join(",") + "\n" 
-      + rows.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
+
+    const tableHTML = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+          th { background-color: #f3f4f6; color: #111827; font-weight: bold; border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+          td { border: 1px solid #e5e7eb; padding: 6px; color: #374151; }
+        </style>
+      </head>
+      <body>
+        <h2>Shared Ledger - ${selectedParty.name}</h2>
+        <table>
+          <thead>
+            <tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel" });
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${selectedParty.name}_Ledger.csv`);
+    link.href = url;
+    link.download = `${selectedParty.name}_Ledger.xls`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("Ledger downloaded successfully");
+    window.URL.revokeObjectURL(url);
+    toast.success("Ledger downloaded successfully 📊");
   };
 
   const handleDownloadInvoice = () => {
@@ -310,9 +334,12 @@ export default function SharedLedgerPage() {
               How it Works?
             </button>
           </div>
-          <button className="p-1.5 text-gray-400 border border-gray-200 rounded hover:bg-gray-50 transition-colors">
-            <Settings size={14} />
-          </button>
+          <div className="flex items-center gap-2">
+
+            <button className="p-1.5 text-gray-400 border border-gray-200 rounded hover:bg-gray-50 transition-colors">
+              <Settings size={14} />
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -357,12 +384,7 @@ export default function SharedLedgerPage() {
           )}
         </div>
         
-        {/* Refer Bottom Button */}
-        <div className="p-3 border-t border-gray-200 bg-gray-50">
-           <button onClick={() => setShowQrModal(true)} className="w-full flex items-center justify-center gap-2 py-2 bg-white border border-indigo-200 text-indigo-600 rounded text-xs font-bold hover:bg-indigo-50 shadow-sm transition-colors">
-              <QrCode size={14} /> Connect via QR
-           </button>
-        </div>
+
       </div>
 
       {/* RIGHT COLUMN: Details */}
@@ -427,7 +449,7 @@ export default function SharedLedgerPage() {
                    </select>
                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                  </div>
-                 <button onClick={downloadLedgerCSV} className="flex items-center gap-1.5 text-xs text-gray-600 bg-white border border-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 font-bold shadow-sm">
+                 <button onClick={downloadLedgerExcel} className="flex items-center gap-1.5 text-xs text-gray-600 bg-white border border-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 font-bold shadow-sm">
                    <Download size={14} />
                    Download Ledger
                  </button>
@@ -516,7 +538,7 @@ export default function SharedLedgerPage() {
             
             <div className="p-4 bg-white border-2 border-dashed border-gray-300 rounded-xl mb-6 flex items-center justify-center relative">
                <QRCode 
-                 value={`https://app.mybillbook.in/ledger-connect/${businessName}`} 
+                 value={typeof window !== "undefined" ? `${window.location.origin}/store/${businessName.split(' ').join('-').toLowerCase()}` : "https://mybillbook.in"} 
                  size={150} 
                  fgColor="#312e81" 
                  level="M"

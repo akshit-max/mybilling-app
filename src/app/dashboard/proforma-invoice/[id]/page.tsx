@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import WhatsAppModal from "@/components/ui/WhatsAppModal";
+import SMSModal from "@/components/ui/SMSModal";
 
 type Item = {
   productId?: string;
@@ -26,7 +28,7 @@ type Item = {
   tax?: number; 
 };
 
-type CreditNote = {
+type ProformaInvoice = {
   customerName: string;
   customerPhone?: string;
   customerGSTIN?: string;
@@ -85,13 +87,15 @@ function numberToWords(num: number): string {
   return cleanNum.toString(); 
 }
 
-export default function ViewCreditNote() {
+export default function ViewProformaInvoice() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
 
   const [company, setCompany] = useState<Company | null>(null);
-  const [proformaInvoice, setCreditNote] = useState<CreditNote | null>(null);
+  const [proformaInvoice, setProformaInvoice] = useState<ProformaInvoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [showSMSModal, setShowSMSModal] = useState(false);
 
   const [accentColor, setAccentColor] = useState("#4F46E5");
   const [showPhone, setShowPhone] = useState(true);
@@ -110,7 +114,7 @@ export default function ViewCreditNote() {
         const ref = doc(db, "proformaInvoices", id);
         const snap = await getDoc(ref);
         if (snap.exists()) {
-          setCreditNote(snap.data() as CreditNote);
+          setProformaInvoice(snap.data() as ProformaInvoice);
         } else {
           throw new Error("Not in Firestore");
         }
@@ -191,23 +195,17 @@ export default function ViewCreditNote() {
   const balanceAmount = Math.max(0, proformaInvoice.total - receivedAmount);
 
   const handleWhatsAppShare = () => {
-    if (!proformaInvoice?.customerPhone) {
-      toast.error("Customer phone number is missing");
-      return;
-    }
-    const message = `Dear ${proformaInvoice.customerName},\n\nYour credit note *${proformaInvoice.proformaInvoiceNumber || "N/A"}* has been generated successfully.\n\nTotal Amount: *₹${proformaInvoice.total.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`;
-    const phone = proformaInvoice.customerPhone.replace(/\D/g, "");
-    window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(message)}`, "_blank");
+    setShowWhatsAppModal(true);
   };
 
   const handleDelete = async () => {
-    if (confirm("Are you sure you want to delete this credit note?")) {
+    if (confirm("Are you sure you want to delete this proforma invoice?")) {
       try {
         await deleteDoc(doc(db, "proformaInvoices", id));
         toast.success("Proforma Invoice deleted successfully");
         router.push("/dashboard/proforma-invoice");
       } catch (err) {
-        toast.error("Failed to delete credit note");
+        toast.error("Failed to delete proforma invoice");
       }
     }
   };
@@ -354,7 +352,7 @@ export default function ViewCreditNote() {
                 <div className="flex justify-between items-center mb-4">
                    <div className="flex items-center gap-2">
                      <span style={{ color: accentColor }} className="text-[12px] font-extrabold uppercase tracking-widest">
-                       CREDIT NOTE
+                       PROFORMA INVOICE
                      </span>
                      <span className="text-[9px] border border-gray-400 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase">
                        {activeLabel}
@@ -515,7 +513,7 @@ export default function ViewCreditNote() {
                 <div className="flex justify-between items-center mb-4">
                    <div className="flex items-center gap-2">
                      <span style={{ color: accentColor }} className="text-[12px] font-extrabold uppercase tracking-widest">
-                       CREDIT NOTE
+                       PROFORMA INVOICE
                      </span>
                      <span className="text-[9px] border border-gray-400 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase">
                        {activeLabel}
@@ -658,6 +656,16 @@ export default function ViewCreditNote() {
              </div>
         </div>
       </div>
+    
+      {/* WhatsApp Modal */}
+      {showWhatsAppModal && (
+        <WhatsAppModal
+          customerName={proformaInvoice?.customerName || "Customer"}
+          existingPhone={proformaInvoice?.customerPhone}
+          message={`Dear ${proformaInvoice?.customerName},\n\nYour Proforma Invoice has been generated.\n\nTotal Amount: *₹${proformaInvoice?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
+          onClose={() => setShowWhatsAppModal(false)}
+        />
+      )}
     </div>
   );
 }

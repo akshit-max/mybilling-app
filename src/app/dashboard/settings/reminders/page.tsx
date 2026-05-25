@@ -5,10 +5,12 @@ import { MessageSquare, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 
 import SettingsSidebar from "../SettingsSidebar";
+import { useChat } from "@/context/ChatContext";
 
 export default function RemindersPage() {
   const [sendBilling, setSendBilling] = useState(true);
   const [getPayment, setGetPayment] = useState(false);
+  const { openChat } = useChat();
 
   const handleSave = () => {
     toast.success("Reminder settings saved successfully!");
@@ -30,7 +32,7 @@ export default function RemindersPage() {
             <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mt-0.5">Select Which Reminders Are Sent To You And Your Parties</p>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={handleComingSoon} className="flex items-center gap-1.5 text-indigo-600 font-semibold px-4 py-1.5 rounded text-xs hover:bg-indigo-50 transition-colors">
+            <button onClick={openChat} className="flex items-center gap-1.5 text-indigo-600 font-semibold px-4 py-1.5 rounded text-xs hover:bg-indigo-50 transition-colors">
               <MessageSquare size={14} /> Chat Support
             </button>
             <button className="border border-gray-200 text-gray-600 font-semibold px-6 py-1.5 rounded text-xs hover:bg-gray-50 transition-colors">

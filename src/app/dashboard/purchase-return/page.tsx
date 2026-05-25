@@ -8,6 +8,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { syncInventory } from "@/lib/inventorySync";
 
 type CreditNote = {
   id: string;
@@ -18,6 +19,7 @@ type CreditNote = {
   total: number;
   status: string;
   createdAt?: any;
+  items?: any[];
 };
 
 export default function CreditNotePage() {
@@ -43,6 +45,7 @@ export default function CreditNotePage() {
           total: Number(doc.total || 0),
           status: doc.status || "issued",
           createdAt: doc.createdAt,
+          items: doc.items,
         };
       });
 
@@ -69,12 +72,23 @@ export default function CreditNotePage() {
     return () => unsub();
   }, []);
 
-  const handleDelete = async (id: string, noteNumber: string) => {
-    if (!confirm(`Delete Purchase Return ${noteNumber}? This cannot be undone.`)) return;
+  const handleDelete = async (row: CreditNote) => {
+    if (!confirm(`Delete Purchase Return ${row.purchaseReturnNumber}? This cannot be undone.`)) return;
     try {
-      await deleteDoc(doc(db, "purchaseReturns", id));
+      const user = auth.currentUser;
+      if (user && row.items && row.items.length > 0) {
+        const itemsToSync = row.items.map((i: any) => ({
+          id: i.productId,
+          quantity: i.qty
+        })).filter((i: any) => i.id);
+        if (itemsToSync.length > 0) {
+          await syncInventory(user.uid, itemsToSync, "INCREASE");
+        }
+      }
+      
+      await deleteDoc(doc(db, "purchaseReturns", row.id));
       toast.success("purchase return deleted");
-      setCreditNotes((prev) => prev.filter((c) => c.id !== id));
+      setCreditNotes((prev) => prev.filter((c) => c.id !== row.id));
     } catch {
       toast.error("Failed to delete purchase return");
     }
@@ -209,7 +223,7 @@ export default function CreditNotePage() {
                           <Pencil size={14} />
                         </button>
                         <button
-                          onClick={() => handleDelete(cn.id, cn.purchaseReturnNumber)}
+                          onClick={() => handleDelete(cn)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
                           title="Delete"
                         >

@@ -24,6 +24,8 @@ export default function ExpensesPage() {
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [fiscalYearFilter, setFiscalYearFilter] = useState<"current" | "all">("all");
+  const [showFiscalYearDropdown, setShowFiscalYearDropdown] = useState(false);
 
   useEffect(() => {
     const fetchExpenses = async () => {
@@ -70,8 +72,19 @@ export default function ExpensesPage() {
       (e.partyName?.toLowerCase().includes(search.toLowerCase()) || false);
     
     const matchesCategory = filterCategory ? e.category === filterCategory : true;
+    
+    let matchesDate = true;
+    if (fiscalYearFilter === "current") {
+      const now = new Date();
+      // Indian Fiscal Year starts April 1st
+      const startYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      const startDate = new Date(startYear, 3, 1); // Apr 1
+      const endDate = new Date(startYear + 1, 2, 31, 23, 59, 59); // Mar 31 next year
+      const expenseDate = new Date(e.date);
+      matchesDate = expenseDate >= startDate && expenseDate <= endDate;
+    }
 
-    return matchesSearch && matchesCategory;
+    return matchesSearch && matchesCategory && matchesDate;
   });
 
   const formatDate = (dateStr: string) => {
@@ -90,11 +103,36 @@ export default function ExpensesPage() {
       {/* HEADER SECTION */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10 shadow-sm">
         <h1 className="text-lg font-bold text-gray-800">Expenses</h1>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-1.5 text-xs text-indigo-600 bg-white border border-indigo-200 px-3 py-1.5 rounded hover:bg-indigo-50 font-semibold shadow-sm transition-colors">
+        <div className="flex items-center gap-3 relative">
+          <button 
+            onClick={() => setActiveMenuId(activeMenuId === 'reports' ? null : 'reports')}
+            className="flex items-center gap-1.5 text-xs text-indigo-600 bg-white border border-indigo-200 px-3 py-1.5 rounded hover:bg-indigo-50 font-semibold shadow-sm transition-colors"
+          >
             <FileText size={14} />
             <span>Reports</span>
+            <ChevronDown size={12} className="ml-0.5" />
           </button>
+          
+          {activeMenuId === 'reports' && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setActiveMenuId(null)}></div>
+              <div className="absolute right-32 top-10 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 py-1 flex flex-col text-left">
+                <Link 
+                  href="/dashboard/reports/expense-transaction-report"
+                  className="px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                >
+                  Expense Transactions
+                </Link>
+                <Link 
+                  href="/dashboard/reports/expense-category-report"
+                  className="px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                >
+                  Expense Category
+                </Link>
+              </div>
+            </>
+          )}
+
           <button className="p-1.5 text-gray-500 hover:text-gray-700 border border-gray-200 rounded hover:bg-gray-50 transition-colors">
             <Settings size={16} />
           </button>
@@ -121,9 +159,36 @@ export default function ExpensesPage() {
             />
           </div>
           
-          <div className="flex items-center gap-2 border border-gray-200 bg-white rounded px-3 py-2 cursor-pointer hover:bg-gray-50 shadow-sm">
-            <span className="text-xs font-semibold text-gray-700">Current Fiscal Year</span>
-            <Calendar size={14} className="text-gray-400 ml-2" />
+          <div className="relative">
+            <div 
+              onClick={() => setShowFiscalYearDropdown(!showFiscalYearDropdown)}
+              className="flex items-center gap-2 border border-gray-200 bg-white rounded px-3 py-2 cursor-pointer hover:bg-gray-50 shadow-sm"
+            >
+              <span className="text-xs font-semibold text-gray-700">
+                {fiscalYearFilter === "current" ? "Current Fiscal Year" : "All Time"}
+              </span>
+              <Calendar size={14} className="text-gray-400 ml-2" />
+            </div>
+            
+            {showFiscalYearDropdown && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowFiscalYearDropdown(false)}></div>
+                <div className="absolute left-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 py-1 text-left">
+                  <button 
+                    onClick={() => { setFiscalYearFilter("all"); setShowFiscalYearDropdown(false); }}
+                    className={`w-full px-4 py-2 text-xs font-semibold text-left transition-colors ${fiscalYearFilter === "all" ? "bg-indigo-50 text-indigo-600" : "text-gray-700 hover:bg-gray-50"}`}
+                  >
+                    All Time
+                  </button>
+                  <button 
+                    onClick={() => { setFiscalYearFilter("current"); setShowFiscalYearDropdown(false); }}
+                    className={`w-full px-4 py-2 text-xs font-semibold text-left transition-colors ${fiscalYearFilter === "current" ? "bg-indigo-50 text-indigo-600" : "text-gray-700 hover:bg-gray-50"}`}
+                  >
+                    Current Fiscal Year
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           <button className="text-gray-400 hover:text-indigo-600 transition">

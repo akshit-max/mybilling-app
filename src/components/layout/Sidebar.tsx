@@ -50,7 +50,7 @@ type NavGroup = {
   items: NavItem[];
 };
 
-export function Sidebar() {
+export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: any) {
   const pathname = usePathname();
   const router = useRouter();
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
@@ -202,31 +202,34 @@ export function Sidebar() {
   })).filter(group => group.items.length > 0);
 
   return (
-    <aside className="w-64 bg-[#141725] text-white flex flex-col h-screen flex-shrink-0 font-sans border-r border-gray-800 relative z-50">
+    <aside className={`${collapsed ? "w-20" : "w-64"} bg-[#141725] text-white flex flex-col h-screen flex-shrink-0 font-sans border-r border-gray-800 relative z-50 transition-all duration-300`}>
 
       {/* User Profile Area */}
-      <Link href="/dashboard/settings/account" className="p-4 flex items-center gap-3 border-b border-gray-800 hover:bg-white/5 transition-colors cursor-pointer">
-        <div className="w-10 h-10 rounded-full bg-purple-900/50 flex items-center justify-center text-purple-300 font-bold text-sm uppercase">
+      <Link href="/dashboard/settings/account" className={`p-4 flex items-center ${collapsed ? "justify-center" : "gap-3"} border-b border-gray-800 hover:bg-white/5 transition-colors cursor-pointer`}>
+        <div className="w-10 h-10 rounded-full bg-purple-900/50 flex items-center justify-center text-purple-300 font-bold text-sm uppercase shrink-0">
           {businessName.charAt(0)}
         </div>
-        <div className="overflow-hidden">
-          <div className="font-semibold text-sm truncate">{businessName}</div>
-          <div className="text-xs text-gray-400 truncate">{phone}</div>
-        </div>
+        {!collapsed && (
+          <div className="overflow-hidden">
+            <div className="font-semibold text-sm truncate">{businessName}</div>
+            <div className="text-xs text-gray-400 truncate">{phone}</div>
+          </div>
+        )}
       </Link>
 
       {/* Primary Action Buttons */}
-      <div className="px-4 py-4 space-y-2.5">
+      <div className={`px-4 py-4 space-y-2.5 ${collapsed ? "px-2" : ""}`}>
         <div className="relative z-50">
           <button
             onClick={() => setIsCreateDropdownOpen(!isCreateDropdownOpen)}
-            className="w-full bg-white text-[#141725] flex items-center justify-between px-4 py-2.5 rounded-full font-semibold hover:bg-gray-100 transition-colors text-sm shadow-sm"
+            className={`w-full bg-white text-[#141725] flex items-center ${collapsed ? "justify-center" : "justify-between"} px-4 py-2.5 rounded-full font-semibold hover:bg-gray-100 transition-colors text-sm shadow-sm`}
+            title="Create Sales Invoice"
           >
             <div className="flex items-center gap-2">
-              <Plus size={16} className="text-indigo-600 font-bold" />
-              <span>Create Sales Invoice</span>
+              <Plus size={16} className="text-indigo-600 font-bold shrink-0" />
+              {!collapsed && <span>Create Sales Invoice</span>}
             </div>
-            <ChevronDown size={15} className={`text-gray-500 transition-transform duration-200 ${isCreateDropdownOpen ? "rotate-180" : ""}`} />
+            {!collapsed && <ChevronDown size={15} className={`text-gray-500 transition-transform duration-200 ${isCreateDropdownOpen ? "rotate-180" : ""}`} />}
           </button>
 
           {isCreateDropdownOpen && (
@@ -241,11 +244,11 @@ export function Sidebar() {
                   <FileCheck2 size={16} className="text-emerald-600" />
                   <span>Quotation / Estimate</span>
                 </Link>
-                <Link href="#" onClick={() => setIsCreateDropdownOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-indigo-600 font-medium border-b border-gray-100 transition-colors">
+                <Link href="/dashboard/payment-in/create" onClick={() => setIsCreateDropdownOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-indigo-600 font-medium border-b border-gray-100 transition-colors">
                   <Landmark size={16} className="text-blue-600" />
                   <span>Payment In</span>
                 </Link>
-                <Link href="/dashboard/purchases" onClick={() => setIsCreateDropdownOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-indigo-600 font-medium transition-colors">
+                <Link href="/dashboard/purchases/create" onClick={() => setIsCreateDropdownOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-indigo-600 font-medium transition-colors">
                   <ShoppingBag size={16} className="text-purple-600" />
                   <span>Purchase Invoice</span>
                 </Link>
@@ -254,22 +257,26 @@ export function Sidebar() {
           )}
         </div>
 
-        <button className="w-full bg-gradient-to-r from-amber-500/15 to-amber-500/5 border border-amber-500/30 text-amber-300 flex items-center justify-between px-3.5 py-2.5 rounded-full font-semibold hover:bg-amber-500/25 transition-colors text-xs shadow-xs">
-          <div className="flex items-center gap-2">
-            <Crown size={15} className="text-amber-400" />
-            <span className="font-bold tracking-wide">Plans & Pricing</span>
-          </div>
-          <span className="bg-[#ef4444] text-white text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider shadow-xs">Trial Expired</span>
-        </button>
+        {!collapsed && (
+          <button className="w-full bg-gradient-to-r from-amber-500/15 to-amber-500/5 border border-amber-500/30 text-amber-300 flex items-center justify-between px-3.5 py-2.5 rounded-full font-semibold hover:bg-amber-500/25 transition-colors text-xs shadow-xs">
+            <div className="flex items-center gap-2">
+              <Crown size={15} className="text-amber-400 shrink-0" />
+              <span className="font-bold tracking-wide">Plans & Pricing</span>
+            </div>
+            <span className="bg-[#ef4444] text-white text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider shadow-xs">Trial Expired</span>
+          </button>
+        )}
       </div>
 
       {/* Navigation Links */}
-      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-5 scrollbar-none [&::-webkit-scrollbar]:hidden">
+      <div className={`flex-1 overflow-y-auto ${collapsed ? "px-1" : "px-2"} py-1 space-y-5 scrollbar-none [&::-webkit-scrollbar]:hidden`}>
         {navGroups.map((group, gIdx) => (
           <div key={gIdx} className="space-y-0.5">
-            <h3 className="px-3 text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-1.5 mt-1">
-              {group.title}
-            </h3>
+            {!collapsed && (
+              <h3 className="px-3 text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-1.5 mt-1">
+                {group.title}
+              </h3>
+            )}
 
             {group.items.map((item) => {
               const isParentActive = (pathname?.startsWith(item.href) && item.href !== "/dashboard") || (item.name === "Purchases" && (pathname?.startsWith("/dashboard/purchase-return") || pathname?.startsWith("/dashboard/debit-note") || pathname?.startsWith("/dashboard/purchase-orders") || pathname?.startsWith("/dashboard/payment-out"))) || (item.name === "Sales" && (pathname?.startsWith("/dashboard/credit-note") || pathname?.startsWith("/dashboard/delivery-challan") || pathname?.startsWith("/dashboard/proforma-invoice") || pathname?.startsWith("/dashboard/payment-in") || pathname?.startsWith("/dashboard/sales-return") || pathname?.startsWith("/dashboard/quotations"))) ? true : pathname === item.href;
@@ -280,15 +287,16 @@ export function Sidebar() {
                   <Link
                     key={item.name}
                     href={item.href}
-                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                    className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} px-3 py-2 rounded-lg text-sm transition-colors ${
                       isParentActive
                         ? "bg-indigo-600/20 text-indigo-300 font-medium"
                         : "text-gray-400 hover:bg-white/5 hover:text-white"
                     }`}
+                    title={collapsed ? item.name : undefined}
                   >
                     <div className="flex items-center gap-3">
-                      <item.icon size={17} className={isParentActive ? "text-indigo-400" : "text-gray-500"} />
-                      <span>{item.name}</span>
+                      <item.icon size={17} className={`${isParentActive ? "text-indigo-400" : "text-gray-500"} shrink-0`} />
+                      {!collapsed && <span>{item.name}</span>}
                     </div>
                   </Link>
                 );
@@ -298,28 +306,34 @@ export function Sidebar() {
               return (
                 <div key={item.name}>
                   <button
-                    onClick={() => toggleMenu(item.name)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                    onClick={() => {
+                      if (collapsed) setCollapsed?.(false);
+                      toggleMenu(item.name);
+                    }}
+                    className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-between"} px-3 py-2 rounded-lg text-sm transition-colors ${
                       isParentActive && !isExpanded
                         ? "bg-indigo-600/20 text-indigo-300 font-medium"
                         : "text-gray-400 hover:bg-white/5 hover:text-white"
                     }`}
+                    title={collapsed ? item.name : undefined}
                   >
                     <div className="flex items-center gap-3">
                       <item.icon
                         size={17}
-                        className={isParentActive && !isExpanded ? "text-indigo-400" : "text-gray-500"}
+                        className={`${isParentActive && !isExpanded ? "text-indigo-400" : "text-gray-500"} shrink-0`}
                       />
-                      <span>{item.name}</span>
+                      {!collapsed && <span>{item.name}</span>}
                     </div>
-                    <ChevronDown
-                      size={14}
-                      className={`text-gray-500 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
-                    />
+                    {!collapsed && (
+                      <ChevronDown
+                        size={14}
+                        className={`text-gray-500 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                      />
+                    )}
                   </button>
 
                   {/* Submenu Items */}
-                  {isExpanded && item.subItems && item.subItems.length > 0 && (
+                  {!collapsed && isExpanded && item.subItems && item.subItems.length > 0 && (
                     <div className="mt-0.5 ml-4 border-l border-gray-700/60 pl-2 space-y-0.5 pb-1">
                       {item.subItems.map((sub) => {
                         const isSubActive = pathname === sub.href;
@@ -352,24 +366,27 @@ export function Sidebar() {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-800 space-y-3">
+      <div className={`p-4 border-t border-gray-800 ${collapsed ? "flex flex-col items-center justify-center space-y-3" : "space-y-3"}`}>
         {(role === "Admin" || role === "Partner") && (
           <Link
             href="/dashboard/settings"
-            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+            className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} px-3 py-2 rounded-lg text-sm transition-colors ${
               pathname?.startsWith("/dashboard/settings")
                 ? "bg-indigo-600/20 text-indigo-300"
                 : "text-gray-400 hover:bg-white/5 hover:text-white"
             }`}
+            title={collapsed ? "Settings" : undefined}
           >
-            <Settings size={17} />
-            <span>Settings</span>
+            <Settings size={17} className="shrink-0" />
+            {!collapsed && <span>Settings</span>}
           </Link>
         )}
-        <div className="flex items-center gap-2 text-[11px] text-gray-600 px-3">
-          <ShieldCheck size={13} />
-          <span>100% Secure • ISO Certified</span>
-        </div>
+        {!collapsed && (
+          <div className="flex items-center gap-2 text-[11px] text-gray-600 px-3">
+            <ShieldCheck size={13} />
+            <span>100% Secure • ISO Certified</span>
+          </div>
+        )}
       </div>
     </aside>
   );

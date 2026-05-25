@@ -4,11 +4,26 @@ import React, { useState, useEffect } from "react";
 import { Mail, Search, ChevronDown, ReceiptText, Store, X, Globe, Link as LinkIcon, Users, FileText } from "lucide-react";
 import toast from "react-hot-toast";
 import { db, auth } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import { Trash2, Edit, CheckCircle, Clock, Truck, Package, XCircle } from "lucide-react";
+
+const getStatusColor = (s: string) => {
+  switch (s) {
+    case "Pending": return "text-orange-700 bg-orange-100";
+    case "Confirmed": return "text-blue-700 bg-blue-100";
+    case "Shipped": return "text-purple-700 bg-purple-100";
+    case "Delivered": return "text-green-700 bg-green-100";
+    case "Cancelled": return "text-red-700 bg-red-100";
+    default: return "text-orange-700 bg-orange-100";
+  }
+};
 
 export default function OnlineOrdersPage() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState("365");
   const [hasOnlineStore, setHasOnlineStore] = useState(false);
   const [storeSlug, setStoreSlug] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -28,11 +43,13 @@ export default function OnlineOrdersPage() {
           
           const q = query(
             collection(db, "quotations"), 
-            where("userId", "==", user.uid),
-            where("isOnlineOrder", "==", true)
+            where("userId", "==", user.uid)
           );
           const qSnap = await getDocs(q);
-          const qData = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          const qData = qSnap.docs
+             .map(d => ({ id: d.id, ...d.data() }))
+             .filter((d: any) => d.isOnlineOrder === true);
+             
           qData.sort((a: any, b: any) => b.createdAt?.seconds - a.createdAt?.seconds);
           setQuotations(qData);
           
@@ -68,19 +85,49 @@ export default function OnlineOrdersPage() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this order?")) return;
+    try {
+      await deleteDoc(doc(db, "quotations", id));
+      setQuotations(prev => prev.filter(q => q.id !== id));
+      toast.success("Order deleted successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete order");
+    }
+  };
+
+  const filteredQuotations = quotations.filter(q => {
+    if (search && !q.invoiceNumber?.toLowerCase().includes(search.toLowerCase()) && !q.customerName?.toLowerCase().includes(search.toLowerCase())) return false;
+    
+    if (dateFilter !== "all" && q.createdAt?.seconds) {
+       const date = new Date(q.createdAt.seconds * 1000);
+       const now = new Date();
+       if (dateFilter === "365") {
+          if (now.getTime() - date.getTime() > 365 * 24 * 60 * 60 * 1000) return false;
+       } else if (dateFilter === "today") {
+          if (date.toDateString() !== now.toDateString()) return false;
+       }
+    }
+    return true;
+  });
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       
       {/* HEADER SECTION */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-        <h1 className="text-lg font-bold text-gray-800">Online Orders</h1>
-        <button className="text-gray-400 hover:text-gray-600 transition-colors p-1 border border-gray-200 rounded hover:bg-gray-50">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Online Orders</h1>
+          <p className="text-[11px] text-gray-500 font-medium uppercase tracking-wider mt-0.5">Manage your digital storefront orders</p>
+        </div>
+        <button className="text-gray-500 hover:text-indigo-600 transition-colors p-2 border border-gray-200 rounded-lg hover:bg-indigo-50 shadow-sm">
           <Mail size={16} />
         </button>
       </header>
 
       {/* WORKSPACE */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto p-6 flex flex-col space-y-4">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto p-6 flex flex-col space-y-6">
         
         {/* Promotional Banner */}
         {!hasOnlineStore ? (
@@ -128,16 +175,23 @@ export default function OnlineOrdersPage() {
               <p className="text-sm text-indigo-100">Share this link with your customers so they can order directly.</p>
             </div>
             <div className="z-10 mt-4 sm:mt-0 flex items-center gap-3 bg-black/20 p-2 rounded-lg border border-white/20">
-              <span className="text-sm font-medium px-2">mybillbook.in/store/{storeSlug}</span>
+              <span className="text-sm font-medium px-2">/store/{storeSlug}</span>
               <button 
                 onClick={() => {
-                  navigator.clipboard.writeText(`https://mybillbook.in/store/${storeSlug}`);
+                  navigator.clipboard.writeText(`${window.location.origin}/store/${storeSlug}`);
                   toast.success("Store link copied!");
                 }}
                 className="bg-white text-indigo-600 text-xs font-bold px-4 py-2.5 rounded shadow hover:bg-indigo-50 transition-colors"
               >
                 Copy Link
               </button>
+              <a 
+                href={`/store/${storeSlug}`}
+                target="_blank"
+                className="bg-indigo-800 text-white text-xs font-bold px-4 py-2.5 rounded shadow hover:bg-indigo-900 transition-colors"
+              >
+                Open Store
+              </a>
             </div>
           </div>
         )}
@@ -155,30 +209,39 @@ export default function OnlineOrdersPage() {
             />
           </div>
           
-          <div className="flex items-center gap-2 border border-gray-200 bg-white rounded px-3 py-1.5 cursor-pointer hover:bg-gray-50">
-            <span className="text-xs font-semibold text-gray-700">Last 365 Days</span>
-            <ChevronDown size={14} className="text-gray-400 ml-2" />
+          <div className="flex items-center gap-2 border border-gray-200 bg-white rounded px-3 py-1.5 hover:bg-gray-50 relative">
+            <select
+               value={dateFilter}
+               onChange={(e) => setDateFilter(e.target.value)}
+               className="text-xs font-semibold text-gray-700 bg-transparent appearance-none pr-4 focus:outline-none cursor-pointer"
+            >
+               <option value="365">Last 365 Days</option>
+               <option value="today">Today</option>
+               <option value="all">All Time</option>
+            </select>
+            <ChevronDown size={14} className="text-gray-400 pointer-events-none absolute right-2" />
           </div>
         </div>
 
         {/* Data Table */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm flex-1 flex flex-col overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
           <div className="overflow-x-auto flex-1 flex flex-col">
-            <table className="w-full text-left text-xs whitespace-nowrap">
-              <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold tracking-wider">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold tracking-wider uppercase text-[10px]">
                 <tr>
-                  <th className="px-6 py-3 cursor-pointer hover:bg-gray-100 flex items-center gap-1">Date <ChevronDown size={12}/></th>
-                  <th className="px-6 py-3">Quotation Number</th>
-                  <th className="px-6 py-3">Party Name</th>
-                  <th className="px-6 py-3">Amount</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Mode of Payment</th>
+                  <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 flex items-center gap-1 transition-colors">Date <ChevronDown size={12}/></th>
+                  <th className="px-6 py-4">Quotation Number</th>
+                  <th className="px-6 py-4">Party Name</th>
+                  <th className="px-6 py-4">Amount</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Mode of Payment</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {quotations.length === 0 ? (
+                {filteredQuotations.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-0">
+                    <td colSpan={7} className="p-0">
                       <div className="flex flex-col items-center justify-center py-24 bg-white">
                         <div className="mb-4 text-slate-300">
                            <ReceiptText size={64} className="stroke-[1.5]" />
@@ -188,14 +251,36 @@ export default function OnlineOrdersPage() {
                     </td>
                   </tr>
                 ) : (
-                  quotations.map(q => (
+                  filteredQuotations.map(q => (
                     <tr key={q.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">{q.createdAt?.seconds ? new Date(q.createdAt.seconds * 1000).toLocaleDateString() : "-"}</td>
-                      <td className="px-6 py-4 font-medium text-indigo-600">{q.invoiceNumber}</td>
-                      <td className="px-6 py-4">{q.customerName}</td>
-                      <td className="px-6 py-4">₹{q.totalAmount?.toFixed(2)}</td>
-                      <td className="px-6 py-4"><span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-[10px] font-bold uppercase">Pending</span></td>
-                      <td className="px-6 py-4 text-gray-500">Online</td>
+                      <td className="px-6 py-4 font-bold text-indigo-600">{q.invoiceNumber}</td>
+                      <td className="px-6 py-4 font-medium text-gray-900">{q.customerName}</td>
+                      <td className="px-6 py-4 font-bold text-gray-900">₹{q.totalAmount?.toFixed(2)}</td>
+                      <td className="px-6 py-4">
+                        <span className={`${getStatusColor(q.status || 'Pending')} px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider`}>
+                          {q.status || 'Pending'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-500 text-xs font-medium flex items-center gap-1.5"><Globe size={14} className="text-gray-400"/> Online</td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <button 
+                             onClick={() => router.push(`/dashboard/online-orders/edit/${q.id}`)}
+                             className="text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 transition-all p-1.5 rounded"
+                             title="Manage Order"
+                          >
+                             <Edit size={16} strokeWidth={2.5} />
+                          </button>
+                          <button 
+                             onClick={() => handleDelete(q.id)}
+                             className="text-red-400 hover:text-red-600 hover:bg-red-50 transition-all p-1.5 rounded"
+                             title="Delete Order"
+                          >
+                             <Trash2 size={16} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}

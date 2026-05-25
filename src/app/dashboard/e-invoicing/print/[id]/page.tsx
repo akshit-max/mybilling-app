@@ -6,6 +6,7 @@ import { db, auth } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { ArrowLeft, Printer } from "lucide-react";
 import toast from "react-hot-toast";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function EInvoicePrint() {
   const { id } = useParams() as { id: string };
@@ -112,12 +113,12 @@ export default function EInvoicePrint() {
               <p>{company?.gstin || "27AAJCP7909F1Z4"}</p>
               <p>{company?.businessName || company?.name || "myBillBook"}</p>
             </div>
-            <div className="w-40 h-40">
-              <svg viewBox="0 0 100 100" width="100%" height="100%">
-                <rect width="100" height="100" fill="#fff" />
-                <path d="M10,10 h25 v25 h-25 z M15,15 h15 v15 h-15 z M65,10 h25 v25 h-25 z M70,15 h15 v15 h-15 z M10,65 h25 v25 h-25 z M15,70 h15 v15 h-15 z M45,10 h10 v10 h-10 z M45,25 h10 v10 h-10 z M45,40 h10 v10 h-10 z M25,45 h10 v10 h-10 z M10,45 h10 v10 h-10 z M65,45 h25 v10 h-25 z M65,60 h10 v10 h-10 z M80,60 h10 v10 h-10 z M45,60 h10 v25 h-10 z M65,75 h25 v10 h-25 z M80,85 h10 v10 h-10 z" fill="#000" />
-                <path d="M40,10 h15 v5 h-15 z M80,10 h10 v10 h-10 z M10,40 h10 v10 h-10 z" fill="#000" />
-              </svg>
+            <div className="w-28 h-28">
+              <QRCodeSVG 
+                value={`IRN: ${invoice.irn || "N/A"}\nAmount: ${invoice.total || 0}\nGSTIN: ${company?.gstin || "N/A"}`} 
+                size={112} 
+                level={"M"} 
+              />
             </div>
           </div>
 

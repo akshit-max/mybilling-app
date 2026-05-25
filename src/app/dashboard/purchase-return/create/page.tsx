@@ -11,6 +11,7 @@ import toast from "react-hot-toast";
 
 import { sanitizeNumericInput } from "@/lib/sanitize";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
+import { syncInventory } from "@/lib/inventorySync";
 import { v4 as uuidv4 } from "uuid";
 
 import dynamic from "next/dynamic";
@@ -84,24 +85,7 @@ export default function CreateCreditNote() {
 
   useEffect(() => {
     const fetchData = async () => {
-  
-    // Add stock for Purchase Return
-    for (const item of validItems) {
-      if (item.productId) {
-        try {
-          const ref = doc(db, "products", item.productId);
-          const snap = await getDoc(ref);
-          if (snap.exists()) {
-            const currentStock = snap.data().stock || 0;
-            await updateDoc(ref, { stock: currentStock - item.qty });
-          }
-        } catch (e) {
-          console.error("Stock deduction failed", e);
-        }
-      }
-    }
-
-    const user = auth.currentUser;
+      const user = auth.currentUser;
       if (!user) return;
       try {
         const cq = query(collection(db, "customers"), where("userId", "==", user.uid));
@@ -166,6 +150,20 @@ export default function CreateCreditNote() {
 
     try {
       setSaving(true);
+      
+      const itemsToSync = validItems.filter(i => i.productId).map(i => ({
+        id: i.productId!,
+        quantity: i.qty
+      }));
+      
+      if (itemsToSync.length > 0) {
+        try {
+          await syncInventory(user.uid, itemsToSync, "DECREASE");
+        } catch (err: any) {
+          return toast.error(err.message || "Failed to sync inventory stock.");
+        }
+      }
+
       const data = {
         userId: user.uid,
         total: finalTotal,

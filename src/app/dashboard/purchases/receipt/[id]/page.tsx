@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import WhatsAppModal from "@/components/ui/WhatsAppModal";
+import SMSModal from "@/components/ui/SMSModal";
 
 /* TYPES */
 type Item = {
@@ -103,6 +105,8 @@ export default function ViewInvoice() {
   const [company, setCompany] = useState<Company | null>(null);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [showSMSModal, setShowSMSModal] = useState(false);
 
   // Sync settings states
   const [invoiceTheme, setInvoiceTheme] = useState<"luxury" | "stylish" | "tally">("luxury");
@@ -256,13 +260,7 @@ export default function ViewInvoice() {
   const balanceAmount = Math.max(0, invoice.total - receivedAmount);
 
   const handleWhatsAppShare = () => {
-    if (!invoice?.customerPhone) {
-      toast.error("Customer phone number is missing");
-      return;
-    }
-    const message = `Dear ${invoice.customerName},\n\nYour invoice *${invoice.purchaseInvoiceNumber || "N/A"}* has been generated successfully.\n\nTotal Amount: *₹${invoice.total.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`;
-    const phone = invoice.customerPhone.replace(/\D/g, "");
-    window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(message)}`, "_blank");
+    setShowWhatsAppModal(true);
   };
 
   const handleDelete = async () => {
@@ -509,7 +507,7 @@ export default function ViewInvoice() {
                     <FaWhatsapp size={14} />
                     <span>WhatsApp</span>
                   </button>
-                  <button onClick={() => { toast.success("SMS generation started... 💬"); setIsShareOpen(false); }} className="w-full flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50">
+                  <button onClick={() => { setShowSMSModal(true); setIsShareOpen(false); }} className="w-full flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50">
                     <FileText size={14} />
                     <span>SMS</span>
                   </button>
@@ -1205,6 +1203,16 @@ export default function ViewInvoice() {
         </div>
       )}
 
+    
+      {/* WhatsApp Modal */}
+      {showWhatsAppModal && (
+        <WhatsAppModal
+          customerName={invoice?.customerName || "Customer"}
+          existingPhone={invoice?.customerPhone}
+          message={`Dear ${invoice?.customerName},\n\nYour Purchase Receipt has been generated.\n\nTotal Amount: *₹${invoice?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
+          onClose={() => setShowWhatsAppModal(false)}
+        />
+      )}
     </div>
   );
 }

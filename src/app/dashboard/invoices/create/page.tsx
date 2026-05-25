@@ -12,6 +12,7 @@ import { useSession } from "@/context/SessionContext";
 
 import { sanitizeNumericInput } from "@/lib/sanitize";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
+import { syncInventory } from "@/lib/inventorySync";
 import { v4 as uuidv4 } from "uuid";
 import { INDIAN_STATES } from "@/lib/indianStates";
 
@@ -611,21 +612,16 @@ export default function CreateSalesInvoice() {
 
       // --- ONLINE SAVING ---
       if (invoiceType === "invoice") {
-        // Deduct live stock
-        for (const item of validItems) {
-          if (item.productId) {
-            const ref = doc(db, "products", item.productId);
-            const snap = await getDoc(ref);
-            if (snap.exists()) {
-              const stock = snap.data().stock || 0;
-              if (item.qty > stock) {
-                return toast.error(`Insufficient stock for ${item.name}. (Available: ${stock})`);
-              }
-              await updateDoc(ref, {
-                stock: stock - item.qty,
-              });
-            }
-          }
+        // Prepare items for sync
+        const itemsToSync = validItems.filter(i => i.productId).map(i => ({
+          id: i.productId!,
+          quantity: i.qty
+        }));
+        
+        try {
+          await syncInventory(user.uid, itemsToSync, "DECREASE");
+        } catch (err: any) {
+          return toast.error(err.message || "Failed to sync inventory stock.");
         }
       }
 

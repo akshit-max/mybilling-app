@@ -25,6 +25,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import WhatsAppModal from "@/components/ui/WhatsAppModal";
+import SMSModal from "@/components/ui/SMSModal";
+import { syncInventory } from "@/lib/inventorySync";
 
 /* TYPES */
 type Item = {
@@ -104,6 +107,8 @@ export default function ViewInvoice() {
   const [company, setCompany] = useState<Company | null>(null);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [showSMSModal, setShowSMSModal] = useState(false);
 
   // Sync settings states
   const [invoiceTheme, setInvoiceTheme] = useState<"luxury" | "stylish" | "tally">("luxury");
@@ -257,18 +262,23 @@ export default function ViewInvoice() {
   const balanceAmount = Math.max(0, invoice.total - receivedAmount);
 
   const handleWhatsAppShare = () => {
-    if (!invoice?.customerPhone) {
-      toast.error("Customer phone number is missing");
-      return;
-    }
-    const message = `Dear ${invoice.customerName},\n\nYour invoice *${invoice.salesReturnNumber || "N/A"}* has been generated successfully.\n\nTotal Amount: *₹${invoice.total.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`;
-    const phone = invoice.customerPhone.replace(/\D/g, "");
-    window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(message)}`, "_blank");
+    setShowWhatsAppModal(true);
   };
 
   const handleDelete = async () => {
     if (confirm("Are you sure you want to delete this invoice?")) {
       try {
+        const user = auth.currentUser;
+        if (user && invoice?.items && invoice.items.length > 0) {
+          const itemsToSync = invoice.items.map(i => ({
+            id: i.productId,
+            quantity: i.qty
+          })).filter(i => i.id);
+          
+          if (itemsToSync.length > 0) {
+            await syncInventory(user.uid, itemsToSync as any, "DECREASE");
+          }
+        }
         await deleteDoc(doc(db, "salesReturns", id));
         toast.success("Invoice deleted successfully");
         router.push("/dashboard/sales-return");
@@ -278,22 +288,16 @@ export default function ViewInvoice() {
     }
   };
 
-  // Direct print triggers that switch states then call print
   const triggerPrint = (format: "a4" | "thermal", label: typeof activeLabel) => {
     setPrintFormat(format);
     setActiveLabel(label);
     setIsPrintOpen(false);
     setIsDownloadOpen(false);
-    
-    // Tiny timeout to let state update in DOM print wrapper before rendering print
-    setTimeout(() => {
-      window.print();
-    }, 150);
+    setTimeout(() => window.print(), 150);
   };
 
   return (
     <div className="flex flex-col flex-1 min-w-0 font-sans bg-gray-50/60 min-h-screen">
-      
       {/* Bulletproof Print Stylesheet overrides */}
       <style jsx global>{`
         @media screen {
@@ -510,7 +514,7 @@ export default function ViewInvoice() {
                     <FaWhatsapp size={14} />
                     <span>WhatsApp</span>
                   </button>
-                  <button onClick={() => { toast.success("SMS generation started... 💬"); setIsShareOpen(false); }} className="w-full flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50">
+                  <button onClick={() => { setShowSMSModal(true); setIsShareOpen(false); }} className="w-full flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50">
                     <FileText size={14} />
                     <span>SMS</span>
                   </button>
@@ -1235,6 +1239,16 @@ export default function ViewInvoice() {
         </div>
       )}
 
+    
+      {/* WhatsApp Modal */}
+      {showWhatsAppModal && (
+        <WhatsAppModal
+          customerName={invoice?.customerName || "Customer"}
+          existingPhone={invoice?.customerPhone}
+          message={`Dear ${invoice?.customerName},\n\nYour Sales Return has been generated.\n\nTotal Amount: *₹${invoice?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
+          onClose={() => setShowWhatsAppModal(false)}
+        />
+      )}
     </div>
   );
 }

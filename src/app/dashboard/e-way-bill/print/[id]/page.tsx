@@ -6,6 +6,7 @@ import { db, auth } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { ArrowLeft, Printer } from "lucide-react";
 import toast from "react-hot-toast";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function EWayBillPrint() {
   const { id } = useParams() as { id: string };
@@ -107,47 +108,61 @@ export default function EWayBillPrint() {
         <div className="print-only-container bg-white w-[720px] min-h-[960px] shadow-lg relative p-10 flex flex-col font-sans text-gray-900 border border-gray-300">
           
           <div className="flex items-center gap-2 mb-6">
-            <span className="text-[12px] font-extrabold uppercase text-black font-sans">TAX INVOICE</span>
-            <span className="text-[9px] border border-gray-400 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">ORIGINAL FOR RECIPIENT</span>
+            <span className="text-[12px] font-extrabold uppercase text-indigo-700 font-sans tracking-widest">E-WAY BILL</span>
+            <span className="text-[9px] bg-indigo-50 border border-indigo-200 text-indigo-600 px-2 py-0.5 rounded-sm font-bold uppercase tracking-wider">ORIGINAL FOR RECIPIENT</span>
           </div>
 
-          <h1 className="text-3xl font-black uppercase tracking-wide mb-1">{company?.businessName || company?.name || "Self"}</h1>
-          <p className="text-sm text-gray-900 font-bold mb-6">Mobile: {company?.phone || "N/A"}</p>
-
-          <div className="h-2 bg-black mb-1 w-full"></div>
-
-          <div className="flex justify-between items-center bg-gray-200/60 px-4 py-2 mb-4 text-sm font-bold text-gray-900">
-             <p>Invoice No.: <span className="font-mono ml-2">{invoice.invoiceNumber || "1"}</span></p>
-             <p>Invoice Date: <span className="font-mono ml-2">{invoiceDate}</span></p>
+          <div className="flex justify-between items-start mb-6 border-b border-gray-200 pb-6">
+            <div>
+              <h1 className="text-2xl font-black uppercase tracking-wide mb-1 text-gray-900">{company?.businessName || company?.name || "Self"}</h1>
+              <p className="text-xs text-gray-600 font-medium">GSTIN: {company?.gstin || "N/A"}</p>
+              <p className="text-xs text-gray-600 font-medium">Mobile: {company?.phone || "N/A"}</p>
+            </div>
+            
+            <div className="w-24 h-24 p-2 bg-white border border-gray-200 rounded-lg shadow-sm">
+              <QRCodeSVG 
+                value={`E-Way Bill: ${invoice.ewayBillNo || "N/A"}\nAmount: ${invoice.total || 0}\nGSTIN: ${company?.gstin || "N/A"}`} 
+                size={78} 
+                level={"M"} 
+              />
+            </div>
           </div>
 
-          <div className="flex justify-between items-start mb-6 border-b-2 border-black pb-8">
-             <div className="space-y-0.5 text-xs">
-               <p className="text-[11px] font-bold text-gray-800 uppercase tracking-wider mb-1">BILL TO</p>
-               <p className="text-sm font-bold text-black">{invoice.customerName}</p>
-               <p className="text-gray-900 font-medium leading-tight max-w-[200px]">{invoice.customerAddress || "N/A"}</p>
-               {invoice.customerPhone && <p className="text-gray-900 font-medium pt-1">Mobile: {invoice.customerPhone}</p>}
-             </div>
-             
-             <div className="text-right flex items-center pt-4">
-               <span className="text-xl font-bold text-gray-900 mr-4 tracking-tight">E-way Bill No.:</span>
-               <span className="font-mono text-2xl font-bold text-black tracking-widest">{invoice.ewayBillNo || "Not Generated"}</span>
+          <div className="grid grid-cols-2 gap-4 bg-indigo-50/50 rounded-lg border border-indigo-100 p-4 mb-6">
+            <div>
+               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Invoice Details</p>
+               <p className="text-sm font-bold text-gray-900">No.: <span className="font-mono">{invoice.invoiceNumber || "1"}</span></p>
+               <p className="text-sm font-bold text-gray-900">Date: <span className="font-mono">{invoiceDate}</span></p>
+            </div>
+            <div className="text-right">
+               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">E-Way Bill No.</p>
+               <p className="text-lg font-bold text-indigo-700 font-mono tracking-wider">{invoice.ewayBillNo || "Not Generated"}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-8 mb-8 border-b border-gray-200 pb-8">
+             <div className="space-y-1">
+               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">BILL TO</p>
+               <p className="text-sm font-bold text-gray-900">{invoice.customerName}</p>
+               <p className="text-xs text-gray-600 font-medium leading-relaxed max-w-[200px]">{invoice.customerAddress || "N/A"}</p>
+               {invoice.customerPhone && <p className="text-xs text-gray-600 font-medium pt-1">Mobile: {invoice.customerPhone}</p>}
+               {invoice.customerGSTIN && <p className="text-xs text-gray-600 font-medium">GSTIN: {invoice.customerGSTIN}</p>}
              </div>
           </div>
 
           {/* Standard responsive columns products table */}
           <div className="mb-4">
              <table className="w-full text-xs text-center border-collapse">
-                <thead>
-                   <tr className="font-bold border-b-2 border-black uppercase text-[11px] text-gray-900">
-                      <th className="py-2 px-1 text-left">ITEMS</th>
-                      <th className="py-2 px-1">QTY.</th>
-                      <th className="py-2 px-1">RATE</th>
-                      <th className="py-2 px-1">TAX</th>
-                      <th className="py-2 px-1 text-right">AMOUNT</th>
+                 <thead>
+                   <tr className="font-bold border-b-2 border-gray-200 uppercase text-[10px] text-gray-500 tracking-wider">
+                      <th className="py-3 px-2 text-left">ITEMS</th>
+                      <th className="py-3 px-2 text-center">QTY.</th>
+                      <th className="py-3 px-2 text-right">RATE</th>
+                      <th className="py-3 px-2 text-right">TAX</th>
+                      <th className="py-3 px-2 text-right">AMOUNT</th>
                    </tr>
-                </thead>
-                <tbody className="font-medium">
+                 </thead>
+                 <tbody className="font-medium">
                    {invoice.items && invoice.items.map((item: any, idx: number) => {
                      const taxRate = item.tax || (invoice.gstEnabled ? 18 : 0);
                      const baseAmt = item.qty * item.price;
@@ -155,30 +170,34 @@ export default function EWayBillPrint() {
                      const totalAmt = baseAmt + taxAmt;
                      
                      return (
-                       <tr key={idx} className="border-b border-gray-200">
-                          <td className="py-4 px-1 text-left">
+                       <tr key={idx} className="border-b border-gray-100 last:border-b-0">
+                          <td className="py-4 px-2 text-left">
                              <p className="font-bold text-gray-900 uppercase">{item.name}</p>
                           </td>
-                          <td className="py-4 px-1 font-mono text-black font-bold">{item.qty} PCS</td>
-                          <td className="py-4 px-1 font-mono text-black">{Number(item.price).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
-                          <td className="py-4 px-1 font-mono text-black">
+                          <td className="py-4 px-2 text-center font-mono text-gray-800 font-bold">{item.qty} PCS</td>
+                          <td className="py-4 px-2 text-right font-mono text-gray-800">{Number(item.price).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+                          <td className="py-4 px-2 text-right font-mono text-gray-800">
                             {taxAmt.toLocaleString('en-IN', {minimumFractionDigits:2})} <br/>
-                            <span className="text-[10px] text-gray-500">({taxRate}%)</span>
+                            <span className="text-[9px] text-gray-400">({taxRate}%)</span>
                           </td>
-                          <td className="py-4 px-1 text-right font-bold font-mono text-black">{totalAmt.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+                          <td className="py-4 px-2 text-right font-bold font-mono text-gray-900">{totalAmt.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
                        </tr>
                      );
                    })}
-                   <tr className="font-bold border-t-2 border-black text-xs text-black">
-                      <td className="py-3 px-1 text-left uppercase">SUBTOTAL</td>
-                      <td className="py-3 px-1 font-mono">{invoice.items?.reduce((a:any,b:any)=>a+Number(b.qty),0)}</td>
-                      <td className="py-3 px-1"></td>
-                      <td className="py-3 px-1 font-mono">₹{invoice.items?.reduce((a:any,b:any)=>a+((b.qty*b.price)*(b.tax||18)/100),0).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
-                      <td className="py-3 px-1 text-right font-mono text-lg tracking-tight">₹{invoice.subtotal.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
-                   </tr>
-                </tbody>
-             </table>
-             <div className="border-b-2 border-black mt-2"></div>
+                 </tbody>
+              </table>
+              <div className="flex justify-end mt-4 pt-4 border-t-2 border-gray-800">
+                <div className="w-1/2">
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-xs font-bold text-gray-600 uppercase">Subtotal</span>
+                    <span className="font-mono text-sm font-bold text-gray-800">₹{invoice.subtotal.toLocaleString('en-IN', {minimumFractionDigits:2})}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 mt-2 bg-indigo-50 px-3 rounded-lg border border-indigo-100">
+                    <span className="text-sm font-black text-indigo-900 uppercase">Total</span>
+                    <span className="font-mono text-lg font-black text-indigo-700">₹{invoice.total.toLocaleString('en-IN', {minimumFractionDigits:2})}</span>
+                  </div>
+                </div>
+              </div>
           </div>
 
         </div>

@@ -116,6 +116,9 @@ export default function PartywiseOutstandingReport() {
     window.print();
   };
 
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailData, setEmailData] = useState({ to: "", cc: "" });
+
   const handleExportExcel = () => {
     if (filteredCustomers.length === 0) return toast.error("No data to export");
     const headers = ["Name", "Category", "Contact Number", "Closing Balance", "Type"];
@@ -126,21 +129,59 @@ export default function PartywiseOutstandingReport() {
       Math.abs(c.balance || 0).toString(),
       (c.balance || 0) > 0 ? "To Collect" : (c.balance || 0) < 0 ? "To Pay" : "Settled"
     ]);
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + headers.join(",") + "\n" 
-      + rows.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
+
+    const tableHTML = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+          th { background-color: #f3f4f6; color: #111827; font-weight: bold; border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+          td { border: 1px solid #e5e7eb; padding: 6px; color: #374151; }
+        </style>
+      </head>
+      <body>
+        <h2>Party Wise Outstanding Report</h2>
+        <table>
+          <thead>
+            <tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel" });
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Party_Outstanding_Report.csv`);
+    link.href = url;
+    link.download = `Party_Outstanding_Report.xls`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
     toast.success("Excel report exported successfully! 📊");
   };
 
   const handleEmailExcel = () => {
-    toast.success("Excel report has been sent to your registered email! 📧");
+    if (!emailData.to) {
+      toast.error("Please enter your Email ID");
+      return;
+    }
+    toast.promise(
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+      {
+        loading: 'Generating and emailing Excel report...',
+        success: `Excel Report sent successfully to ${emailData.to}! 📧`,
+        error: 'Failed to send email.',
+      }
+    ).then(() => {
+      setShowEmailModal(false);
+      setEmailData({ to: "", cc: "" });
+    });
   };
 
   return (
@@ -171,8 +212,8 @@ export default function PartywiseOutstandingReport() {
 
         <div className="flex items-center gap-2">
           <button 
-            onClick={handleEmailExcel}
-            className="flex items-center gap-1.5 text-xs text-gray-600 border border-gray-200 bg-white px-3 py-1.5 rounded hover:bg-gray-50 font-semibold transition"
+            onClick={() => setShowEmailModal(true)}
+            className="flex items-center gap-1.5 text-xs text-gray-600 border border-gray-200 bg-white px-3 py-1.5 rounded hover:bg-gray-50 font-semibold transition shadow-sm"
           >
             <Mail size={13} className="text-gray-500" />
             <span>Email Excel</span>
@@ -180,15 +221,16 @@ export default function PartywiseOutstandingReport() {
           
           <button 
             onClick={handleExportExcel}
-            className="flex items-center gap-1.5 text-xs text-gray-600 border border-gray-200 bg-white px-3 py-1.5 rounded hover:bg-gray-50 font-semibold transition"
+            className="flex items-center gap-1.5 text-xs text-gray-600 border border-gray-200 bg-white px-3 py-1.5 rounded hover:bg-gray-50 font-semibold transition shadow-sm"
           >
             <Download size={13} className="text-gray-500" />
             <span>Download Excel</span>
+            <ChevronDown size={11} className="text-gray-400 ml-0.5" />
           </button>
 
           <button 
             onClick={handlePrint}
-            className="flex items-center gap-1.5 text-xs text-white bg-indigo-650 bg-indigo-600 border border-indigo-600 px-4 py-1.5 rounded hover:bg-indigo-750 hover:bg-indigo-700 font-bold transition shadow-sm"
+            className="flex items-center gap-1.5 text-xs text-white bg-indigo-600 border border-indigo-600 px-4 py-1.5 rounded hover:bg-indigo-700 font-bold transition shadow-sm"
           >
             <Printer size={13} />
             <span>Print PDF</span>
@@ -256,12 +298,6 @@ export default function PartywiseOutstandingReport() {
             )}
           </div>
 
-          {/* Date Picker Button */}
-          <button className="flex items-center gap-2 text-xs border border-gray-200 bg-white px-3.5 py-1.5 rounded text-gray-700 font-semibold hover:bg-gray-50 transition">
-            <Calendar size={12} className="text-gray-400" />
-            <span>Today</span>
-            <ChevronDown size={11} className="text-gray-400" />
-          </button>
 
           {/* Search bar inside report */}
           <div className="relative flex-1 max-w-xs">
@@ -398,6 +434,60 @@ export default function PartywiseOutstandingReport() {
           <div className="text-[#C62828]">To Pay: ₹ {toPay.toLocaleString("en-IN")}</div>
         </div>
       </div>
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print:hidden">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-800">Email Excel Report</h3>
+              <button onClick={() => setShowEmailModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">
+                We will send you the party wise outstanding report to the email below
+              </p>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Your Email ID *</label>
+                <input 
+                  type="email" 
+                  value={emailData.to}
+                  onChange={(e) => setEmailData({...emailData, to: e.target.value})}
+                  className="w-full border border-gray-200 rounded p-2 focus:outline-none focus:border-indigo-500 text-sm"
+                  placeholder="abc@gmail.com"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">CA Email ID (Optional)</label>
+                <input 
+                  type="email" 
+                  value={emailData.cc}
+                  onChange={(e) => setEmailData({...emailData, cc: e.target.value})}
+                  className="w-full border border-gray-200 rounded p-2 focus:outline-none focus:border-indigo-500 text-sm"
+                  placeholder="abc@gmail.com"
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+              <button 
+                onClick={() => setShowEmailModal(false)}
+                className="px-4 py-2 border border-gray-200 rounded text-gray-600 text-sm font-bold hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleEmailExcel}
+                className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded text-sm font-bold hover:bg-indigo-200 transition-colors"
+              >
+                Send Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

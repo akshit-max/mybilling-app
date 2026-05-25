@@ -16,9 +16,7 @@ export default function ReportsPage() {
       title: "Favourite",
       icon: <Star size={16} className="text-gray-400" />,
       items: [
-        { name: "Balance Sheet", isFav: true, tags: ["Summary"] },
         { name: "GSTR-1 (Sales)", isFav: true, tags: ["Summary"] },
-        { name: "Profit And Loss Report", isFav: true, tags: ["Summary"] },
         { name: "Sales Summary", isFav: true, tags: ["Summary"] },
       ]
     },
@@ -27,14 +25,6 @@ export default function ReportsPage() {
       icon: <span className="text-xs font-bold bg-gray-200 px-1 rounded text-gray-600">GST</span>,
       items: [
         { name: "GSTR-2 (Purchase)", isFav: false, tags: ["Summary"] },
-        { name: "GSTR-3B", isFav: false, tags: ["Summary"] },
-        { name: "GST Purchase (With HSN)", isFav: false, tags: ["Summary"] },
-        { name: "GST Sales (With HSN)", isFav: false, tags: ["Summary"] },
-        { name: "HSN Wise Sales Summary", isFav: false, tags: ["Summary"] },
-        { name: "TDS Payable", isFav: false, tags: ["Payment"] },
-        { name: "TDS Receivable", isFav: false, tags: ["Payment"] },
-        { name: "TCS Payable", isFav: false, tags: ["Payment"] },
-        { name: "TCS Receivable", isFav: false, tags: ["Payment"] },
       ],
       showMore: false
     },
@@ -42,13 +32,11 @@ export default function ReportsPage() {
       title: "Transaction",
       icon: <FileText size={16} className="text-gray-400" />,
       items: [
-        { name: "Audit Trail", isFav: false, tags: ["Summary"] },
         { name: "Bill Wise Profit", isFav: false, tags: ["Summary"] },
-        { name: "Cash and Bank Report (All Payments)", isFav: false, tags: ["Payment"] },
         { name: "Daybook", isFav: false, tags: ["Summary"] },
-        { name: "Expense Category Report", isFav: false, tags: ["Category"] },
-        { name: "Expense Transaction Report", isFav: false, tags: ["Summary"] },
-        { name: "Purchase Summary", isFav: false, tags: ["Summary"] },
+        { name: "Purchase Daybook", isFav: false, tags: ["Summary"] },
+        { name: "Expense Transaction Report", isFav: false, tags: ["Summary", "Expense"] },
+        { name: "Expense Category Report", isFav: false, tags: ["Category", "Expense"] },
       ],
       showMore: false
     },
@@ -56,11 +44,9 @@ export default function ReportsPage() {
       title: "Item",
       icon: <div className="w-4 h-4 border border-gray-400 rounded-sm" />,
       items: [
-        { name: "Item Report By Party", isFav: false, tags: ["Item", "Party"] },
-        { name: "Item Sales and Purchase Summary", isFav: false, tags: ["Item", "Summary"] },
+        { name: "Item Sales Summary", isFav: false, tags: ["Item", "Summary"] },
         { name: "Low Stock Summary", isFav: false, tags: ["Item", "Summary"] },
         { name: "Rate List", isFav: false, tags: ["Item"] },
-        { name: "Stock Detail Report", isFav: false, tags: ["Item"] },
         { name: "Stock Summary", isFav: false, tags: ["Item", "Summary"] },
       ],
       showMore: false
@@ -69,11 +55,8 @@ export default function ReportsPage() {
       title: "Party",
       icon: <UsersIcon />,
       items: [
-        { name: "Receivable Ageing Report", isFav: false, tags: ["Party", "Payment"] },
-        { name: "Party Report By Item", isFav: false, tags: ["Party", "Item"] },
         { name: "Party Statement (Ledger)", isFav: false, tags: ["Party"] },
         { name: "Party Wise Outstanding", isFav: false, tags: ["Party", "Payment"] },
-        { name: "Sales Summary - Category Wise", isFav: false, tags: ["Category", "Summary"] },
       ],
       showMore: false
     },

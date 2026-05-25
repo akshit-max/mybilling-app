@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import WhatsAppModal from "@/components/ui/WhatsAppModal";
+import SMSModal from "@/components/ui/SMSModal";
 
 type Item = {
   productId?: string;
@@ -92,6 +94,8 @@ export default function ViewCreditNote() {
   const [company, setCompany] = useState<Company | null>(null);
   const [creditNote, setCreditNote] = useState<CreditNote | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [showSMSModal, setShowSMSModal] = useState(false);
 
   const [accentColor, setAccentColor] = useState("#4F46E5");
   const [showPhone, setShowPhone] = useState(true);
@@ -191,13 +195,7 @@ export default function ViewCreditNote() {
   const balanceAmount = Math.max(0, creditNote.total - receivedAmount);
 
   const handleWhatsAppShare = () => {
-    if (!creditNote?.customerPhone) {
-      toast.error("Customer phone number is missing");
-      return;
-    }
-    const message = `Dear ${creditNote.customerName},\n\nYour credit note *${creditNote.creditNoteNumber || "N/A"}* has been generated successfully.\n\nTotal Amount: *₹${creditNote.total.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`;
-    const phone = creditNote.customerPhone.replace(/\D/g, "");
-    window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(message)}`, "_blank");
+    setShowWhatsAppModal(true);
   };
 
   const handleDelete = async () => {
@@ -658,6 +656,16 @@ export default function ViewCreditNote() {
              </div>
         </div>
       </div>
+    
+      {/* WhatsApp Modal */}
+      {showWhatsAppModal && (
+        <WhatsAppModal
+          customerName={creditNote?.customerName || "Customer"}
+          existingPhone={creditNote?.customerPhone}
+          message={`Dear ${creditNote?.customerName},\n\nYour Credit Note has been generated.\n\nTotal Amount: *₹${creditNote?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
+          onClose={() => setShowWhatsAppModal(false)}
+        />
+      )}
     </div>
   );
 }

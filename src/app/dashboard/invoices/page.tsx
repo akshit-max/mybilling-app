@@ -8,6 +8,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { syncInventory } from "@/lib/inventorySync";
 
 type InvoiceItem = {
   name: string;
@@ -69,6 +70,7 @@ export default function SalesInvoicesPage() {
             dueDate: d.dueDate || "",
             isOffline: false,
             amountReceived: typeof d.amountReceived === "number" ? d.amountReceived : undefined,
+            items: d.items || [],
           };
         });
       } catch (err) {
@@ -129,10 +131,20 @@ export default function SalesInvoicesPage() {
   const handleDelete = async (invoice: Invoice) => {
     if (!confirm(`Are you sure you want to delete invoice ${invoice.invoiceNumber}?`)) return;
     try {
+      const user = auth.currentUser;
       if (invoice.isOffline) {
         const { deleteOfflineInvoice } = await import("@/lib/offlineInvoices");
         await deleteOfflineInvoice(invoice.id);
       } else {
+        if (invoice.invoiceType === "invoice" && invoice.items && invoice.items.length > 0 && user) {
+          const itemsToSync = invoice.items.map((i: any) => ({
+            id: i.productId,
+            quantity: i.qty
+          })).filter((i: any) => i.id);
+          if (itemsToSync.length > 0) {
+            await syncInventory(user.uid, itemsToSync, "INCREASE");
+          }
+        }
         await deleteDoc(doc(db, "invoices", invoice.id));
       }
       setInvoices((prev) => prev.filter((i) => i.id !== invoice.id));
