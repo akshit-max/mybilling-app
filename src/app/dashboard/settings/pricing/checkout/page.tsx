@@ -5,8 +5,22 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, CheckCircle2, ChevronUp, AlertCircle, X, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { db, auth } from "@/lib/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+
+const loadScript = (src: string) => {
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.onload = () => {
+      resolve(true);
+    };
+    script.onerror = () => {
+      resolve(false);
+    };
+    document.body.appendChild(script);
+  });
+};
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -83,25 +97,112 @@ export default function CheckoutPage() {
     try {
       setIsSubmitting(true);
       
-      await updateDoc(doc(db, "users", auth.currentUser.uid), {
-        businessName: formData.businessName,
-        state: formData.state,
-        pincode: formData.pincode,
-        gstNumber: formData.hasGst ? formData.gstNumber : "",
-        streetAddress: formData.streetAddress,
-        city: formData.city,
-        plan: plan,
-        subscriptionCycle: cycle,
-        isPaid: true
-      });
+      const uid = auth.currentUser.uid;
 
-      setShowModal(false);
-      toast.success("Payment successful! Your plan has been upgraded.", { icon: "🎉" });
-      router.push("/dashboard/settings/pricing");
+      const res = await loadScript("https://checkout.razorpay.com/v1/checkout.js");
+
+      if (!res) {
+        toast.error("Razorpay SDK failed to load. Are you online?");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 1. Create Order on Server
+      const orderRes = await fetch("/api/create-razorpay-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan, cycle })
+      });
+      
+      const orderData = await orderRes.json();
+      
+      if (!orderRes.ok) {
+         toast.error(orderData.error || "Failed to initialize payment. Please check your API keys.");
+         setIsSubmitting(false);
+         return;
+      }
+
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY || "", 
+        amount: orderData.amount, // amount from server
+        currency: orderData.currency,
+        name: "Billing App Premium",
+        description: `${plan} Plan - ${cycle}`,
+        image: "https://example.com/your_logo", 
+        order_id: orderData.id, // ID from server
+        handler: async function (response: any) {
+          try {
+            toast.loading("Verifying payment...", { id: "upgrade" });
+            
+            // 2. Verify Signature on Server
+            const verifyRes = await fetch("/api/verify-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+
+            let verifyData;
+            try {
+               verifyData = await verifyRes.json();
+            } catch (e) {
+               throw new Error("Server returned an invalid response during verification.");
+            }
+
+            if (!verifyRes.ok || !verifyData.verified) {
+                toast.error(verifyData?.message || "Payment verification failed!", { id: "upgrade" });
+                return;
+            }
+
+            toast.loading("Upgrading your plan...", { id: "upgrade" });
+            await setDoc(doc(db, "users", uid), {
+              businessName: formData.businessName,
+              state: formData.state,
+              pincode: formData.pincode,
+              gstNumber: formData.hasGst ? formData.gstNumber : "",
+              streetAddress: formData.streetAddress,
+              city: formData.city,
+              plan: plan,
+              subscriptionCycle: cycle,
+              isPaid: true
+            }, { merge: true });
+            setShowModal(false);
+            toast.success("Payment successful! Your plan has been upgraded.", { id: "upgrade", icon: "🎉" });
+            router.push("/dashboard/settings/pricing");
+          } catch (err: any) {
+            console.error(err);
+            toast.error(`Failed to upgrade plan: ${err.message || "Unknown error"}`, { id: "upgrade" });
+          } finally {
+            setIsSubmitting(false);
+          }
+        },
+        prefill: {
+          name: auth.currentUser.displayName || "",
+          email: auth.currentUser.email || "",
+          contact: "" // If you have phone number in auth
+        },
+        notes: {
+          address: formData.streetAddress
+        },
+        theme: {
+          color: "#4F46E5"
+        },
+        modal: {
+          ondismiss: function() {
+            setIsSubmitting(false);
+          }
+        }
+      };
+
+      const paymentObject = new (window as any).Razorpay(options);
+      paymentObject.open();
+
     } catch (err) {
       console.error(err);
       toast.error("Failed to process payment. Please try again.");
-    } finally {
       setIsSubmitting(false);
     }
   };
