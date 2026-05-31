@@ -10,13 +10,17 @@ import {
   ArrowRight,
   TrendingUp,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  Minus
 } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, orderBy, limit, Timestamp } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, limit, Timestamp, doc, getDoc, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import TrialExpiredModal from "@/components/ui/TrialExpiredModal";
+import OfferModal from "@/components/ui/OfferModal";
 
 type Invoice = {
   id: string;
@@ -37,6 +41,9 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [graphMode, setGraphMode] = useState<"daily" | "weekly">("daily");
   const [showGraphDropdown, setShowGraphDropdown] = useState(false);
+  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
+  const [showTestExpiredModal, setShowTestExpiredModal] = useState(false);
+  const [showTestOfferModal, setShowTestOfferModal] = useState(false);
 
   // Chart aggregation states
   const [chartPoints, setChartPoints] = useState<{ x: number; y: number; label: string; value: number }[]>([]);
@@ -222,8 +229,27 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        try {
+          const userDocRef = doc(db, "users", user.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          let startDate = new Date();
+          if (userDoc.exists() && userDoc.data().trialStartDate) {
+            startDate = new Date(userDoc.data().trialStartDate);
+          } else if (user.metadata.creationTime) {
+            startDate = new Date(user.metadata.creationTime);
+          }
+          
+          const now = new Date();
+          const diffDays = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+          const left = 7 - diffDays;
+          setTrialDaysLeft(left);
+        } catch (e) {
+          console.error(e);
+        }
+
         fetchDashboardData(user.uid);
       } else {
         setLoading(false);
@@ -248,6 +274,28 @@ export default function Dashboard() {
     if (user) {
       fetchDashboardData(user.uid);
       toast.success("Metrics updated successfully! ↻");
+    }
+  };
+
+  const adjustTrialDays = async (daysToAdd: number) => {
+    if (!auth.currentUser || trialDaysLeft === null) return;
+    try {
+      const newDaysLeft = trialDaysLeft + daysToAdd;
+      const now = new Date();
+      // To have `newDaysLeft` days remaining in a 7-day trial:
+      // (now - trialStartDate) = 7 - newDaysLeft
+      // trialStartDate = now - (7 - newDaysLeft) days
+      const daysElapsed = 7 - newDaysLeft;
+      const newStartDate = new Date(now.getTime() - (daysElapsed * 24 * 60 * 60 * 1000));
+      
+      await updateDoc(doc(db, "users", auth.currentUser.uid), {
+        trialStartDate: newStartDate.toISOString()
+      });
+      setTrialDaysLeft(newDaysLeft);
+      toast.success(`Trial timeline shifted to ${newDaysLeft} days left`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to update timeline");
     }
   };
 
@@ -291,6 +339,46 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10 font-sans px-2">
       
+      {/* 0. TRIAL BANNER & TEST CONTROLS */}
+      {trialDaysLeft !== null && (
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-200 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="bg-amber-100 p-2 rounded-full text-amber-600">
+              <Clock size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-amber-900 text-sm">
+                  {trialDaysLeft > 0 ? `Your Free Trial ends in ${trialDaysLeft} days!` : "Your Free Trial has expired!"}
+                </h3>
+                {/* DEMO CONTROLS */}
+                <div className="flex items-center bg-white rounded-full border border-amber-200 shadow-sm overflow-hidden ml-2">
+                  <button onClick={() => adjustTrialDays(-1)} className="px-1.5 hover:bg-gray-100 text-amber-700 transition" title="Decrease Days Left">
+                    <Minus size={12} />
+                  </button>
+                  <span className="text-[10px] font-bold text-amber-800 px-1 border-x border-amber-100">Timeline Ctrl</span>
+                  <button onClick={() => adjustTrialDays(1)} className="px-1.5 hover:bg-gray-100 text-amber-700 transition" title="Increase Days Left">
+                    <Plus size={12} />
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-amber-700">Upgrade to a premium plan to continue enjoying all benefits.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+             <button onClick={() => setShowTestExpiredModal(true)} className="px-3 py-1.5 text-[10px] uppercase tracking-wider bg-white border border-gray-300 rounded font-bold hover:bg-gray-50 text-gray-700">
+               Test Expiry Pop
+             </button>
+             <button onClick={() => setShowTestOfferModal(true)} className="px-3 py-1.5 text-[10px] uppercase tracking-wider bg-white border border-gray-300 rounded font-bold hover:bg-gray-50 text-gray-700">
+               Test Offer Pop
+             </button>
+             <Link href="/dashboard/settings/pricing" className="px-4 py-1.5 text-xs bg-amber-500 text-white rounded font-bold hover:bg-amber-600 shadow-sm ml-2">
+               Upgrade Now
+             </Link>
+          </div>
+        </div>
+      )}
+
       {/* 1. BUSINESS OVERVIEW METRICS */}
       <div>
         <div className="flex justify-between items-center mb-4">
@@ -591,6 +679,10 @@ export default function Dashboard() {
          </div>
 
       </div>
+
+      {/* Test Modals */}
+      <TrialExpiredModal isOpen={showTestExpiredModal} onClose={() => setShowTestExpiredModal(false)} />
+      <OfferModal isOpen={showTestOfferModal} onClose={() => setShowTestOfferModal(false)} />
 
     </div>
   );

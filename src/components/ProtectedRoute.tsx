@@ -21,19 +21,22 @@ export default function ProtectedRoute({
   // 🔥 FULL SCREEN LOADER
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center 
-      bg-gradient-to-br from-[#0B1120] via-[#1E1B4B] to-[#4C1D95]">
+      <div className="min-h-screen flex items-center justify-center bg-[#f4f5f7]">
+        <div className="flex flex-col items-center gap-6">
+          {/* Sleek Premium Spinner */}
+          <div className="relative flex items-center justify-center w-12 h-12">
+            {/* Background Track */}
+            <div className="absolute inset-0 rounded-full border-[3px] border-indigo-100"></div>
+            {/* Spinning Indicator */}
+            <div className="absolute inset-0 rounded-full border-[3px] border-indigo-600 border-t-transparent animate-spin"></div>
+          </div>
 
-        <div className="flex flex-col items-center gap-4">
-
-          {/* Spinner */}
-          <div className="w-12 h-12 border-4 border-white/20 border-t-purple-500 rounded-full animate-spin" />
-
-          {/* Optional text */}
-          <p className="text-white/60 text-sm">
-            Checking authentication...
-          </p>
-
+          <div className="flex flex-col items-center gap-1">
+            <h3 className="text-gray-800 font-bold tracking-tight text-lg">Billing App</h3>
+            <p className="text-indigo-600/70 text-xs font-bold uppercase tracking-widest animate-pulse">
+              Authenticating...
+            </p>
+          </div>
         </div>
       </div>
     );

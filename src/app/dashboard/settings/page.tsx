@@ -15,11 +15,14 @@ import {
   Upload,
   MessageSquare,
   Search,
+  Lock,
+  X
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import toast from "react-hot-toast";
+import { hashPin } from "@/lib/crypto";
 
 import SettingsSidebar from "./SettingsSidebar";
 import { useChat } from "@/context/ChatContext";
@@ -50,6 +53,9 @@ export default function SettingsPage() {
   const [eInvoicing, setEInvoicing] = useState(true);
   const [tallyExport, setTallyExport] = useState(false);
 
+  // Security
+  const [hasAdminPin, setHasAdminPin] = useState(false);
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -73,6 +79,7 @@ export default function SettingsPage() {
             setLogoUrl(data.logoUrl || "");
             if (data.eInvoicing !== undefined) setEInvoicing(data.eInvoicing);
             if (data.tallyExport !== undefined) setTallyExport(data.tallyExport);
+            if (data.adminPin) setHasAdminPin(true);
           }
         } catch (err) {
           console.error("Error loading business settings:", err);

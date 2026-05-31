@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Settings2, Share2, ScanBarcode, Plus, ChevronDown, Check, Trash2, Eye, FileText, Landmark, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, addDoc, doc, getDoc, updateDoc, increment, getDocsFromCache } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 import { useSession } from "@/context/SessionContext";
@@ -182,9 +182,13 @@ export default function CreateSalesInvoice() {
 
         // Fetch Customers
         try {
-          if (!navigator.onLine) throw new Error("Offline");
           const cq = query(collection(db, "customers"), where("userId", "==", user.uid));
-          const csnap = await getDocs(cq);
+          let csnap;
+          if (!navigator.onLine) {
+             csnap = await getDocsFromCache(cq);
+          } else {
+             csnap = await getDocs(cq);
+          }
           const cList = csnap.docs.map((docSnap) => {
             const data = docSnap.data();
             return {
@@ -197,12 +201,8 @@ export default function CreateSalesInvoice() {
             };
           });
           setCustomers(cList);
-          const { cacheCustomers } = await import("@/lib/indexedDB");
-          await cacheCustomers(cList);
         } catch (err) {
-          const { getCachedCustomers } = await import("@/lib/indexedDB");
-          const cached = await getCachedCustomers();
-          setCustomers(cached as any || []);
+          console.error("Customers fetch error:", err);
         }
 
         // Fetch Categories
@@ -221,9 +221,13 @@ export default function CreateSalesInvoice() {
 
         // Fetch Products
         try {
-          if (!navigator.onLine) throw new Error("Offline");
           const pq = query(collection(db, "products"), where("userId", "==", user.uid));
-          const psnap = await getDocs(pq);
+          let psnap;
+          if (!navigator.onLine) {
+             psnap = await getDocsFromCache(pq);
+          } else {
+             psnap = await getDocs(pq);
+          }
           const pList = psnap.docs.map((docSnap) => {
             const data = docSnap.data();
             return {
@@ -238,12 +242,8 @@ export default function CreateSalesInvoice() {
             };
           });
           setProducts(pList);
-          const { cacheProducts } = await import("@/lib/indexedDB");
-          await cacheProducts(pList);
         } catch (err) {
-          const { getCachedProducts } = await import("@/lib/indexedDB");
-          const cached = await getCachedProducts();
-          setProducts(cached as any || []);
+          console.error("Products fetch error:", err);
         }
 
         // Generate invoice sequential number
@@ -524,19 +524,24 @@ export default function CreateSalesInvoice() {
     const user = auth.currentUser;
     if (!user) return toast.error("Access denied. Please authenticate.");
 
+    if (invoiceType === "invoice") {
+      for (const item of validItems) {
+        if (item.productId) {
+          const prod = products.find(p => p.id === item.productId);
+          if (prod) {
+            const stock = Number(prod.stock || 0);
+            if (item.qty > stock) {
+              return toast.error(`Insufficient stock for ${item.name}. Available: ${stock}`);
+            }
+          }
+        }
+      }
+    }
+
     try {
       setSaving(true);
 
-      let isOfflineMode = !navigator.onLine;
-      if (!isOfflineMode) {
-        try {
-          const test = await fetch("/favicon.ico?cache=" + new Date().getTime(), { method: "HEAD", cache: "no-store" });
-          if (!test.ok) isOfflineMode = true;
-        } catch {
-          isOfflineMode = true;
-        }
-      }
-
+      // --- ONLINE AND OFFLINE SAVING (NATIVE FIREBASE) ---
       const rawTotal = calc.total + Number(additionalChargeValue || 0);
       const roundedTotal = Math.round(rawTotal);
       const roundOffAmount = roundedTotal - rawTotal;
@@ -581,47 +586,13 @@ export default function CreateSalesInvoice() {
         createdBy: activeProfile.name
       };
 
-      if (isOfflineMode) {
-        // --- OFFLINE WORKSPACE SAVING ---
-        const { saveOfflineInvoice } = await import("@/lib/offlineInvoices");
-        const { getCachedProducts, cacheProducts } = await import("@/lib/indexedDB");
-
-        // Deduct stocks from cache if it's a tax invoice
-        if (invoiceType === "invoice") {
-          const cachedProducts = await getCachedProducts();
-          for (const item of validItems) {
-            if (item.productId) {
-              const idx = cachedProducts.findIndex(p => p.id === item.productId);
-              if (idx > -1) {
-                const stock = cachedProducts[idx].stock || 0;
-                if (item.qty > stock) {
-                  return toast.error(`Insufficient local stock for ${item.name}`);
-                }
-                cachedProducts[idx].stock = stock - item.qty;
-              }
-            }
-          }
-          await cacheProducts(cachedProducts);
-        }
-
-        await saveOfflineInvoice(invoiceData as any);
-        toast.success("Invoice saved offline draft ✅");
-        router.push("/dashboard/invoices");
-        return;
-      }
-
-      // --- ONLINE SAVING ---
       if (invoiceType === "invoice") {
-        // Prepare items for sync
-        const itemsToSync = validItems.filter(i => i.productId).map(i => ({
-          id: i.productId!,
-          quantity: i.qty
-        }));
-        
-        try {
-          await syncInventory(user.uid, itemsToSync, "DECREASE");
-        } catch (err: any) {
-          return toast.error(err.message || "Failed to sync inventory stock.");
+        // Handle Stock deduction safely offline without blocking getDoc calls
+        for (const item of validItems) {
+          if (item.productId) {
+            const ref = doc(db, "products", item.productId);
+            await updateDoc(ref, { stock: increment(-item.qty) }).catch(() => {});
+          }
         }
       }
 
@@ -631,19 +602,15 @@ export default function CreateSalesInvoice() {
       const amountRec = Number(amountReceived);
       if (amountRec > 0 && invoiceType === "invoice") {
         const isCash = paymentMode === "Cash";
-        let newBalance = 0;
+        let newBalance = amountRec;
         if (isCash) {
            const sRef = doc(db, "settings", user.uid);
-           const sSnap = await getDoc(sRef);
-           const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
-           newBalance = current + amountRec;
-           await updateDoc(sRef, { cashInHand: newBalance });
+           await updateDoc(sRef, { cashInHand: increment(amountRec) }).catch(() => {});
         } else {
            const bRef = doc(db, "bankAccounts", paymentMode);
-           const bSnap = await getDoc(bRef);
-           const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
-           newBalance = current + amountRec;
-           await updateDoc(bRef, { balance: newBalance });
+           await updateDoc(bRef, { balance: increment(amountRec) }).catch(() => {});
+           const b = bankAccounts.find(x => x.id === paymentMode);
+           newBalance = (b ? Number(b.balance || 0) : 0) + amountRec;
         }
         
         await addDoc(collection(db, "cashBankTransactions"), {
@@ -686,7 +653,7 @@ export default function CreateSalesInvoice() {
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       
       {/* ENTERPRISE ACTION HEADER */}
-      <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-20 shadow-xs">
+      <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-4">
           <Link href="/dashboard/invoices" className="text-gray-400 hover:text-gray-700 transition-colors">
             <ArrowLeft size={18} />

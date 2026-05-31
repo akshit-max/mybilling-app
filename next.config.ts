@@ -172,8 +172,8 @@ const withPWA = withPWAInit({
       options: {
         cacheName: "next-rsc-payloads",
         expiration: {
-          maxEntries: 128,
-          maxAgeSeconds: 7 * 24 * 60 * 60,
+          maxEntries: 256,
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
         },
         cacheableResponse: {
           statuses: [0, 200],
@@ -193,8 +193,8 @@ const withPWA = withPWAInit({
       options: {
         cacheName: "invoice-receipt-dynamic",
         expiration: {
-          maxEntries: 64,
-          maxAgeSeconds: 7 * 24 * 60 * 60,
+          maxEntries: 128,
+          maxAgeSeconds: 30 * 24 * 60 * 60,
         },
         matchOptions: {
           ignoreSearch: true,
@@ -211,8 +211,8 @@ const withPWA = withPWAInit({
       options: {
         cacheName: "invoice-detail-dynamic",
         expiration: {
-          maxEntries: 64,
-          maxAgeSeconds: 7 * 24 * 60 * 60,
+          maxEntries: 128,
+          maxAgeSeconds: 30 * 24 * 60 * 60,
         },
         matchOptions: {
           ignoreSearch: true,
@@ -229,8 +229,8 @@ const withPWA = withPWAInit({
       options: {
         cacheName: "dashboard-navigation",
         expiration: {
-          maxEntries: 64,
-          maxAgeSeconds: 7 * 24 * 60 * 60,
+          maxEntries: 256,
+          maxAgeSeconds: 30 * 24 * 60 * 60,
         },
         matchOptions: {
           ignoreSearch: true,
@@ -247,8 +247,8 @@ const withPWA = withPWAInit({
       options: {
         cacheName: "next-static-assets",
         expiration: {
-          maxEntries: 64,
-          maxAgeSeconds: 7 * 24 * 60 * 60,
+          maxEntries: 512,
+          maxAgeSeconds: 30 * 24 * 60 * 60,
         },
       },
     },
@@ -261,8 +261,8 @@ const withPWA = withPWAInit({
       options: {
         cacheName: "next-data-routes",
         expiration: {
-          maxEntries: 32,
-          maxAgeSeconds: 7 * 24 * 60 * 60,
+          maxEntries: 128,
+          maxAgeSeconds: 30 * 24 * 60 * 60,
         },
       },
     },

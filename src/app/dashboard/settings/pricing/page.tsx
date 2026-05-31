@@ -3,14 +3,16 @@
 import React, { useState } from "react";
 import { Check, X, ShieldCheck, Crown } from "lucide-react";
 import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 import SettingsSidebar from "../SettingsSidebar";
 
 export default function PricingPage() {
+  const router = useRouter();
   const [billingCycle, setBillingCycle] = useState<"Monthly" | "Yearly">("Yearly");
 
   const handleBuy = (plan: string) => {
-    toast(`Redirecting to payment for ${plan}...`, { icon: "💳" });
+    router.push(`/dashboard/settings/pricing/checkout?plan=${plan}&cycle=${billingCycle}`);
   };
 
   const DiamondFeatures = [
@@ -92,7 +94,7 @@ export default function PricingPage() {
           {/* Billing Toggle */}
           <div className="flex justify-center mb-8">
             <div className="relative inline-flex bg-white border border-indigo-200 rounded-lg p-1 shadow-sm">
-               <div className="absolute -top-3 right-2 bg-emerald-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded z-10">upto 20% off</div>
+               <div className="absolute -top-3 right-2 bg-emerald-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded z-10">upto 50% off</div>
                <button 
                  onClick={() => setBillingCycle("Monthly")}
                  className={`px-8 py-2 text-xs font-bold rounded-md transition-colors ${billingCycle === "Monthly" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-600 hover:bg-gray-50"}`}
@@ -119,11 +121,28 @@ export default function PricingPage() {
                   <p className="text-xs text-indigo-600 font-semibold mt-1">Essential plan for small business owners</p>
                 </div>
                 <div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-bold text-gray-900">₹249</span>
-                    <span className="text-[10px] text-gray-500 font-medium">/month</span>
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1">Billed {billingCycle}</p>
+                  {billingCycle === "Yearly" ? (
+                    <>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-sm font-bold text-gray-400 line-through">₹300</span>
+                        <span className="text-2xl font-bold text-gray-900">₹217</span>
+                        <span className="text-[10px] text-gray-500 font-medium">/month</span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1">
+                        <p className="text-[10px] text-gray-400 line-through">₹3,599/year</p>
+                        <p className="text-[10px] text-gray-500 font-medium">Billed Annually ₹2,599/year</p>
+                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded border border-emerald-100">28% Off</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-bold text-gray-900">₹249</span>
+                        <span className="text-[10px] text-gray-500 font-medium">/month</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1">Billed Monthly</p>
+                    </>
+                  )}
                 </div>
                 <button onClick={() => handleBuy("Diamond")} className="w-full py-2 border border-[#F16D31] text-[#F16D31] font-bold text-xs rounded hover:bg-orange-50 transition-colors">
                   Buy Diamond Plan
@@ -159,11 +178,28 @@ export default function PricingPage() {
                   <p className="text-xs text-indigo-600 font-semibold mt-1">More users, more flexibility, and a Desktop app</p>
                 </div>
                 <div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-bold text-gray-900">₹299</span>
-                    <span className="text-[10px] text-gray-500 font-medium">/month</span>
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1">Billed {billingCycle}</p>
+                  {billingCycle === "Yearly" ? (
+                    <>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-sm font-bold text-gray-400 line-through">₹500</span>
+                        <span className="text-2xl font-bold text-gray-900">₹250</span>
+                        <span className="text-[10px] text-gray-500 font-medium">/month</span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1">
+                        <p className="text-[10px] text-gray-400 line-through">₹5,999/year</p>
+                        <p className="text-[10px] text-gray-500 font-medium">Billed Annually ₹2,999/year</p>
+                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded border border-emerald-100">50% Off</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-bold text-gray-900">₹299</span>
+                        <span className="text-[10px] text-gray-500 font-medium">/month</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1">Billed Monthly</p>
+                    </>
+                  )}
                 </div>
                 <button onClick={() => handleBuy("Platinum")} className="w-full py-2 bg-indigo-600 text-white font-bold text-xs rounded shadow-sm hover:bg-indigo-700 transition-colors">
                   Buy Platinum Plan
@@ -197,11 +233,16 @@ export default function PricingPage() {
                 </div>
                 <div>
                   <div className="flex items-baseline gap-1">
+                    <span className="text-[10px] text-gray-500">Starting @ </span>
                     <span className="text-sm font-bold text-gray-400 line-through">₹750</span>
                     <span className="text-2xl font-bold text-gray-900">₹417</span>
                     <span className="text-[10px] text-gray-500 font-medium">/month</span>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-1">Billed Annually</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    <p className="text-[10px] text-gray-400 line-through">₹8,999/year</p>
+                    <p className="text-[10px] text-gray-500 font-medium">Billed Annually ₹4,999/year</p>
+                    <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded border border-emerald-100">44% Off</span>
+                  </div>
                 </div>
                 <button onClick={() => handleBuy("Enterprise")} className="w-full py-2 border border-emerald-500 text-emerald-600 font-bold text-xs rounded hover:bg-emerald-50 transition-colors">
                   Talk To Sales

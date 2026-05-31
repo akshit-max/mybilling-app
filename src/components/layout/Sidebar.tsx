@@ -189,11 +189,11 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
     {
       title: "BUSINESS TOOLS",
       items: [
-        { name: "AI Collections", href: "#", icon: Share2 },
+        // { name: "AI Collections", href: "#", icon: Share2 },
         { name: "Staff Attendance & Payroll", href: "/dashboard/staff", icon: UsersRound },
         { name: "Manage Users", href: "/dashboard/manage-users", icon: UserCog },
-        { name: "Online Orders", href: "/dashboard/online-orders", icon: Globe },
-        { name: "SMS Marketing", href: "/dashboard/sms", icon: MessageSquare },
+        // { name: "Online Orders", href: "/dashboard/online-orders", icon: Globe },
+        // { name: "SMS Marketing", href: "/dashboard/sms", icon: MessageSquare },
       ],
     },
   ].map(group => ({
@@ -231,13 +231,17 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
         </div>
 
         {!collapsed && (
-          <button className="w-full bg-gradient-to-r from-amber-500/15 to-amber-500/5 border border-amber-500/30 text-amber-300 flex items-center justify-between px-3.5 py-2.5 rounded-full font-semibold hover:bg-amber-500/25 transition-colors text-xs shadow-xs">
-            <div className="flex items-center gap-2">
-              <Crown size={15} className="text-amber-400 shrink-0" />
-              <span className="font-bold tracking-wide">Plans & Pricing</span>
+          <Link 
+            href="/dashboard/settings/pricing"
+            className="w-full bg-gradient-to-r from-amber-500/20 via-amber-400/20 to-amber-500/5 border border-amber-500/40 text-amber-400 flex items-center justify-between px-3.5 py-2.5 rounded-full font-bold hover:from-amber-500/30 hover:to-amber-500/10 transition-all text-xs shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.25)] relative overflow-hidden group block"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out" />
+            <div className="flex items-center gap-2 relative z-10">
+              <Crown size={15} className="text-amber-400 shrink-0 drop-shadow-md" />
+              <span className="font-bold tracking-wide uppercase text-[11px] text-amber-300">Premium Plans</span>
             </div>
-            <span className="bg-[#ef4444] text-white text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider shadow-xs">Trial Expired</span>
-          </button>
+            <span className="bg-[#ef4444] text-white text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider shadow-sm relative z-10 border border-red-500/50">Upgrade</span>
+          </Link>
         )}
       </div>
 

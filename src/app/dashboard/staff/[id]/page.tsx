@@ -350,7 +350,7 @@ export default function StaffDetailView() {
       
       {/* Left Sidebar (Staff List) */}
       <aside className="w-72 bg-white border-r border-gray-200 flex flex-col hidden lg:flex h-[calc(100vh-60px)] sticky top-[60px]">
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white">
+        <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white">
           <h2 className="text-sm font-bold text-gray-800 tracking-tight">Staff</h2>
           <button 
             onClick={() => router.push("/dashboard/staff")}
@@ -384,7 +384,7 @@ export default function StaffDetailView() {
       <main className="flex-1 max-w-[1200px] flex flex-col h-[calc(100vh-60px)] overflow-y-auto bg-gray-50/50 relative">
         
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20 shadow-xs">
+        <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-3">
             <Link href="/dashboard/staff" className="text-gray-400 hover:text-gray-700 transition lg:hidden">
               <ArrowLeft size={18} />

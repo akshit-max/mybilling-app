@@ -314,7 +314,7 @@ export default function ItemDetailsPage() {
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50/50 font-sans relative">
       
       {/* LEFT NAVIGATION BAR - ALL PRODUCTS WITH SPACING */}
-      <div className="w-full md:w-64 border-r border-gray-200 bg-white flex flex-col h-auto md:h-screen sticky top-0 overflow-y-auto shrink-0 shadow-sm">
+      <div className="w-full md:w-64 border-r border-gray-200 bg-white flex flex-col h-auto md:h-screen overflow-y-auto shrink-0 shadow-sm">
         <div className="p-3 border-b border-gray-100 space-y-2">
           <Link href="/dashboard/products" className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 transition-colors font-medium">
             <ArrowLeft size={13} />

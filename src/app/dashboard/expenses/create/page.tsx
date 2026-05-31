@@ -215,7 +215,7 @@ export default function CreateExpensePage() {
     <div className="min-h-screen bg-blue-50/50 flex flex-col font-sans pb-12">
       
       {/* HEADER SECTION */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/expenses" className="text-gray-600 hover:text-gray-900 transition-colors">
             <ArrowLeft size={18} />

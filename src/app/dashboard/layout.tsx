@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import AutomatedBillsProcessor from "@/components/AutomatedBillsProcessor";
 import { SessionProvider } from "@/context/SessionContext";
+import FirstTimeAdminSetup from "@/components/auth/FirstTimeAdminSetup";
+import TrialEnforcer from "@/components/TrialEnforcer";
 
 export default function DashboardLayout({
   children,
@@ -22,6 +24,8 @@ export default function DashboardLayout({
   return (
     <ProtectedRoute>
       <SessionProvider>
+        <TrialEnforcer />
+        <FirstTimeAdminSetup />
         <AutomatedBillsProcessor />
         <div className="flex h-screen print:h-auto w-full bg-[#f4f5f7] overflow-hidden print:overflow-visible font-sans text-gray-800">
           

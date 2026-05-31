@@ -101,7 +101,7 @@ export default function ExpensesPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       
       {/* HEADER SECTION */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10 shadow-sm">
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
         <h1 className="text-lg font-bold text-gray-800">Expenses</h1>
         <div className="flex items-center gap-3 relative">
           <button 

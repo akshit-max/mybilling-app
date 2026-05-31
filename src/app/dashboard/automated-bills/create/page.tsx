@@ -587,7 +587,7 @@ export default function CreateAutomatedBill() {
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       
       {/* ENTERPRISE ACTION HEADER */}
-      <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-20 shadow-xs">
+      <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-4">
           <Link href="/dashboard/automated-bills" className="text-gray-400 hover:text-gray-700 transition-colors">
             <ArrowLeft size={18} />

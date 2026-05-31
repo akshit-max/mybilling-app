@@ -8,7 +8,7 @@ import {
   PackageOpen, Maximize, Edit3, ChevronDown, Trash2, Printer
 } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, increment, getDocsFromCache } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
@@ -22,7 +22,7 @@ type PosItem = {
   name: string;
   barcode: string;
   itemCode: string;
-  qty: number;
+  qty: number | "";
   price: number; // SP
   gstRate: number;
   stock: number;
@@ -33,9 +33,9 @@ type PosBill = {
   title: string;
   items: PosItem[];
   discountType: DiscountType;
-  discountValue: number;
+  discountValue: number | "";
   additionalChargeName: string;
-  additionalChargeValue: number;
+  additionalChargeValue: number | "";
   amountReceived: number | "";
   paymentMode: string;
   customerName: string;
@@ -61,9 +61,9 @@ export default function POSBillingPage() {
       title: "Billing Screen 1",
       items: [],
       discountType: "percent",
-      discountValue: 0,
+      discountValue: "",
       additionalChargeName: "Delivery",
-      additionalChargeValue: 0,
+      additionalChargeValue: "",
       amountReceived: "",
       paymentMode: "Cash",
       customerName: "",
@@ -110,28 +110,26 @@ export default function POSBillingPage() {
 
           // Fetch Products
           let pList: any[] = [];
-          if (navigator.onLine) {
-            const pq = query(collection(db, "products"), where("userId", "==", u.uid));
-            const psnap = await getDocs(pq);
-            pList = psnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            import("@/lib/indexedDB").then(m => m.cacheProducts(pList));
+          const pq = query(collection(db, "products"), where("userId", "==", u.uid));
+          let psnap;
+          if (!navigator.onLine) {
+             psnap = await getDocsFromCache(pq);
           } else {
-            const m = await import("@/lib/indexedDB");
-            pList = await m.getCachedProducts() as any[];
+             psnap = await getDocs(pq);
           }
+          pList = psnap.docs.map(d => ({ id: d.id, ...d.data() }));
           setProducts(pList);
 
           // Fetch Customers
           let cList: any[] = [];
-          if (navigator.onLine) {
-            const cq = query(collection(db, "customers"), where("userId", "==", u.uid));
-            const csnap = await getDocs(cq);
-            cList = csnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            import("@/lib/indexedDB").then(m => m.cacheCustomers(cList));
+          const cq = query(collection(db, "customers"), where("userId", "==", u.uid));
+          let csnap;
+          if (!navigator.onLine) {
+             csnap = await getDocsFromCache(cq);
           } else {
-            const m = await import("@/lib/indexedDB");
-            cList = await m.getCachedCustomers() as any[];
+             csnap = await getDocs(cq);
           }
+          cList = csnap.docs.map(d => ({ id: d.id, ...d.data() }));
           setCustomers(cList);
 
         } catch (err) {
@@ -177,7 +175,7 @@ export default function POSBillingPage() {
     const existingIdx = newItems.findIndex(i => i.productId === prod.id);
     
     if (existingIdx > -1) {
-      newItems[existingIdx].qty += 1;
+      newItems[existingIdx].qty = (Number(newItems[existingIdx].qty) || 0) + 1;
     } else {
       newItems.push({
         id: uuidv4(),
@@ -198,8 +196,9 @@ export default function POSBillingPage() {
   };
 
   const updateItemQty = (itemId: string, qtyStr: string | number) => {
-    const qty = Number(qtyStr);
-    const newItems = activeBill.items.map(i => i.id === itemId ? { ...i, qty: qty > 0 ? qty : 1 } : i);
+    const sanitized = sanitizeNumericInput(qtyStr);
+    const qty: number | "" = sanitized === "" ? "" : Number(sanitized);
+    const newItems = activeBill.items.map(i => i.id === itemId ? { ...i, qty } : i);
     updateActiveBill({ items: newItems });
   };
 
@@ -208,10 +207,10 @@ export default function POSBillingPage() {
   };
 
   // Calculations
-  const calcItems = activeBill.items.map(i => ({ name: i.name, qty: i.qty, price: i.price, gstRate: i.gstRate }));
-  const calc = calculateInvoice(calcItems, activeBill.discountType, activeBill.discountValue, true, false);
+  const calcItems = activeBill.items.map(i => ({ name: i.name, qty: Number(i.qty) || 0, price: i.price, gstRate: i.gstRate }));
+  const calc = calculateInvoice(calcItems, activeBill.discountType, Number(activeBill.discountValue) || 0, true, false);
   
-  const rawTotal = calc.total + activeBill.additionalChargeValue;
+  const rawTotal = calc.total + (Number(activeBill.additionalChargeValue) || 0);
   const roundedTotal = Math.round(rawTotal);
   const finalTotal = autoRoundOff ? roundedTotal : rawTotal;
 
@@ -229,9 +228,9 @@ export default function POSBillingPage() {
       title: `Billing Screen ${bills.length + 1}`,
       items: [],
       discountType: "percent",
-      discountValue: 0,
+      discountValue: "",
       additionalChargeName: "Delivery",
-      additionalChargeValue: 0,
+      additionalChargeValue: "",
       amountReceived: "",
       paymentMode: "Cash",
       customerName: "",
@@ -259,7 +258,19 @@ export default function POSBillingPage() {
     if (finalTotal < 0) {
       return toast.error("Total amount cannot be negative.");
     }
-    
+    for (const item of activeBill.items) {
+      if (item.productId) {
+        const prod = products.find(p => p.id === item.productId);
+        if (prod) {
+          const stock = Number(prod.stock || 0);
+          const itemQty = Number(item.qty) || 0;
+          if (itemQty > stock) {
+            return toast.error(`Insufficient stock for ${item.name}. Available: ${stock}`);
+          }
+        }
+      }
+    }
+
     setSaving(true);
     try {
       const invoiceNumber = "POS-" + Math.floor(100000 + Math.random() * 900000);
@@ -277,7 +288,7 @@ export default function POSBillingPage() {
         total: finalTotal,
         subtotal: calc.subtotal,
         discountType: activeBill.discountType,
-        discountValue: activeBill.discountValue,
+        discountValue: Number(activeBill.discountValue) || 0,
         discountAmount: calc.discountAmount,
         cgst: calc.cgst,
         sgst: calc.sgst,
@@ -289,43 +300,39 @@ export default function POSBillingPage() {
         amountReceived: amtReceivedNum,
         paymentMode: activeBill.paymentMode,
         additionalChargeName: activeBill.additionalChargeName,
-        additionalChargeValue: activeBill.additionalChargeValue,
+        additionalChargeValue: Number(activeBill.additionalChargeValue) || 0,
         autoRoundOff,
         roundOffAmount: autoRoundOff ? (roundedTotal - rawTotal) : 0,
         createdAt: new Date()
       };
 
-      // Handle Stock deduction
+      // Handle Stock deduction (offline safe using increment)
       for (const item of activeBill.items) {
-        if (item.productId) {
-          const ref = doc(db, "products", item.productId);
-          const snap = await getDoc(ref);
-          if (snap.exists()) {
-             const stock = snap.data().stock || 0;
-             await updateDoc(ref, { stock: stock - item.qty });
+          if (item.productId) {
+            const ref = doc(db, "products", item.productId);
+            const qtyNum = Number(item.qty) || 0;
+            if (qtyNum > 0) {
+              await updateDoc(ref, { stock: increment(-qtyNum) }).catch(() => {});
+            }
           }
-        }
       }
 
       // Save Invoice
       await addDoc(collection(db, "invoices"), invoiceData);
 
-      // Ledger sync
+      // Ledger sync (offline safe using increment)
       if (amtReceivedNum > 0) {
         const isCash = activeBill.paymentMode === "Cash";
-        let newBalance = 0;
+        let newBalance = amtReceivedNum;
         if (isCash) {
            const sRef = doc(db, "settings", user.uid);
-           const sSnap = await getDoc(sRef);
-           const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
-           newBalance = current + amtReceivedNum;
-           await updateDoc(sRef, { cashInHand: newBalance });
+           await updateDoc(sRef, { cashInHand: increment(amtReceivedNum) }).catch(() => {});
+           // For offline transactions, balanceAfter is approximate without a blocking fetch
         } else {
            const bRef = doc(db, "bankAccounts", activeBill.paymentMode);
-           const bSnap = await getDoc(bRef);
-           const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
-           newBalance = current + amtReceivedNum;
-           await updateDoc(bRef, { balance: newBalance });
+           await updateDoc(bRef, { balance: increment(amtReceivedNum) }).catch(() => {});
+           const b = bankAccounts.find(x => x.id === activeBill.paymentMode);
+           newBalance = (b ? Number(b.balance || 0) : 0) + amtReceivedNum;
         }
 
         await addDoc(collection(db, "cashBankTransactions"), {
@@ -549,12 +556,12 @@ export default function POSBillingPage() {
                     <div className="w-28 px-2 py-2 border-r border-gray-100 text-center flex items-center justify-center">
                       <input 
                         type="number" 
-                        value={item.qty || ""}
-                        onChange={(e) => updateItemQty(item.id, sanitizeNumericInput(e.target.value))}
+                        value={item.qty === "" ? "" : item.qty}
+                        onChange={(e) => updateItemQty(item.id, e.target.value)}
                         className="w-16 text-center border border-gray-200 rounded py-1 focus:outline-none focus:border-indigo-500 font-bold"
                       />
                     </div>
-                    <div className="w-32 px-3 py-3 text-right border-r border-gray-100 font-bold text-gray-800 font-mono">₹{(item.price * item.qty).toFixed(2)}</div>
+                    <div className="w-32 px-3 py-3 text-right border-r border-gray-100 font-bold text-gray-800 font-mono">₹{(item.price * (Number(item.qty) || 0)).toFixed(2)}</div>
                     <div className="w-10 flex items-center justify-center text-gray-400 hover:text-red-500 cursor-pointer" onClick={() => deleteItem(item.id)}>
                       <Trash2 size={14} />
                     </div>
@@ -600,10 +607,10 @@ export default function POSBillingPage() {
                      <span>Tax</span>
                      <span className="font-mono text-gray-700">₹ {(calc.cgst + calc.sgst + calc.igst).toLocaleString("en-IN", {minimumFractionDigits: 2})}</span>
                    </div>
-                   {activeBill.additionalChargeValue > 0 && (
+                   {Number(activeBill.additionalChargeValue) > 0 && (
                      <div className="flex justify-between text-sm font-semibold text-gray-500">
                        <span>{activeBill.additionalChargeName || "Delivery"}</span>
-                       <span className="font-mono text-gray-700">₹ {activeBill.additionalChargeValue.toLocaleString("en-IN", {minimumFractionDigits: 2})}</span>
+                       <span className="font-mono text-gray-700">₹ {Number(activeBill.additionalChargeValue).toLocaleString("en-IN", {minimumFractionDigits: 2})}</span>
                      </div>
                    )}
                    {calc.discountAmount > 0 && (
@@ -633,7 +640,10 @@ export default function POSBillingPage() {
                          id="receivedAmt"
                          type="number" 
                          value={activeBill.amountReceived}
-                         onChange={(e) => updateActiveBill({ amountReceived: e.target.value === "" ? "" : Number(sanitizeNumericInput(e.target.value)) })}
+                         onChange={(e) => {
+                           const val = sanitizeNumericInput(e.target.value);
+                           updateActiveBill({ amountReceived: val === "" ? "" : Number(val) });
+                         }}
                          placeholder="0" 
                          className="w-full bg-transparent text-lg font-bold text-gray-800 focus:outline-none" 
                        />
@@ -712,7 +722,10 @@ export default function POSBillingPage() {
                   <input 
                     type="number" 
                     value={activeBill.discountType === "percent" ? activeBill.discountValue : ""}
-                    onChange={(e) => updateActiveBill({ discountType: "percent", discountValue: Number(sanitizeNumericInput(e.target.value)) })}
+                    onChange={(e) => {
+                      const val = sanitizeNumericInput(e.target.value);
+                      updateActiveBill({ discountType: "percent", discountValue: val === "" ? "" : Number(val) });
+                    }}
                     className="w-full border border-yellow-300 bg-yellow-50/30 rounded py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 font-bold" 
                   />
                 </div>
@@ -724,7 +737,10 @@ export default function POSBillingPage() {
                   <input 
                     type="number" 
                     value={activeBill.discountType === "flat" ? activeBill.discountValue : ""}
-                    onChange={(e) => updateActiveBill({ discountType: "flat", discountValue: Number(sanitizeNumericInput(e.target.value)) })}
+                    onChange={(e) => {
+                      const val = sanitizeNumericInput(e.target.value);
+                      updateActiveBill({ discountType: "flat", discountValue: val === "" ? "" : Number(val) });
+                    }}
                     className="w-full border border-gray-200 rounded py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-indigo-500 font-bold" 
                   />
                 </div>
@@ -759,8 +775,11 @@ export default function POSBillingPage() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
                   <input 
                     type="number" 
-                    value={activeBill.additionalChargeValue || ""}
-                    onChange={(e) => updateActiveBill({ additionalChargeValue: Number(sanitizeNumericInput(e.target.value)) })}
+                    value={activeBill.additionalChargeValue}
+                    onChange={(e) => {
+                      const val = sanitizeNumericInput(e.target.value);
+                      updateActiveBill({ additionalChargeValue: val === "" ? "" : Number(val) });
+                    }}
                     className="w-full border border-yellow-300 bg-yellow-50/30 rounded py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 font-bold" 
                   />
                 </div>

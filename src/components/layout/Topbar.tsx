@@ -15,11 +15,15 @@ import {
   X,
   ChevronDown,
   Menu,
-  Indent
+  Indent,
+  Lock
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { useSession } from "@/context/SessionContext";
+import { useSession, SessionProfile } from "@/context/SessionContext";
 import { useChat } from "@/context/ChatContext";
+import { hashPin } from "@/lib/crypto";
+import { auth, db } from "@/lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
 
 export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: () => void, toggleMobileMenu?: () => void }) {
   const pathname = usePathname();
@@ -29,7 +33,138 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
-  const { activeProfile, subUsers, switchProfile } = useSession();
+  const { activeProfile, subUsers, switchProfile, adminPin, isSessionUnlocked, unlockSession } = useSession();
+
+  // Premium PIN Modal State
+  const [pendingProfile, setPendingProfile] = useState<SessionProfile | null>(null);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
+  const [pinSuccess, setPinSuccess] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [lockoutTimer, setLockoutTimer] = useState(0);
+
+  // Lockout Timer Effect
+  useEffect(() => {
+    let interval: any;
+    if (lockoutTimer > 0) {
+      interval = setInterval(() => setLockoutTimer(prev => prev - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [lockoutTimer]);
+
+  // Handle number pad input
+  const handlePinKey = (num: string) => {
+    if (pinInput.length < 4 && !lockoutTimer && !verifying) {
+      setPinInput(prev => prev + num);
+    }
+  };
+
+  const handleBackspace = () => {
+    if (!lockoutTimer && !verifying) setPinInput(prev => prev.slice(0, -1));
+  };
+
+  // Verify PIN Effect when length is 4
+  useEffect(() => {
+    if (pinInput.length === 4 && pendingProfile && !lockoutTimer) {
+      verifyPin();
+    }
+  }, [pinInput]);
+
+  const verifyPin = async () => {
+    setVerifying(true);
+    const hashedInput = await hashPin(pinInput);
+    
+    let isCorrect = false;
+    if (pendingProfile?.id === "admin") {
+       isCorrect = hashedInput === adminPin;
+    } else {
+       isCorrect = hashedInput === pendingProfile?.passcode;
+    }
+
+    if (isCorrect) {
+       setPinSuccess(true);
+       
+       // Log to Activity Tracker securely
+       try {
+           const user = auth.currentUser;
+           if (user) {
+              await addDoc(collection(db, "systemLogs"), {
+                 userId: user.uid,
+                 activity: "Session Switched",
+                 details: `${activeProfile.name} securely switched to ${pendingProfile?.name || 'Unknown'}`,
+                 performedBy: activeProfile.name,
+                 createdAt: new Date()
+              });
+           }
+       } catch (e) {}
+
+       // Reset attempts on success
+       localStorage.removeItem("pin_attempts");
+
+       setTimeout(() => {
+           if (pendingProfile) {
+               unlockSession(pendingProfile.id);
+               switchProfile(pendingProfile);
+               toast.success(`Welcome, ${pendingProfile.name}`);
+               setTimeout(() => { window.location.href = '/dashboard'; }, 800);
+           }
+           setPendingProfile(null);
+           setVerifying(false);
+           setPinInput("");
+           setPinSuccess(false);
+       }, 800); // Wait for success animation
+    } else {
+       setPinError(true);
+       
+       // Progressive Lockout logic
+       const attempts = parseInt(localStorage.getItem("pin_attempts") || "0") + 1;
+       localStorage.setItem("pin_attempts", attempts.toString());
+       
+       if (attempts >= 6) {
+           setLockoutTimer(300); // 5 mins
+           toast.error("Too many failed attempts. System locked for 5 minutes.");
+           localStorage.setItem("pin_attempts", "0"); 
+       } else if (attempts >= 3) {
+           setLockoutTimer(30); // 30 secs
+           toast.error("Too many failed attempts. Try again in 30 seconds.");
+       } else {
+           toast.error(`Incorrect PIN. ${3 - attempts} attempts left.`);
+       }
+
+       setTimeout(() => {
+          setPinInput("");
+          setPinError(false);
+          setVerifying(false);
+       }, 500); // Wait for shake animation
+    }
+  };
+
+  const handleProfileClick = (profile: SessionProfile) => {
+    setShowProfileDropdown(false);
+    
+    if (profile.id === activeProfile.id) return;
+    
+    // First-use Setup: If switching to Admin and no Admin PIN is set
+    if (profile.id === "admin" && !adminPin) {
+       toast.error("Admin Master PIN not configured. Please setup in Manage Users first.");
+       return;
+    }
+
+    // Strict Enforcement: If sub-user has no PIN
+    if (profile.id !== "admin" && !profile.passcode) {
+        toast.error(`Setup Required: Go to Manage Users to configure a PIN for ${profile.name} before switching.`);
+        return;
+    }
+
+    // Security: Always prompt for PIN, bypassing the 15-min cache 
+    // to ensure maximum security on every profile switch.
+    
+    // Mount Premium Modal
+    setPendingProfile(profile);
+    setPinInput("");
+    setPinError(false);
+    setPinSuccess(false);
+  };
 
   // Listen to keyboard shortcuts
   useEffect(() => {
@@ -143,7 +278,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
             <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
           </button>
           
-          <a 
+          {/* <a 
             href="https://mybillbook.featurebase.app/changelog" 
             target="_blank" 
             rel="noopener noreferrer"
@@ -151,7 +286,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
             title="Announcements"
           >
             <Megaphone size={20} strokeWidth={1.5} className="hover:text-indigo-600 transition-colors" />
-          </a>
+          </a> */}
 
           <Link 
             href="/dashboard/settings/refer-and-earn" 
@@ -188,11 +323,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
                   <div className="max-h-64 overflow-y-auto p-1.5 space-y-1">
                     {/* Admin Option */}
                     <button
-                      onClick={() => {
-                        switchProfile({ id: "admin", name: "Admin", role: "Admin", isAdmin: true });
-                        setShowProfileDropdown(false);
-                        toast.success("Switched to Admin");
-                      }}
+                      onClick={() => handleProfileClick({ id: "admin", name: "Admin", role: "Admin", isAdmin: true })}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${activeProfile.id === "admin" ? "bg-indigo-50" : "hover:bg-gray-50"}`}
                     >
                       <div className="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold">A</div>
@@ -206,11 +337,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
                     {subUsers.map(user => (
                       <button
                         key={user.id}
-                        onClick={() => {
-                          switchProfile(user);
-                          setShowProfileDropdown(false);
-                          toast.success(`Switched to ${user.name}`);
-                        }}
+                        onClick={() => handleProfileClick(user)}
                         className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${activeProfile.id === user.id ? "bg-indigo-50" : "hover:bg-gray-50"}`}
                       >
                         <div className="w-7 h-7 bg-amber-100 rounded-full flex items-center justify-center text-amber-700 text-xs font-bold">
@@ -246,9 +373,9 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
         </div>
 
         {/* Action Button */}
-        <button className="ml-2 border border-blue-100 text-blue-600 hover:bg-blue-50 px-4 py-1.5 rounded-md text-sm font-medium transition-colors">
+        {/* <button className="ml-2 border border-blue-100 text-blue-600 hover:bg-blue-50 px-4 py-1.5 rounded-md text-sm font-medium transition-colors">
           Book Demo
-        </button>
+        </button> */}
       </div>
 
       {/* PWA INSTALLATION MODAL EXACTLY AS REQUESTED */}
@@ -292,6 +419,107 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
       )}
 
       {showShortcuts && <ShortcutsPanel onClose={() => setShowShortcuts(false)} />}
+
+      {/* PREMIUM PASSCODE MODAL */}
+      {pendingProfile && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setPendingProfile(null)}></div>
+          
+          <div className={`relative w-full max-w-sm bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50 animate-in zoom-in-95 duration-200 ${pinError ? "animate-[shake_0.4s_ease-in-out]" : ""} ${pinSuccess ? "ring-4 ring-green-500/50" : ""}`}>
+            
+            {/* Modal Header/Profile Info */}
+            <div className="pt-8 pb-4 px-6 flex flex-col items-center justify-center relative">
+              <button 
+                onClick={() => setPendingProfile(null)}
+                className="absolute right-4 top-4 p-2 rounded-full text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                <X size={16} />
+              </button>
+              
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg mb-4 transition-transform duration-500 ${pinSuccess ? 'scale-110 bg-green-500 text-white' : pendingProfile.id === 'admin' ? 'bg-indigo-600 text-white' : 'bg-amber-500 text-white'}`}>
+                {pendingProfile.name.charAt(0).toUpperCase()}
+              </div>
+              
+              <h2 className="text-lg font-bold text-gray-800 tracking-tight">{pendingProfile.name}</h2>
+              <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full mt-1.5 uppercase tracking-widest">{pendingProfile.role}</span>
+              
+              <p className="text-xs text-gray-500 mt-4 font-medium">Enter 4-digit PIN to switch session</p>
+            </div>
+
+            {/* PIN Indicator Circles */}
+            <div className="flex justify-center items-center gap-4 py-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div 
+                  key={i} 
+                  className={`w-3.5 h-3.5 rounded-full transition-all duration-300 shadow-inner
+                    ${pinSuccess ? "bg-green-500 scale-110" : 
+                      pinError ? "bg-red-500" : 
+                      i < pinInput.length ? "bg-indigo-600 scale-110 shadow-indigo-600/50" : "bg-gray-200"
+                    }
+                  `}
+                />
+              ))}
+            </div>
+
+            {/* Lockout Timer Overlay */}
+            {lockoutTimer > 0 && (
+              <div className="absolute inset-x-0 bottom-0 h-64 bg-white/95 backdrop-blur-md flex flex-col items-center justify-center z-10 p-6 text-center border-t border-gray-100">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center text-red-500 mb-4 animate-pulse">
+                  <Lock size={24} />
+                </div>
+                <h3 className="text-sm font-bold text-gray-800 mb-1">Session Locked</h3>
+                <p className="text-xs text-gray-500 font-medium">Too many incorrect attempts.</p>
+                <div className="text-2xl font-black text-red-600 mt-4 tabular-nums">
+                  {Math.floor(lockoutTimer / 60)}:{(lockoutTimer % 60).toString().padStart(2, '0')}
+                </div>
+              </div>
+            )}
+
+            {/* Numeric Keypad */}
+            <div className="px-8 pb-8 pt-4">
+              <div className="grid grid-cols-3 gap-3">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => handlePinKey(num.toString())}
+                    disabled={lockoutTimer > 0 || verifying}
+                    className="h-14 rounded-2xl bg-gray-50/50 hover:bg-gray-100/80 active:bg-indigo-100 text-xl font-medium text-gray-800 flex items-center justify-center transition-colors border border-gray-100/50 hover:border-gray-200 disabled:opacity-50"
+                  >
+                    {num}
+                  </button>
+                ))}
+                <div className="col-start-2">
+                  <button
+                    onClick={() => handlePinKey("0")}
+                    disabled={lockoutTimer > 0 || verifying}
+                    className="w-full h-14 rounded-2xl bg-gray-50/50 hover:bg-gray-100/80 active:bg-indigo-100 text-xl font-medium text-gray-800 flex items-center justify-center transition-colors border border-gray-100/50 hover:border-gray-200 disabled:opacity-50"
+                  >
+                    0
+                  </button>
+                </div>
+                <div className="col-start-3">
+                  <button
+                    onClick={handleBackspace}
+                    disabled={lockoutTimer > 0 || verifying || pinInput.length === 0}
+                    className="w-full h-14 rounded-2xl text-gray-500 hover:text-gray-800 hover:bg-gray-100/80 active:bg-gray-200 flex items-center justify-center transition-colors disabled:opacity-30"
+                  >
+                    <X size={20} strokeWidth={2.5} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <style dangerouslySetInnerHTML={{__html: `
+            @keyframes shake {
+              0%, 100% { transform: translateX(0); }
+              20%, 60% { transform: translateX(-10px); }
+              40%, 80% { transform: translateX(10px); }
+            }
+          `}} />
+        </div>
+      )}
     </header>
   );
 }

@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { Search, ChevronDown, Plus, FileText, Pencil, Trash2, Eye, MoreVertical, Calendar, Filter, Download } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, deleteDoc, doc, orderBy, updateDoc } from "firebase/firestore";
+import { collection, getDocs, getDocsFromCache, query, where, deleteDoc, doc, orderBy, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { syncInventory } from "@/lib/inventorySync";
+import TrialExpiredModal from "@/components/ui/TrialExpiredModal";
 
 type InvoiceItem = {
   name: string;
@@ -43,6 +44,7 @@ export default function SalesInvoicesPage() {
   const [typeFilter, setTypeFilter] = useState<"all" | "invoice" | "estimate">("all");
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   const [showReportsDropdown, setShowReportsDropdown] = useState(false);
+  const [showTrialModal, setShowTrialModal] = useState(false);
 
   const fetchInvoicesList = async (userId: string) => {
     try {
@@ -56,7 +58,12 @@ export default function SalesInvoicesPage() {
           where("userId", "==", userId),
           orderBy("createdAt", "desc")
         );
-        const snapshot = await getDocs(q);
+        let snapshot;
+        if (!navigator.onLine) {
+          snapshot = await getDocsFromCache(q);
+        } else {
+          snapshot = await getDocs(q);
+        }
         onlineData = snapshot.docs.map((docSnap) => {
           const d = docSnap.data();
           return {
@@ -68,7 +75,7 @@ export default function SalesInvoicesPage() {
             invoiceType: d.invoiceType || "invoice",
             date: d.date || (d.createdAt ? new Date(d.createdAt.toDate ? d.createdAt.toDate() : d.createdAt).toISOString().split("T")[0] : ""),
             dueDate: d.dueDate || "",
-            isOffline: false,
+            isOffline: docSnap.metadata.hasPendingWrites, // TRUE if it's an unsynced local draft!
             amountReceived: typeof d.amountReceived === "number" ? d.amountReceived : undefined,
             items: d.items || [],
           };
@@ -357,7 +364,14 @@ export default function SalesInvoicesPage() {
           </div>
 
           {/* Right Create Button */}
-          <div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowTrialModal(true)}
+              className="bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 text-xs px-3 py-1.5 rounded font-semibold transition-colors flex items-center shadow-sm"
+              title="Test Trial Expiry"
+            >
+              Test Expiry
+            </button>
             <Link href="/dashboard/invoices/create" className="bg-indigo-600 text-white hover:bg-indigo-700 text-xs px-4 py-1.5 rounded font-semibold transition-colors flex items-center gap-1 shadow-sm">
               <Plus size={13} />
               <span>Create Sales Invoice</span>
@@ -515,6 +529,7 @@ export default function SalesInvoicesPage() {
 
       </div>
 
+      <TrialExpiredModal isOpen={showTrialModal} onClose={() => setShowTrialModal(false)} />
     </div>
   );
 }

@@ -133,7 +133,7 @@ export default function GenerateEWayBill() {
     <div className="flex-1 bg-gray-50 min-h-screen font-sans pb-12">
       
       {/* HEADER */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm ">
         <div className="flex items-center gap-3">
           <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-700">
             <ArrowLeft size={18} />

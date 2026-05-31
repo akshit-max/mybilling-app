@@ -185,7 +185,7 @@ export default function CreatePartyPage() {
     <div className="min-h-screen bg-gray-50/50 pb-16 font-sans">
       
       {/* Top sticky navigation bar */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 z-10 px-6 py-3 flex items-center justify-between shadow-sm">
+      <div className=" bg-white border-b border-gray-200 z-10 px-6 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/customers" className="p-1 hover:bg-gray-100 rounded-md text-gray-500 hover:text-gray-800 transition-colors">
             <ArrowLeft size={16} />

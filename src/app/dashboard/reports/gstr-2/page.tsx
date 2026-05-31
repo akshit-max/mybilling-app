@@ -232,7 +232,7 @@ export default function GSTR2ReportPage() {
   return (
     <div id="print-area" className="min-h-screen bg-gray-50 flex flex-col font-sans pb-20 print:block print:min-h-0 print:bg-white">
       {/* HEADER SECTION */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20 shadow-sm print:hidden">
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm print:hidden">
         <div className="flex items-center gap-4">
           <Link href="/dashboard/reports" className="text-gray-400 hover:text-gray-700 transition-colors">
             <ArrowLeft size={20} />

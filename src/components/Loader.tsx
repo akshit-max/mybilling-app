@@ -2,10 +2,17 @@
 export default function Loader({ size = 40 }: { size?: number }) {
   return (
     <div className="flex items-center justify-center">
-      <div
-        style={{ width: size, height: size }}
-        className="border-4 border-white/20 border-t-purple-500 rounded-full animate-spin"
-      />
+      <svg 
+        className="animate-spin text-indigo-600" 
+        width={size} 
+        height={size} 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2.5"
+      >
+        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+      </svg>
     </div>
   );
 }

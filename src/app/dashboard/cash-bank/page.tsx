@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, ArrowRightLeft, Download, Building2, Calendar, FileText, ChevronDown, Landmark, Trash2, Pencil, Search, Share2, Printer } from "lucide-react";
+import { Plus, ArrowRightLeft, Download, Building2, Calendar, FileText, ChevronDown, Landmark, Trash2, Pencil, Search, Share2, Printer, Wallet } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc, deleteDoc, orderBy } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -461,9 +461,6 @@ export default function CashAndBankPage() {
   return (
     <div className="min-h-screen bg-[#f4f5f7] flex flex-col font-sans">
       <style jsx global>{`
-        @media screen {
-          .print-only-container { display: none !important; }
-        }
         @media print {
           body * { visibility: hidden !important; }
           .print-only-container, .print-only-container * { visibility: visible !important; }
@@ -477,7 +474,7 @@ export default function CashAndBankPage() {
         }
       `}</style>
       {/* HEADER SECTION */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10 shadow-sm">
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
         <h1 className="text-lg font-bold text-gray-800">Cash and Bank</h1>
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => setShowAdjust(true)} className="flex items-center gap-1.5 text-xs text-gray-700 bg-white border border-gray-200 px-3 py-1.5 rounded hover:bg-gray-50 font-semibold shadow-sm transition-colors">
@@ -624,13 +621,27 @@ export default function CashAndBankPage() {
           {loading ? (
             <div className="flex-1 flex items-center justify-center p-12 min-h-[400px] text-gray-400 font-semibold">Loading...</div>
           ) : filteredTxns.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 min-h-[400px]">
-              <div className="w-24 h-24 mb-4 relative flex items-center justify-center">
-                <div className="absolute inset-0 bg-blue-50 rounded-full opacity-50"></div>
-                <FileText size={48} className="text-slate-300 relative z-10 stroke-[1.5]" />
+            <div className="flex-1 flex flex-col items-center justify-center p-12 min-h-[400px] bg-gradient-to-b from-white to-gray-50/50">
+              <div className="relative mb-6">
+                {/* Decorative background rings */}
+                <div className="absolute inset-0 bg-indigo-50 rounded-full animate-ping opacity-20 scale-150"></div>
+                <div className="w-24 h-24 bg-gradient-to-tr from-indigo-50 to-purple-50 rounded-full border border-indigo-100 flex items-center justify-center relative shadow-sm">
+                  <Wallet size={36} className="text-indigo-400" />
+                  {/* Floating mini icon */}
+                  <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-white rounded-full border border-gray-100 shadow-md flex items-center justify-center">
+                    <FileText size={18} className="text-gray-400" />
+                  </div>
+                </div>
               </div>
-              <h3 className="text-base font-bold text-gray-800 mb-1">No Transactions</h3>
-              <p className="text-xs text-gray-400 font-medium text-center">You don't have any transaction in selected period</p>
+              <h3 className="text-xl font-extrabold text-gray-800 mb-2 tracking-tight">No Transactions Yet</h3>
+              <p className="text-sm text-gray-500 font-medium text-center max-w-sm mb-6">
+                You don't have any transactions in this account for the selected period. Add money or transfer funds to get started.
+              </p>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setShowAdjust(true)} className="px-5 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg transition-colors">
+                  + Add Money
+                </button>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto print-only-container">
