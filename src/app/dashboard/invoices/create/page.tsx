@@ -541,6 +541,16 @@ export default function CreateSalesInvoice() {
     try {
       setSaving(true);
 
+      let isOfflineMode = !navigator.onLine;
+      if (!isOfflineMode) {
+        try {
+          const test = await fetch("/favicon.ico?cache=" + new Date().getTime(), { method: "HEAD", cache: "no-store" });
+          if (!test.ok) isOfflineMode = true;
+        } catch {
+          isOfflineMode = true;
+        }
+      }
+
       // --- ONLINE AND OFFLINE SAVING (NATIVE FIREBASE) ---
       const rawTotal = calc.total + Number(additionalChargeValue || 0);
       const roundedTotal = Math.round(rawTotal);
@@ -586,6 +596,36 @@ export default function CreateSalesInvoice() {
         createdBy: activeProfile.name
       };
 
+      if (isOfflineMode) {
+        // --- OFFLINE WORKSPACE SAVING ---
+        const { saveOfflineInvoice } = await import("@/lib/offlineInvoices");
+        const { getCachedProducts, cacheProducts } = await import("@/lib/indexedDB");
+
+        // Deduct stocks from cache if it's a tax invoice
+        if (invoiceType === "invoice") {
+          const cachedProducts = await getCachedProducts();
+          for (const item of validItems) {
+            if (item.productId) {
+              const idx = cachedProducts.findIndex(p => p.id === item.productId);
+              if (idx > -1) {
+                const stock = cachedProducts[idx].stock || 0;
+                if (item.qty > stock) {
+                  return toast.error(`Insufficient local stock for ${item.name}`);
+                }
+                cachedProducts[idx].stock = stock - item.qty;
+              }
+            }
+          }
+          await cacheProducts(cachedProducts);
+        }
+
+        await saveOfflineInvoice(invoiceData as any);
+        toast.success("Sales Invoice saved offline draft ✅");
+        router.push("/dashboard/invoices");
+        return;
+      }
+
+      // --- ONLINE SAVING ---
       if (invoiceType === "invoice") {
         // Handle Stock deduction safely offline without blocking getDoc calls
         for (const item of validItems) {
@@ -597,7 +637,7 @@ export default function CreateSalesInvoice() {
       }
 
       const invRef = await addDoc(collection(db, "invoices"), invoiceData);
-      
+
       // Update Cash & Bank Balance
       const amountRec = Number(amountReceived);
       if (amountRec > 0 && invoiceType === "invoice") {
@@ -612,7 +652,7 @@ export default function CreateSalesInvoice() {
            const b = bankAccounts.find(x => x.id === paymentMode);
            newBalance = (b ? Number(b.balance || 0) : 0) + amountRec;
         }
-        
+
         await addDoc(collection(db, "cashBankTransactions"), {
           userId: user.uid,
           accountId: isCash ? "cash" : paymentMode,

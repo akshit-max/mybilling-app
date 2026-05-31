@@ -273,6 +273,16 @@ export default function POSBillingPage() {
 
     setSaving(true);
     try {
+      let isOfflineMode = !navigator.onLine;
+      if (!isOfflineMode) {
+        try {
+          const test = await fetch("/favicon.ico?cache=" + new Date().getTime(), { method: "HEAD", cache: "no-store" });
+          if (!test.ok) isOfflineMode = true;
+        } catch {
+          isOfflineMode = true;
+        }
+      }
+
       const invoiceNumber = "POS-" + Math.floor(100000 + Math.random() * 900000);
       const invoiceDate = new Date().toISOString().split('T')[0];
       const customer = activeBill.customerName.trim() ? activeBill.customerName : "Cash Sale";
@@ -306,52 +316,76 @@ export default function POSBillingPage() {
         createdAt: new Date()
       };
 
-      // Handle Stock deduction (offline safe using increment)
-      for (const item of activeBill.items) {
+      if (isOfflineMode) {
+        // --- OFFLINE WORKSPACE SAVING ---
+        const { saveOfflineInvoice } = await import("@/lib/offlineInvoices");
+        const { getCachedProducts, cacheProducts } = await import("@/lib/indexedDB");
+
+        const cachedProducts = await getCachedProducts();
+        for (const item of activeBill.items) {
           if (item.productId) {
-            const ref = doc(db, "products", item.productId);
-            const qtyNum = Number(item.qty) || 0;
-            if (qtyNum > 0) {
-              await updateDoc(ref, { stock: increment(-qtyNum) }).catch(() => {});
-            }
+             const idx = cachedProducts.findIndex(p => p.id === item.productId);
+             if (idx > -1) {
+                const stock = cachedProducts[idx].stock || 0;
+                const qtyNum = Number(item.qty) || 0;
+                cachedProducts[idx].stock = stock - qtyNum;
+             }
           }
-      }
+        }
+        await cacheProducts(cachedProducts);
 
-      // Save Invoice
-      await addDoc(collection(db, "invoices"), invoiceData);
+        await saveOfflineInvoice(invoiceData as any);
+        toast.success("POS Bill saved offline draft ✅");
 
-      // Ledger sync (offline safe using increment)
-      if (amtReceivedNum > 0) {
-        const isCash = activeBill.paymentMode === "Cash";
-        let newBalance = amtReceivedNum;
-        if (isCash) {
-           const sRef = doc(db, "settings", user.uid);
-           await updateDoc(sRef, { cashInHand: increment(amtReceivedNum) }).catch(() => {});
-           // For offline transactions, balanceAfter is approximate without a blocking fetch
-        } else {
-           const bRef = doc(db, "bankAccounts", activeBill.paymentMode);
-           await updateDoc(bRef, { balance: increment(amtReceivedNum) }).catch(() => {});
-           const b = bankAccounts.find(x => x.id === activeBill.paymentMode);
-           newBalance = (b ? Number(b.balance || 0) : 0) + amtReceivedNum;
+      } else {
+        // --- ONLINE SAVING ---
+        // Handle Stock deduction (offline safe using increment)
+        for (const item of activeBill.items) {
+            if (item.productId) {
+              const ref = doc(db, "products", item.productId);
+              const qtyNum = Number(item.qty) || 0;
+              if (qtyNum > 0) {
+                await updateDoc(ref, { stock: increment(-qtyNum) }).catch(() => {});
+              }
+            }
         }
 
-        await addDoc(collection(db, "cashBankTransactions"), {
-          userId: user.uid,
-          accountId: isCash ? "cash" : activeBill.paymentMode,
-          type: "Sales Invoice",
-          txnNo: invoiceNumber,
-          date: invoiceDate,
-          party: customer,
-          mode: isCash ? "Cash" : "Bank",
-          paid: 0,
-          received: amtReceivedNum,
-          balanceAfter: newBalance,
-          remarks: `Received against POS Bill #${invoiceNumber}`,
-          createdAt: new Date()
-        });
-      }
+        // Save Invoice
+        await addDoc(collection(db, "invoices"), invoiceData);
 
-      toast.success("Bill Saved Successfully");
+        // Ledger sync (offline safe using increment)
+        if (amtReceivedNum > 0) {
+          const isCash = activeBill.paymentMode === "Cash";
+          let newBalance = amtReceivedNum;
+          if (isCash) {
+             const sRef = doc(db, "settings", user.uid);
+             await updateDoc(sRef, { cashInHand: increment(amtReceivedNum) }).catch(() => {});
+             // For offline transactions, balanceAfter is approximate without a blocking fetch
+          } else {
+             const bRef = doc(db, "bankAccounts", activeBill.paymentMode);
+             await updateDoc(bRef, { balance: increment(amtReceivedNum) }).catch(() => {});
+             const b = bankAccounts.find(x => x.id === activeBill.paymentMode);
+             newBalance = (b ? Number(b.balance || 0) : 0) + amtReceivedNum;
+          }
+
+          await addDoc(collection(db, "cashBankTransactions"), {
+            userId: user.uid,
+            accountId: isCash ? "cash" : activeBill.paymentMode,
+            type: "Sales Invoice",
+            txnNo: invoiceNumber,
+            date: invoiceDate,
+            party: customer,
+            mode: isCash ? "Cash" : "Bank",
+            paid: 0,
+            received: amtReceivedNum,
+            balanceAfter: newBalance,
+            remarks: `Received against POS Bill #${invoiceNumber}`,
+            createdAt: new Date()
+          });
+        }
+
+        toast.success("Bill Saved Successfully");
+      }
 
       if (shouldPrint) {
         setPrintData({
