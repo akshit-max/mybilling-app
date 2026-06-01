@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { useSession } from "@/context/SessionContext";
 
 type SubItem = {
@@ -58,6 +58,8 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
   const [businessName, setBusinessName] = useState("Loading...");
   const [phone, setPhone] = useState("...");
   const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
+  const [isPaid, setIsPaid] = useState(false);
+  const [planName, setPlanName] = useState("");
 
   const { activeProfile } = useSession();
   const role = activeProfile.role;
@@ -73,10 +75,12 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
   };
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
+    let unsubSettings: () => void;
+    let unsubUsers: () => void;
+
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
-        try {
-          const snap = await getDoc(doc(db, "settings", user.uid));
+        unsubSettings = onSnapshot(doc(db, "settings", user.uid), (snap) => {
           if (snap.exists()) {
             setBusinessName(snap.data().businessName || "self");
             setPhone(snap.data().phone || "...");
@@ -84,16 +88,30 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
             setBusinessName("self");
             setPhone("...");
           }
-        } catch (err) {
-          console.error(err);
-          setBusinessName("self");
-        }
+        });
+
+        unsubUsers = onSnapshot(doc(db, "users", user.uid), (snap) => {
+          if (snap.exists()) {
+            setIsPaid(snap.data().isPaid || false);
+            setPlanName(snap.data().plan || "Free");
+          } else {
+            setIsPaid(false);
+            setPlanName("Free");
+          }
+        });
       } else {
         setBusinessName("self");
         setPhone("...");
+        setIsPaid(false);
+        setPlanName("Free");
       }
     });
-    return () => unsub();
+
+    return () => {
+      unsubAuth();
+      if (unsubSettings) unsubSettings();
+      if (unsubUsers) unsubUsers();
+    };
   }, []);
 
   const toggleMenu = (name: string) => {
@@ -230,19 +248,45 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
           </button>
         </div>
 
-        {!collapsed && (
-          <Link 
-            href="/dashboard/settings/pricing"
-            className="w-full bg-gradient-to-r from-amber-500/20 via-amber-400/20 to-amber-500/5 border border-amber-500/40 text-amber-400 flex items-center justify-between px-3.5 py-2.5 rounded-full font-bold hover:from-amber-500/30 hover:to-amber-500/10 transition-all text-xs shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.25)] relative overflow-hidden group block"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out" />
-            <div className="flex items-center gap-2 relative z-10">
-              <Crown size={15} className="text-amber-400 shrink-0 drop-shadow-md" />
-              <span className="font-bold tracking-wide uppercase text-[11px] text-amber-300">Premium Plans</span>
-            </div>
-            <span className="bg-[#ef4444] text-white text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider shadow-sm relative z-10 border border-red-500/50">Upgrade</span>
-          </Link>
-        )}
+        {(() => {
+          let planColors = "from-amber-500/20 via-amber-400/20 to-amber-500/5 border-amber-500/40 hover:from-amber-500/30 hover:to-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.25)]";
+          let iconColor = "text-amber-400";
+          let textColor = "text-amber-300";
+
+          if (isPaid) {
+            if (planName === "Diamond") {
+              planColors = "from-orange-500/20 via-orange-400/20 to-orange-500/5 border-orange-500/40 hover:from-orange-500/30 hover:to-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.15)] hover:shadow-[0_0_20px_rgba(249,115,22,0.25)]";
+              iconColor = "text-orange-400";
+              textColor = "text-orange-300";
+            } else if (planName === "Platinum") {
+              planColors = "from-indigo-500/20 via-indigo-400/20 to-indigo-500/5 border-indigo-500/40 hover:from-indigo-500/30 hover:to-indigo-500/10 shadow-[0_0_15px_rgba(99,102,241,0.15)] hover:shadow-[0_0_20px_rgba(99,102,241,0.25)]";
+              iconColor = "text-indigo-400";
+              textColor = "text-indigo-300";
+            } else if (planName === "Enterprise") {
+              planColors = "from-emerald-500/20 via-emerald-400/20 to-emerald-500/5 border-emerald-500/40 hover:from-emerald-500/30 hover:to-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.15)] hover:shadow-[0_0_20px_rgba(16,185,129,0.25)]";
+              iconColor = "text-emerald-400";
+              textColor = "text-emerald-300";
+            } else {
+              planColors = "from-emerald-500/20 via-emerald-400/20 to-emerald-500/5 border-emerald-500/40 hover:from-emerald-500/30 hover:to-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.15)] hover:shadow-[0_0_20px_rgba(16,185,129,0.25)]";
+              iconColor = "text-emerald-400";
+              textColor = "text-emerald-300";
+            }
+          }
+
+          return !collapsed && (
+            <Link 
+              href="/dashboard/settings/pricing"
+              className={`w-full bg-gradient-to-r ${planColors} border flex items-center justify-between px-3.5 py-2.5 rounded-full font-bold transition-all text-xs relative overflow-hidden group block`}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out" />
+              <div className="flex items-center gap-2 relative z-10">
+                <Crown size={15} className={`${iconColor} shrink-0 drop-shadow-md`} />
+                <span className={`font-bold tracking-wide uppercase text-[11px] ${textColor}`}>{isPaid ? `${planName} Plan` : "Premium Plans"}</span>
+              </div>
+              {!isPaid && <span className="bg-[#ef4444] text-white text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider shadow-sm relative z-10 border border-red-500/50">Upgrade</span>}
+            </Link>
+          );
+        })()}
       </div>
 
       {/* Navigation Links */}

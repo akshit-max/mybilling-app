@@ -12,12 +12,14 @@ import {
   Clock,
   AlertCircle,
   Plus,
-  Minus
+  Minus,
+  Crown
 } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, orderBy, limit, Timestamp, doc, getDoc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, limit, Timestamp, doc, getDoc, updateDoc, onSnapshot } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import TrialExpiredModal from "@/components/ui/TrialExpiredModal";
 import OfferModal from "@/components/ui/OfferModal";
@@ -34,6 +36,7 @@ type Invoice = {
 };
 
 export default function Dashboard() {
+  const router = useRouter();
   const [recentTransactions, setRecentTransactions] = useState<Invoice[]>([]);
   const [allInvoicesCache, setAllInvoicesCache] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,8 +45,10 @@ export default function Dashboard() {
   const [graphMode, setGraphMode] = useState<"daily" | "weekly">("daily");
   const [showGraphDropdown, setShowGraphDropdown] = useState(false);
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
+  const [subDaysLeft, setSubDaysLeft] = useState<number | null>(null);
   const [showTestExpiredModal, setShowTestExpiredModal] = useState(false);
   const [showTestOfferModal, setShowTestOfferModal] = useState(false);
+  const [isPaid, setIsPaid] = useState(false);
 
   // Chart aggregation states
   const [chartPoints, setChartPoints] = useState<{ x: number; y: number; label: string; value: number }[]>([]);
@@ -229,23 +234,51 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubSnapshot: () => void;
+    
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         try {
           const userDocRef = doc(db, "users", user.uid);
-          const userDoc = await getDoc(userDocRef);
-          
-          let startDate = new Date();
-          if (userDoc.exists() && userDoc.data().trialStartDate) {
-            startDate = new Date(userDoc.data().trialStartDate);
-          } else if (user.metadata.creationTime) {
-            startDate = new Date(user.metadata.creationTime);
-          }
-          
-          const now = new Date();
-          const diffDays = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-          const left = 7 - diffDays;
-          setTrialDaysLeft(left);
+          unsubSnapshot = onSnapshot(userDocRef, (userDoc) => {
+            if (userDoc.exists()) {
+              const data = userDoc.data();
+              if (data.isPaid) {
+                setIsPaid(true);
+                setTrialDaysLeft(null);
+                
+                if (data.subscriptionStartDate) {
+                   const start = new Date(data.subscriptionStartDate);
+                   const now = new Date();
+                   const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                   let duration = 30;
+                   if (data.subscriptionCycle === "Yearly") duration = 365;
+                   else if (data.plan === "Platinum" && data.subscriptionCycle === "Monthly") duration = 31;
+                   setSubDaysLeft(Math.max(0, duration - diffDays));
+                } else {
+                   setSubDaysLeft(30);
+                }
+              } else {
+                setIsPaid(false);
+                setSubDaysLeft(null);
+                let startDate = new Date();
+                if (data.trialStartDate) {
+                  startDate = new Date(data.trialStartDate);
+                } else if (user.metadata.creationTime) {
+                  startDate = new Date(user.metadata.creationTime);
+                }
+                const now = new Date();
+                const diffDays = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                setTrialDaysLeft(3 - diffDays);
+              }
+            } else {
+              setIsPaid(false);
+              let startDate = new Date(user.metadata.creationTime || Date.now());
+              const now = new Date();
+              const diffDays = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+              setTrialDaysLeft(3 - diffDays);
+            }
+          });
         } catch (e) {
           console.error(e);
         }
@@ -255,7 +288,11 @@ export default function Dashboard() {
         setLoading(false);
       }
     });
-    return () => unsubscribe();
+    
+    return () => {
+      unsubscribe();
+      if (unsubSnapshot) unsubSnapshot();
+    };
   }, []);
 
   // Switch chart points when graph mode changes
@@ -278,24 +315,45 @@ export default function Dashboard() {
   };
 
   const adjustTrialDays = async (daysToAdd: number) => {
-    if (!auth.currentUser || trialDaysLeft === null) return;
+    if (!auth.currentUser) return;
     try {
-      const newDaysLeft = trialDaysLeft + daysToAdd;
-      const now = new Date();
-      // To have `newDaysLeft` days remaining in a 7-day trial:
-      // (now - trialStartDate) = 7 - newDaysLeft
-      // trialStartDate = now - (7 - newDaysLeft) days
-      const daysElapsed = 7 - newDaysLeft;
-      const newStartDate = new Date(now.getTime() - (daysElapsed * 24 * 60 * 60 * 1000));
+      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+      if (!userDoc.exists()) return;
+      
+      let currentStart = userDoc.data().trialStartDate 
+         ? new Date(userDoc.data().trialStartDate) 
+         : new Date(auth.currentUser.metadata.creationTime || Date.now());
+         
+      currentStart.setDate(currentStart.getDate() + daysToAdd);
       
       await updateDoc(doc(db, "users", auth.currentUser.uid), {
-        trialStartDate: newStartDate.toISOString()
+        trialStartDate: currentStart.toISOString()
       });
-      setTrialDaysLeft(newDaysLeft);
-      toast.success(`Trial timeline shifted to ${newDaysLeft} days left`);
+      toast.success(`Trial timeline shifted by ${daysToAdd} days`);
     } catch (e) {
       console.error(e);
       toast.error("Failed to update timeline");
+    }
+  };
+
+  const adjustPremiumDays = async (daysToAdd: number) => {
+    if (!auth.currentUser) return;
+    try {
+      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+      if (!userDoc.exists()) return;
+      const data = userDoc.data();
+      if (!data.subscriptionStartDate) return;
+      
+      let currentStart = new Date(data.subscriptionStartDate);
+      currentStart.setDate(currentStart.getDate() + daysToAdd);
+      
+      await updateDoc(doc(db, "users", auth.currentUser.uid), {
+        subscriptionStartDate: currentStart.toISOString()
+      });
+      toast.success(`Premium timeline shifted by ${daysToAdd} days`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to shift premium timeline");
     }
   };
 
@@ -339,6 +397,49 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10 font-sans px-2">
       
+      {/* DEV CONTROLS FOR PAID USERS */}
+      {isPaid && (
+        <div className="bg-[#141725] text-white border border-gray-800 rounded-xl p-3 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+            <AlertCircle size={14} /> Dev Mode
+          </div>
+          <button 
+            onClick={async () => {
+              if (!auth.currentUser) return;
+              try {
+                await updateDoc(doc(db, "users", auth.currentUser.uid), { isPaid: false, plan: "Free" });
+                toast.success("Reverted to Free Plan!");
+              } catch (e) {
+                toast.error("Failed to revert");
+              }
+            }}
+            className="px-3 py-1.5 text-[10px] uppercase tracking-wider bg-gray-800 hover:bg-gray-700 rounded font-bold text-gray-300 transition-colors border border-gray-700"
+          >
+            Revert to Free Plan (Test Popups)
+          </button>
+        </div>
+      )}
+
+      {/* 0. PREMIUM TIMELINE BANNER (FOR PAID USERS) */}
+      {isPaid && subDaysLeft !== null && (
+        <div className="bg-gradient-to-r from-emerald-500/10 via-emerald-400/5 to-emerald-500/10 border border-emerald-200/50 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm mb-6">
+          <div className="flex items-center gap-3">
+             <div className="bg-emerald-100 p-2 rounded-full text-emerald-600">
+               <Crown size={20} />
+             </div>
+              <div>
+               <h3 className="font-bold text-emerald-900 text-sm">
+                 Premium Subscription Active
+               </h3>
+               <p className="text-xs text-emerald-700 font-medium">You have <span className="font-extrabold text-emerald-800">{subDaysLeft} days</span> remaining on your current plan.</p>
+             </div>
+          </div>
+          <button onClick={() => router.push('/dashboard/settings/pricing')} className="px-4 py-1.5 text-xs bg-white text-emerald-700 border border-emerald-200 rounded font-bold hover:bg-emerald-50 shadow-sm transition-colors whitespace-nowrap">
+             Manage Plan
+          </button>
+        </div>
+      )}
+
       {/* 0. TRIAL BANNER & TEST CONTROLS */}
       {trialDaysLeft !== null && (
         <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-200 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
@@ -351,26 +452,16 @@ export default function Dashboard() {
                 <h3 className="font-bold text-amber-900 text-sm">
                   {trialDaysLeft > 0 ? `Your Free Trial ends in ${trialDaysLeft} days!` : "Your Free Trial has expired!"}
                 </h3>
-                {/* DEMO CONTROLS */}
-                <div className="flex items-center bg-white rounded-full border border-amber-200 shadow-sm overflow-hidden ml-2">
-                  <button onClick={() => adjustTrialDays(-1)} className="px-1.5 hover:bg-gray-100 text-amber-700 transition" title="Decrease Days Left">
-                    <Minus size={12} />
-                  </button>
-                  <span className="text-[10px] font-bold text-amber-800 px-1 border-x border-amber-100">Timeline Ctrl</span>
-                  <button onClick={() => adjustTrialDays(1)} className="px-1.5 hover:bg-gray-100 text-amber-700 transition" title="Increase Days Left">
-                    <Plus size={12} />
-                  </button>
-                </div>
               </div>
               <p className="text-xs text-amber-700">Upgrade to a premium plan to continue enjoying all benefits.</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
              <button onClick={() => setShowTestExpiredModal(true)} className="px-3 py-1.5 text-[10px] uppercase tracking-wider bg-white border border-gray-300 rounded font-bold hover:bg-gray-50 text-gray-700">
-               Test Expiry Pop
+               Test Regular Expiry
              </button>
              <button onClick={() => setShowTestOfferModal(true)} className="px-3 py-1.5 text-[10px] uppercase tracking-wider bg-white border border-gray-300 rounded font-bold hover:bg-gray-50 text-gray-700">
-               Test Offer Pop
+               Test ₹2 Offer Pop
              </button>
              <Link href="/dashboard/settings/pricing" className="px-4 py-1.5 text-xs bg-amber-500 text-white rounded font-bold hover:bg-amber-600 shadow-sm ml-2">
                Upgrade Now

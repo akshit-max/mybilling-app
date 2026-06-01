@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import toast from "react-hot-toast";
 
 import SettingsSidebar from "../SettingsSidebar";
@@ -33,9 +33,13 @@ export default function AccountSettingsPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [referralCode, setReferralCode] = useState("");
+  const [isPaid, setIsPaid] = useState(false);
+  const [planName, setPlanName] = useState("Trial Plan");
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
+    let unsubUsers: () => void;
+    
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
           const snap = await getDoc(doc(db, "settings", user.uid));
@@ -46,6 +50,17 @@ export default function AccountSettingsPage() {
             if (data.email) setEmail(data.email);
             if (data.referralCode) setReferralCode(data.referralCode);
           }
+
+          unsubUsers = onSnapshot(doc(db, "users", user.uid), (snap) => {
+            if (snap.exists()) {
+              const data = snap.data();
+              setIsPaid(data.isPaid || false);
+              setPlanName(data.plan || "Trial Plan");
+            } else {
+              setIsPaid(false);
+              setPlanName("Trial Plan");
+            }
+          });
         } catch (err) {
           console.error("Error loading account settings:", err);
         } finally {
@@ -55,7 +70,11 @@ export default function AccountSettingsPage() {
         setLoading(false);
       }
     });
-    return () => unsub();
+    
+    return () => {
+      unsubAuth();
+      if (unsubUsers) unsubUsers();
+    };
   }, []);
 
   const triggerChange = (setter: any, value: any) => {
@@ -233,14 +252,18 @@ export default function AccountSettingsPage() {
 
               {/* Current Plan */}
               <div className="flex flex-col gap-4 max-w-xs w-full">
-                <div className="bg-gray-50 border border-gray-150 p-4 rounded-lg">
-                  <p className="text-[9px] text-gray-400 uppercase tracking-wider font-bold">CURRENT PLAN</p>
-                  <p className="text-3xl font-extrabold text-gray-800 mt-1">Trial Plan</p>
+                <div className={`border p-4 rounded-lg ${isPaid ? "bg-emerald-50 border-emerald-200" : "bg-gray-50 border-gray-150"}`}>
+                  <p className={`text-[9px] uppercase tracking-wider font-bold ${isPaid ? "text-emerald-600" : "text-gray-400"}`}>CURRENT PLAN</p>
+                  <p className={`text-3xl font-extrabold mt-1 capitalize ${isPaid ? "text-emerald-800" : "text-gray-800"}`}>
+                    {isPaid ? `${planName} Plan` : "Trial Plan"}
+                  </p>
                 </div>
                 
-                <button className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-2.5 rounded-lg text-xs uppercase tracking-wider transition-all shadow-xs text-center">
-                  Buy Premium Subscription
-                </button>
+                {!isPaid && (
+                  <button className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-2.5 rounded-lg text-xs uppercase tracking-wider transition-all shadow-xs text-center">
+                    Buy Premium Subscription
+                  </button>
+                )}
                 
                 <div className="flex items-center gap-2.5 pt-2">
                   <div className="flex -space-x-2">
@@ -255,17 +278,19 @@ export default function AccountSettingsPage() {
               </div>
 
               {/* Premium Features */}
-              <div className="flex-1 border-t lg:border-t-0 lg:border-l border-gray-100 pt-6 lg:pt-0 lg:pl-12 space-y-4">
-                <p className="text-xs font-bold text-gray-700">Upgrade your plan today and get access to premium features:</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  {premiumFeatures.map((f, i) => (
-                    <div key={i} className="flex items-center gap-2.5 bg-gray-50/50 p-2.5 rounded border border-gray-100">
-                      <span className="text-base shrink-0">{f.icon}</span>
-                      <span className="text-xs text-gray-600 font-semibold">{f.label}</span>
-                    </div>
-                  ))}
+              {!isPaid && (
+                <div className="flex-1 border-t lg:border-t-0 lg:border-l border-gray-100 pt-6 lg:pt-0 lg:pl-12 space-y-4">
+                  <p className="text-xs font-bold text-gray-700">Upgrade your plan today and get access to premium features:</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {premiumFeatures.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2.5 bg-gray-50/50 p-2.5 rounded border border-gray-100">
+                        <span className="text-base shrink-0">{f.icon}</span>
+                        <span className="text-xs text-gray-600 font-semibold">{f.label}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
             </div>
           </div>

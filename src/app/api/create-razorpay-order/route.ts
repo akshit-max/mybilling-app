@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const { plan, cycle } = await req.json();
+    const { plan, cycle, promo } = await req.json();
 
     let originalPrice = 249;
     if (plan === "Diamond" && cycle === "Yearly") originalPrice = 2599;
@@ -11,8 +11,13 @@ export async function POST(req: Request) {
     if (plan === "Enterprise" && cycle === "Monthly") originalPrice = 750;
     if (plan === "Enterprise" && cycle === "Yearly") originalPrice = 4999;
 
-    const gstAmount = Math.round(originalPrice * 0.18);
-    const totalPrice = originalPrice + gstAmount;
+    let totalPrice = 0;
+    if (promo === "31DAYS2") {
+      totalPrice = 2;
+    } else {
+      const gstAmount = Math.round(originalPrice * 0.18);
+      totalPrice = originalPrice + gstAmount;
+    }
     const amountInPaise = totalPrice * 100;
 
     const key_id = process.env.NEXT_PUBLIC_RAZORPAY_KEY || "";

@@ -28,6 +28,7 @@ export default function CheckoutPage() {
   
   const plan = searchParams.get("plan") || "Diamond";
   const cycle = searchParams.get("cycle") || "Monthly";
+  const promo = searchParams.get("promo") || "";
 
   const [showModal, setShowModal] = useState(false);
   const [isFetchingUser, setIsFetchingUser] = useState(true);
@@ -50,8 +51,14 @@ export default function CheckoutPage() {
   if (plan === "Enterprise" && cycle === "Monthly") originalPrice = 750;
   if (plan === "Enterprise" && cycle === "Yearly") originalPrice = 4999;
 
-  const gstAmount = Math.round(originalPrice * 0.18);
-  const totalPrice = originalPrice + gstAmount;
+  let gstAmount = Math.round(originalPrice * 0.18);
+  let totalPrice = originalPrice + gstAmount;
+  
+  if (promo === "31DAYS2") {
+    originalPrice = 2;
+    gstAmount = 0;
+    totalPrice = 2;
+  }
 
   // Fetch User details
   useEffect(() => {
@@ -111,7 +118,7 @@ export default function CheckoutPage() {
       const orderRes = await fetch("/api/create-razorpay-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, cycle })
+        body: JSON.stringify({ plan, cycle, promo })
       });
       
       const orderData = await orderRes.json();
@@ -167,7 +174,8 @@ export default function CheckoutPage() {
               city: formData.city,
               plan: plan,
               subscriptionCycle: cycle,
-              isPaid: true
+              isPaid: true,
+              subscriptionStartDate: new Date().toISOString()
             }, { merge: true });
             setShowModal(false);
             toast.success("Payment successful! Your plan has been upgraded.", { id: "upgrade", icon: "🎉" });
