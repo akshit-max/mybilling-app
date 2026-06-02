@@ -232,9 +232,9 @@ export default function CheckoutPage() {
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors">
               <div className="flex items-center gap-3">
-                <CheckCircle2 size={20} className="text-green-500" />
+                <CheckCircle2 size={20} className="text-brand-tertiary" />
                 <span className="font-bold text-gray-800">Selected Plan</span>
-                <span className="text-[10px] font-bold text-[#F16D31] bg-orange-50 px-2 py-0.5 rounded border border-orange-100 uppercase tracking-wide">
+                <span className="text-[10px] font-bold text-[#F16D31] bg-brand-neutral px-2 py-0.5 rounded border border-orange-100 uppercase tracking-wide">
                   {plan} Plan
                 </span>
               </div>

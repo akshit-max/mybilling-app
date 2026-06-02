@@ -134,11 +134,11 @@ export default function OnlineOrdersPage() {
           <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between relative overflow-hidden">
             <div className="z-10 relative space-y-4">
               <h2 className="text-[15px] font-bold text-gray-800">
-                Increase your sales, get <span className="text-orange-500">Online Orders</span> with a single click
+                Increase your sales, get <span className="text-brand-secondary">Online Orders</span> with a single click
               </h2>
               <button 
                 onClick={() => setShowModal(true)}
-                className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-2 rounded text-sm transition-colors shadow-sm shadow-orange-200"
+                className="bg-brand-secondary hover:bg-orange-600 text-white font-bold px-6 py-2 rounded text-sm transition-colors shadow-sm shadow-orange-200"
               >
                 Create Online Store
               </button>
@@ -320,7 +320,7 @@ export default function OnlineOrdersPage() {
                 <h3 className="font-bold text-[13px] text-gray-700 uppercase tracking-wider">SHARE STORE LINK</h3>
                 <div className="h-32 flex items-center justify-center relative">
                   <Users size={70} className="text-blue-300" strokeWidth={1} />
-                  <LinkIcon size={30} className="absolute text-blue-600 -right-4 -bottom-2 bg-white rounded-full p-1 border-2 border-white" />
+                  <LinkIcon size={30} className="absolute text-brand-primary -right-4 -bottom-2 bg-white rounded-full p-1 border-2 border-white" />
                 </div>
                 <p className="text-sm text-gray-600">Share your Online Store link to your customers where they can place an order</p>
                 {/* Connecting dashed lines */}

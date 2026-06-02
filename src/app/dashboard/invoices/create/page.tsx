@@ -1372,8 +1372,8 @@ export default function CreateSalesInvoice() {
 
               {/* Balance remaining */}
               <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                <span className="font-bold text-green-600 text-xs">Balance Amount</span>
-                <span className="font-bold font-mono text-green-600">
+                <span className="font-bold text-brand-tertiary text-xs">Balance Amount</span>
+                <span className="font-bold font-mono text-brand-tertiary">
                   ₹ {Math.max(0, finalTotal - Number(amountReceived || 0)).toFixed(2)}
                 </span>
               </div>

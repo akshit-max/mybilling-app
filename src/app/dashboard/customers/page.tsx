@@ -419,7 +419,7 @@ export default function PartiesPage() {
           }`}
         >
           <div className="flex items-center gap-1.5 text-xs font-semibold text-[#2E7D32]">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-tertiary"></span>
             <span>To Collect</span>
           </div>
           <div className="text-xl font-bold text-gray-800">₹ {loading ? "..." : toCollect.toLocaleString("en-IN")}</div>
@@ -697,12 +697,12 @@ export default function PartiesPage() {
 
                   return (
                     <tr key={c.id} className="hover:bg-gray-50/50 transition-colors group">
-                      <td className="px-4 py-3 font-semibold text-blue-600">
+                      <td className="px-4 py-3 font-semibold text-brand-primary">
                         <div className="flex items-center gap-2">
                           <span className="text-gray-800">{c.name}</span>
                           {c.isSharedLedger && (
                             <div className="relative group/tooltip flex items-center justify-center">
-                              <span className="w-4 h-4 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center cursor-help">
+                              <span className="w-4 h-4 bg-orange-100 text-brand-secondary rounded-full flex items-center justify-center cursor-help">
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
                               </span>
                               <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1 w-max bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-50 shadow-md">
@@ -985,7 +985,7 @@ export default function PartiesPage() {
                         {/* Top Badge */}
                         <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm relative z-10 translate-x-4">
                           <span className="text-[10px] font-bold text-gray-700">License Number</span>
-                          <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center absolute -right-2 -top-1 shadow-sm text-white">
+                          <div className="w-5 h-5 bg-brand-tertiary rounded-full flex items-center justify-center absolute -right-2 -top-1 shadow-sm text-white">
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                           </div>
                         </div>

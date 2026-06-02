@@ -189,9 +189,9 @@ export default function Navbar() {
   return (
     <div className="w-full flex flex-col sticky top-0 z-50">
       {/* 1. TOP PROMO BAR WITH SOFT COLOR GRADIENT */}
-      <div className="bg-gradient-to-r from-violet-200 via-orange-100 to-yellow-100 text-center py-2 text-[11px] font-bold text-gray-700 select-none border-b border-gray-100">
-        Save upto 55% today{" "}
-        <Link href="/demo" className="text-indigo-600 hover:text-indigo-800 underline underline-offset-2 transition-colors ml-1 font-bold">
+      <div className="bg-gradient-to-r from-brand-primary via-brand-secondary to-brand-primary text-center py-2.5 text-[11px] font-bold text-white select-none border-b border-brand-primary/10">
+        Save up to 55% today{" "}
+        <Link href="/login" className="text-white hover:text-white/80 underline underline-offset-2 transition-colors ml-1 font-extrabold">
           Book 1:1 Demo →
         </Link>
       </div>
@@ -202,13 +202,13 @@ export default function Navbar() {
           
           {/* LOGO */}
           <Link href="/" className="flex items-center gap-1.5 z-50">
-            <div className="bg-orange-500 text-white rounded-lg p-1.5 flex items-center justify-center shadow-md">
+            <div className="bg-brand-secondary text-white rounded-lg p-1.5 flex items-center justify-center shadow-md">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="rotate-45 transform">
                 <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
               </svg>
             </div>
             <span className="font-extrabold text-gray-800 text-base tracking-tight font-sans">
-              my<span className="text-orange-500">BillBook</span>
+              my<span className="text-brand-secondary">BillBook</span>
             </span>
           </Link>
 
@@ -233,7 +233,7 @@ export default function Navbar() {
                     <Link
                       key={i}
                       href="/login"
-                      className="block px-3 py-2 rounded-md text-xs hover:bg-gray-50 hover:text-indigo-600 transition"
+                      className="block px-3 py-2 rounded-md text-xs hover:bg-brand-neutral/50 hover:text-brand-primary transition"
                     >
                       {item}
                     </Link>
@@ -244,7 +244,7 @@ export default function Navbar() {
                     <Link
                       key={i}
                       href="/login"
-                      className="block px-3 py-2 rounded-md text-xs hover:bg-gray-50 hover:text-indigo-600 transition"
+                      className="block px-3 py-2 rounded-md text-xs hover:bg-brand-neutral/50 hover:text-brand-primary transition"
                     >
                       {item}
                     </Link>
@@ -266,7 +266,7 @@ export default function Navbar() {
                     <p className="text-[10px] text-gray-400 mb-3 font-bold uppercase tracking-wider">Industry</p>
                     <div className="space-y-2">
                       {["Retail", "Wholesale", "Manufacturing"].map((item) => (
-                        <Link key={item} href="/login" className="block text-xs hover:text-indigo-600 transition">
+                        <Link key={item} href="/login" className="block text-xs hover:text-brand-primary transition">
                           {item}
                         </Link>
                       ))}
@@ -276,7 +276,7 @@ export default function Navbar() {
                     <p className="text-[10px] text-gray-400 mb-3 font-bold uppercase tracking-wider">Sectors</p>
                     <div className="space-y-2">
                       {["Restaurant", "Pharmacy", "FMCG"].map((item) => (
-                        <Link key={item} href="/login" className="block text-xs hover:text-indigo-600 transition">
+                        <Link key={item} href="/login" className="block text-xs hover:text-brand-primary transition">
                           {item}
                         </Link>
                       ))}
@@ -296,7 +296,7 @@ export default function Navbar() {
               {open === "knowledge" && (
                 <div className="absolute top-14 left-0 w-48 bg-white border border-gray-200 rounded-xl shadow-lg p-3 animate-in fade-in slide-in-from-top-2 duration-200">
                   {["Help Guides", "GST Updates", "Video Tutorials"].map((item) => (
-                    <Link key={item} href="/login" className="block px-3 py-1.5 rounded-md text-xs hover:bg-gray-50 hover:text-indigo-600 transition">
+                    <Link key={item} href="/login" className="block px-3 py-1.5 rounded-md text-xs hover:bg-brand-neutral/50 hover:text-brand-primary transition">
                       {item}
                     </Link>
                   ))}
@@ -315,14 +315,14 @@ export default function Navbar() {
               Login
             </Link>
             <Link 
-              href="/demo" 
-              className="text-xs font-bold border border-gray-900 text-gray-800 px-5 py-2.5 rounded-full hover:bg-gray-50 transition-colors shadow-sm select-none"
+              href="/login" 
+              className="text-xs font-bold border-2 border-brand-primary text-brand-primary px-5 py-2.5 rounded-full hover:bg-brand-primary/5 transition-colors shadow-sm select-none"
             >
               Book Free Demo
             </Link>
             <Link
               href="/signup"
-              className="text-xs font-bold bg-[#1E293B] hover:bg-[#0F172A] text-white px-5 py-2.5 rounded-full transition-all shadow-md select-none hover:shadow-lg active:scale-[0.98]"
+              className="text-xs font-bold bg-brand-primary hover:bg-brand-primary/90 text-white px-5 py-2.5 rounded-full transition-all shadow-md select-none hover:shadow-lg active:scale-[0.98]"
             >
               Start Free Billing
             </Link>
@@ -360,15 +360,15 @@ export default function Navbar() {
 
               <div className="mt-auto space-y-3">
                 <Link
-                  href="/demo"
-                  className="block w-full text-center py-3 border border-gray-300 rounded-full font-medium"
+                  href="/login"
+                  className="block w-full text-center py-3 border-2 border-brand-primary text-brand-primary rounded-full font-bold"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Book Free Demo
                 </Link>
                 <Link
                   href="/signup"
-                  className="block w-full text-center py-3 bg-[#1E293B] text-white rounded-full font-medium shadow-md"
+                  className="block w-full text-center py-3 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-full font-bold shadow-md"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Start Free Billing

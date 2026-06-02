@@ -330,7 +330,7 @@ export default function ManageUsersContent() {
       case "Salesman": return <Users size={14} className="text-amber-500" />;
       case "Stock Manager": return <ShieldCheck size={14} className="text-teal-500" />;
       case "Partner": return <Briefcase size={14} className="text-blue-500" />;
-      case "Delivery Boy": return <Truck size={14} className="text-orange-500" />;
+      case "Delivery Boy": return <Truck size={14} className="text-brand-secondary" />;
       case "CA": return <FileSpreadsheet size={16} className="text-purple-500" />;
       default: return <Users size={14} className="text-gray-500" />;
     }
@@ -408,8 +408,8 @@ export default function ManageUsersContent() {
             }`}
           >
             <div className="flex items-center gap-2 mb-2">
-              <Users size={14} className={tab === "users" ? "text-emerald-500" : "text-gray-400"} />
-              <span className={`text-[11px] font-bold tracking-wider uppercase ${tab === "users" ? "text-emerald-600" : "text-gray-500"}`}>Number of Users</span>
+              <Users size={14} className={tab === "users" ? "text-brand-tertiary" : "text-gray-400"} />
+              <span className={`text-[11px] font-bold tracking-wider uppercase ${tab === "users" ? "text-brand-tertiary" : "text-gray-500"}`}>Number of Users</span>
             </div>
             <div className={`text-xl font-mono font-bold ${tab === "users" ? "text-indigo-900" : "text-gray-800"}`}>
               {loading ? '-' : (subUsers.length + 1)}
@@ -495,7 +495,7 @@ export default function ManageUsersContent() {
                             <div className="flex items-center gap-2">
                               <span className="text-lg leading-none tracking-[0.2em] font-black text-gray-400 mt-1">••••</span>
                               {user.passcode ? (
-                                <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider flex items-center gap-0.5">
+                                <span className="bg-emerald-50 text-brand-tertiary border border-emerald-100 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider flex items-center gap-0.5">
                                   <Lock size={8} /> Secured
                                 </span>
                               ) : (

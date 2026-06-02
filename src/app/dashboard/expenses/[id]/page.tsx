@@ -175,7 +175,7 @@ export default function ExpenseDetailPage() {
 
             {/* Notes Section */}
             {expense.notes && (
-              <div className="bg-orange-50/50 border border-orange-100 rounded-lg p-5">
+              <div className="bg-brand-neutral/50 border border-orange-100 rounded-lg p-5">
                 <div className="flex items-center gap-1.5 text-orange-800 mb-2">
                   <AlignLeft size={14} />
                   <span className="text-xs font-bold uppercase tracking-wider">Notes / Description</span>

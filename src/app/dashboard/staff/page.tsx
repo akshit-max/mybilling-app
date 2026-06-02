@@ -376,7 +376,7 @@ export default function StaffAttendancePage() {
                         <td className="px-6 py-4 text-xs font-semibold text-gray-500">-</td>
                         <td className="px-6 py-4">
                            <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
-                             <span className={s.balance >= 0 ? "text-green-500" : "text-red-500"}>
+                             <span className={s.balance >= 0 ? "text-brand-tertiary" : "text-red-500"}>
                                {s.balance >= 0 ? "↑" : "↓"}
                              </span>
                              ₹{Math.abs(s.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -387,7 +387,7 @@ export default function StaffAttendancePage() {
                             <button 
                               onClick={() => markAttendance(s.id, "P")}
                               className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold border transition ${
-                                isP ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white text-green-500 border-gray-200 hover:bg-green-50'
+                                isP ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white text-brand-tertiary border-gray-200 hover:bg-green-50'
                               }`}
                             >
                               P

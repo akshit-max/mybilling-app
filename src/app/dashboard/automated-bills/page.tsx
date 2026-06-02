@@ -99,7 +99,7 @@ export default function AutomatedBillsPage() {
         {/* Card 3 */}
         <div className="border border-gray-200 rounded-lg flex flex-col items-center pt-16 pb-12 px-6 shadow-sm hover:shadow-md transition-shadow h-full">
           <div className="mb-10 relative flex-1 flex items-center justify-center">
-            <div className="w-32 h-32 bg-orange-50 rounded-lg border-2 border-slate-700 flex items-center justify-center relative z-10 bg-white">
+            <div className="w-32 h-32 bg-brand-neutral rounded-lg border-2 border-slate-700 flex items-center justify-center relative z-10 bg-white">
                <div className="w-full h-4 bg-slate-100 absolute top-0 border-b-2 border-slate-700"></div>
                <BellRing size={48} className="text-slate-700 stroke-[1.5]" />
             </div>

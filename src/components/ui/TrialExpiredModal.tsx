@@ -34,7 +34,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: { isOpen: boolean
             <X size={18} />
           </button>
           
-          <div className="absolute -top-6 w-20 h-20 bg-orange-500 rounded-full flex items-center justify-center shadow-lg border-4 border-white">
+          <div className="absolute -top-6 w-20 h-20 bg-brand-secondary rounded-full flex items-center justify-center shadow-lg border-4 border-white">
             <AlertTriangle size={32} className="text-white" />
           </div>
           
@@ -50,7 +50,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: { isOpen: boolean
           {/* Diamond */}
           <div 
             onClick={() => setSelectedPlan("Diamond")}
-            className={`rounded-xl border p-4 cursor-pointer transition-all duration-200 relative group flex flex-col justify-between ${selectedPlan === "Diamond" ? "border-[#F16D31] shadow-md bg-orange-50/10" : "border-gray-200 hover:border-orange-300"}`}
+            className={`rounded-xl border p-4 cursor-pointer transition-all duration-200 relative group flex flex-col justify-between ${selectedPlan === "Diamond" ? "border-[#F16D31] shadow-md bg-brand-neutral/10" : "border-gray-200 hover:border-orange-300"}`}
           >
             <div>
               <div className="flex justify-between items-start mb-2">
@@ -132,11 +132,11 @@ export default function TrialExpiredModal({ isOpen, onClose }: { isOpen: boolean
           >
             <div>
               <div className="flex justify-between items-start mb-2">
-                <span className="text-sm font-bold text-emerald-600 flex items-center gap-1">
+                <span className="text-sm font-bold text-brand-tertiary flex items-center gap-1">
                    <Crown size={14} /> Enterprise
                 </span>
                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${selectedPlan === "Enterprise" ? "border-emerald-500" : "border-gray-300"}`}>
-                   {selectedPlan === "Enterprise" && <div className="w-2 h-2 bg-emerald-500 rounded-full" />}
+                   {selectedPlan === "Enterprise" && <div className="w-2 h-2 bg-brand-tertiary rounded-full" />}
                 </div>
               </div>
               
@@ -156,7 +156,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: { isOpen: boolean
                  <button onClick={handleUpgrade} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-sm shadow-sm transition-colors">
                    Upgrade
                  </button>
-                 <button onClick={handleViewPlans} className="w-full text-emerald-600 font-bold py-2 rounded-lg text-xs hover:bg-emerald-50 transition-colors">
+                 <button onClick={handleViewPlans} className="w-full text-brand-tertiary font-bold py-2 rounded-lg text-xs hover:bg-emerald-50 transition-colors">
                    View Plans
                  </button>
                </div>

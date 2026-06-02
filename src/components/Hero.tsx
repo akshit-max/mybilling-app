@@ -37,7 +37,7 @@
 //               "Track and collect payments faster",
 //             ].map((item, i) => (
 //               <div key={i} className="flex items-center gap-3 text-sm text-gray-700">
-//                 <CheckCircle className="text-green-500 w-5 h-5" />
+//                 <CheckCircle className="text-brand-tertiary w-5 h-5" />
 //                 {item}
 //               </div>
 //             ))}
@@ -133,16 +133,16 @@ import { CheckCircle } from "lucide-react";
 
 export default function Hero() {
   return (
-    <section className="relative bg-[#3E2ED2] text-white py-16 md:py-24 overflow-hidden select-none">
+    <section className="relative bg-brand-primary text-white py-12 md:py-16 lg:py-20 overflow-hidden select-none font-sans">
       
       {/* 1. TOPOGRAPHY LINES SVG BACKGROUND PATTERN */}
-      <div className="absolute inset-0 z-0 opacity-[0.06] pointer-events-none select-none">
+      <div className="absolute inset-0 z-0 opacity-10 pointer-events-none select-none">
         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="waves" width="200" height="200" patternUnits="userSpaceOnUse">
-              <path d="M 0 100 Q 50 50, 100 100 T 200 100" fill="none" stroke="white" strokeWidth="2"/>
-              <path d="M 0 150 Q 50 100, 100 150 T 200 150" fill="none" stroke="white" strokeWidth="1"/>
-              <path d="M 0 50 Q 50 0, 100 50 T 200 50" fill="none" stroke="white" strokeWidth="1"/>
+              <path d="M 0 100 Q 50 50, 100 100 T 200 100" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-secondary/40"/>
+              <path d="M 0 150 Q 50 100, 100 150 T 200 150" fill="none" stroke="currentColor" strokeWidth="1" className="text-brand-tertiary/30"/>
+              <path d="M 0 50 Q 50 0, 100 50 T 200 50" fill="none" stroke="currentColor" strokeWidth="1" className="text-brand-tertiary/30"/>
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#waves)"/>
@@ -153,10 +153,10 @@ export default function Hero() {
       <div className="max-w-7xl mx-auto px-6 relative z-10 grid md:grid-cols-12 gap-12 items-center">
 
         {/* LEFT COLUMN - TEXT & BULLETS & TRUST BADGES */}
-        <div className="md:col-span-7 flex flex-col text-left space-y-8">
+        <div className="md:col-span-7 flex flex-col text-left space-y-10">
           
           {/* HEADING */}
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold leading-[1.15] tracking-tight text-white max-w-xl">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.1] tracking-tight text-white max-w-2xl drop-shadow-sm">
             Best GST Billing Software for Small Business in India
           </h1>
 
@@ -167,9 +167,9 @@ export default function Hero() {
               { text: "Increase stock rotation ", bold: "2.8x faster" },
               { text: "Collect ", bold: "97% payments on time" }
             ].map((bullet, idx) => (
-              <div key={idx} className="flex items-center gap-3 text-sm sm:text-base font-semibold text-white/90">
+              <div key={idx} className="flex items-center gap-3 text-sm sm:text-base font-bold text-white/90">
                 {/* Custom Green Checkmark */}
-                <div className="bg-[#22C55E] text-white rounded-full p-1 flex items-center justify-center shadow-md">
+                <div className="bg-emerald-500 text-white rounded-full p-1 flex items-center justify-center shadow-md shadow-emerald-500/20">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
@@ -182,17 +182,17 @@ export default function Hero() {
           </div>
 
           {/* ACTION BUTTON CTAS */}
-          <div className="flex flex-wrap gap-4 pt-2">
+          <div className="flex flex-wrap gap-4 pt-8 md:pt-15">
             <Link
               href="/signup"
-              className="px-8 py-3 bg-[#E2770D] hover:bg-[#C96608] active:scale-[0.98] text-white font-extrabold rounded-lg shadow-lg hover:shadow-xl transition-all text-sm flex items-center gap-2 select-none border border-transparent"
+              className="px-8 py-3.5 bg-brand-secondary hover:bg-brand-secondary/90 active:scale-[0.98] text-white font-extrabold rounded-full shadow-lg hover:shadow-brand-secondary/40 transition-all text-sm flex items-center gap-2 select-none"
             >
               Start Free Billing →
             </Link>
 
             <Link
-              href="/demo"
-              className="px-8 py-3 border border-white/40 hover:border-white/70 text-white font-extrabold rounded-lg hover:bg-white/10 transition-all text-sm select-none shadow-sm"
+              href="/login"
+              className="px-8 py-3.5 border-2 border-white/20 hover:border-white/50 text-white font-extrabold rounded-full hover:bg-white/5 transition-all text-sm select-none shadow-sm backdrop-blur-sm"
             >
               Book Free Demo
             </Link>
@@ -226,13 +226,14 @@ export default function Hero() {
         </div>
 
         {/* RIGHT COLUMN - ORIGINAL REAL HERO.PNG IMAGE */}
-        <div className="md:col-span-5 flex justify-center relative">
-          <div className="relative w-full max-w-[480px] sm:max-w-[500px] overflow-hidden rounded-2xl shadow-2xl transition-transform hover:scale-[1.02] duration-300">
+        <div className="md:col-span-5 flex justify-center relative mt-12 md:-mt-8 lg:-mt-12">
+          <div className="absolute inset-0 bg-brand-secondary/30 blur-3xl rounded-full scale-90 opacity-70"></div>
+          <div className="relative w-full max-w-[480px] sm:max-w-[550px] overflow-hidden rounded-2xl shadow-xl shadow-brand-secondary/20 transition-all hover:scale-[1.02] hover:shadow-brand-secondary/40 duration-500 ring-1 ring-white/20">
             <Image
-              src="/hero.png"
-              alt="myBillBook Product Tour Video Preview"
-              width={500}
-              height={350}
+              src="/dark-dashboard.png"
+              alt="myBillBook Premium Dashboard Preview"
+              width={550}
+              height={380}
               priority
               className="w-full h-auto object-cover select-none"
             />

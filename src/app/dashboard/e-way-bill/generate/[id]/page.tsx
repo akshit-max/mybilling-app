@@ -283,7 +283,7 @@ export default function GenerateEWayBill() {
               <button onClick={() => router.push(`/dashboard/invoices/${id}`)} className="text-gray-400 hover:text-gray-700"><X size={20} /></button>
             </div>
             <div className="px-8 pb-8 flex flex-col items-center">
-              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-6 shadow-md">
+              <div className="w-16 h-16 bg-brand-tertiary rounded-full flex items-center justify-center mb-6 shadow-md">
                 <CheckCircle2 size={40} className="text-white" />
               </div>
               <h2 className="text-2xl font-bold text-gray-800 mb-6 leading-tight">e-Way Bill has been<br/>generated successfully</h2>

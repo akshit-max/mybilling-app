@@ -424,7 +424,7 @@ export default function Dashboard() {
       {isPaid && subDaysLeft !== null && (
         <div className="bg-gradient-to-r from-emerald-500/10 via-emerald-400/5 to-emerald-500/10 border border-emerald-200/50 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm mb-6">
           <div className="flex items-center gap-3">
-             <div className="bg-emerald-100 p-2 rounded-full text-emerald-600">
+             <div className="bg-emerald-100 p-2 rounded-full text-brand-tertiary">
                <Crown size={20} />
              </div>
               <div>
@@ -473,11 +473,11 @@ export default function Dashboard() {
       {/* 1. BUSINESS OVERVIEW METRICS */}
       <div>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-[13px] font-bold text-gray-800 uppercase tracking-wider">Business Overview</h2>
-          <span className="text-[10px] text-gray-400 font-bold flex items-center gap-1.5 bg-white border border-gray-200 px-3 py-1 rounded-md shadow-3xs select-none">
+          <h2 className="text-[13px] font-bold text-brand-primary uppercase tracking-wider">Business Overview</h2>
+          <span className="text-[10px] text-brand-primary/60 font-bold flex items-center gap-1.5 bg-white border border-brand-primary/10 px-3 py-1.5 rounded-lg shadow-sm select-none">
             <span>Last Update: {lastUpdated || "Loading..."}</span>
-            <button onClick={handleRefresh} className="text-indigo-600 hover:text-indigo-800 transition cursor-pointer">
-              <RefreshCw size={11} className="font-bold" />
+            <button onClick={handleRefresh} className="text-brand-secondary hover:text-brand-secondary/80 transition cursor-pointer">
+              <RefreshCw size={12} className="font-bold" />
             </button>
           </span>
         </div>
@@ -485,7 +485,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           
           {/* Card 1: To Collect */}
-          <Link href="/dashboard/customers" className="bg-[#EAF6EC] hover:bg-[#DDF0E2] border border-[#C8E6C9] hover:border-[#A5D6A7] rounded-xl p-5 relative flex flex-col justify-between h-28 transition-all duration-200 group shadow-3xs cursor-pointer">
+          <Link href="/dashboard/customers" className="bg-white hover:bg-brand-neutral/30 border border-brand-primary/10 rounded-2xl p-6 relative flex flex-col justify-between h-32 transition-all duration-300 group shadow-sm hover:shadow-md cursor-pointer">
              <div className="absolute top-4 right-4 text-[#2E7D32]/60 opacity-100 transition-opacity">
                <ArrowUpRight size={13} />
              </div>
@@ -501,7 +501,7 @@ export default function Dashboard() {
           </Link>
 
           {/* Card 2: To Pay */}
-          <Link href="/dashboard/customers" className="bg-[#FDF2F2] hover:bg-[#FBE3E3] border border-[#FFCDD2] hover:border-[#F8BBD0] rounded-xl p-5 relative flex flex-col justify-between h-28 transition-all duration-200 group shadow-3xs cursor-pointer">
+          <Link href="/dashboard/customers" className="bg-white hover:bg-brand-neutral/30 border border-brand-primary/10 rounded-2xl p-6 relative flex flex-col justify-between h-32 transition-all duration-300 group shadow-sm hover:shadow-md cursor-pointer">
              <div className="absolute top-4 right-4 text-[#C62828]/60 opacity-100 transition-opacity">
                <ArrowUpRight size={13} />
              </div>
@@ -517,7 +517,7 @@ export default function Dashboard() {
           </Link>
 
           {/* Card 3: Total Cash + Bank Balance */}
-          <Link href="/dashboard/cash-bank" className="bg-[#E8F0FE] hover:bg-[#D2E3FC] border border-[#D2E3FC] hover:border-[#B4D1FA] rounded-xl p-5 relative flex flex-col justify-between h-28 transition-all duration-200 group shadow-3xs cursor-pointer">
+          <Link href="/dashboard/cash-bank" className="bg-white hover:bg-brand-neutral/30 border border-brand-primary/10 rounded-2xl p-6 relative flex flex-col justify-between h-32 transition-all duration-300 group shadow-sm hover:shadow-md cursor-pointer">
              <div className="absolute top-4 right-4 text-[#1A73E8]/60 opacity-100 transition-opacity">
                <ArrowUpRight size={13} />
              </div>
@@ -539,10 +539,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Latest Transactions Table */}
-        <div className="lg:col-span-2 flex flex-col bg-white border border-gray-200 rounded-xl shadow-3xs overflow-hidden h-[360px]">
-           <div className="px-5 py-4 border-b border-gray-150 bg-gray-50/50 flex justify-between items-center shrink-0">
-             <h2 className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">Latest Transactions</h2>
-             <Link href="/dashboard/invoices/create" className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold">
+        <div className="lg:col-span-2 flex flex-col bg-white border border-brand-primary/10 rounded-2xl shadow-sm overflow-hidden h-[360px]">
+           <div className="px-6 py-4 border-b border-brand-primary/5 bg-brand-neutral/30 flex justify-between items-center shrink-0">
+             <h2 className="text-[11px] font-bold text-brand-primary/80 uppercase tracking-wider">Latest Transactions</h2>
+             <Link href="/dashboard/invoices/create" className="text-[11px] text-brand-secondary hover:text-brand-secondary/80 font-bold tracking-wide">
                + Create Invoice
              </Link>
            </div>
@@ -561,16 +561,16 @@ export default function Dashboard() {
                 </div>
              ) : (
                 <table className="w-full text-left border-collapse text-xs">
-                   <thead>
-                      <tr className="border-b border-gray-100 text-[10px] font-bold text-gray-400 bg-gray-50/20 uppercase tracking-wider">
-                         <th className="py-2.5 px-5">Date</th>
-                         <th className="py-2.5 px-5">Type</th>
-                         <th className="py-2.5 px-5">Txn No</th>
-                         <th className="py-2.5 px-5">Party Name</th>
-                         <th className="py-2.5 px-5 text-right">Amount</th>
+                    <thead>
+                      <tr className="border-b border-brand-primary/5 text-[10px] font-bold text-brand-primary/50 bg-brand-neutral/10 uppercase tracking-wider">
+                         <th className="py-3 px-6">Date</th>
+                         <th className="py-3 px-6">Type</th>
+                         <th className="py-3 px-6">Txn No</th>
+                         <th className="py-3 px-6">Party Name</th>
+                         <th className="py-3 px-6 text-right">Amount</th>
                       </tr>
                    </thead>
-                   <tbody className="divide-y divide-gray-100 font-medium text-gray-600">
+                   <tbody className="divide-y divide-brand-primary/5 font-medium text-brand-primary/70">
                       {recentTransactions.map((tx) => {
                         const dateFormatted = tx.createdAt
                           ? typeof tx.createdAt.toDate === "function"
@@ -580,12 +580,12 @@ export default function Dashboard() {
                         
                         const txnType = (tx.invoiceType || "invoice") === "estimate" ? "Estimate" : "Sales Invoices";
                         return (
-                          <Link key={tx.id} href={`/dashboard/invoices/${tx.id}`} className="table-row hover:bg-indigo-50/30 cursor-pointer transition-colors">
-                             <td className="py-3.5 px-5 font-semibold text-gray-800">{dateFormatted}</td>
-                             <td className="py-3.5 px-5 text-gray-500 font-bold">{txnType}</td>
-                             <td className="py-3.5 px-5 font-mono text-gray-500">{tx.invoiceNumber}</td>
-                             <td className="py-3.5 px-5 text-gray-900 font-bold uppercase truncate max-w-[120px]">{tx.customerName}</td>
-                             <td className="py-3.5 px-5 text-right font-bold text-gray-900 font-mono">₹{tx.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                          <Link key={tx.id} href={`/dashboard/invoices/${tx.id}`} className="table-row hover:bg-brand-neutral/50 cursor-pointer transition-colors">
+                             <td className="py-3.5 px-6 font-bold text-brand-primary">{dateFormatted}</td>
+                             <td className="py-3.5 px-6 text-brand-primary/60 font-bold">{txnType}</td>
+                             <td className="py-3.5 px-6 font-mono text-brand-primary/60">{tx.invoiceNumber}</td>
+                             <td className="py-3.5 px-6 text-brand-primary font-bold uppercase truncate max-w-[120px]">{tx.customerName}</td>
+                             <td className="py-3.5 px-6 text-right font-bold text-brand-primary font-mono">₹{tx.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                           </Link>
                         );
                       })}
@@ -597,20 +597,20 @@ export default function Dashboard() {
            {/* Centered see all link */}
            <Link 
              href="/dashboard/invoices" 
-             className="text-[10px] text-indigo-600 hover:text-indigo-855 font-bold text-center py-3.5 bg-white hover:bg-gray-50/40 border-t border-gray-150 block uppercase tracking-wider shrink-0 transition"
+             className="text-[11px] text-brand-secondary hover:text-brand-secondary/80 font-bold text-center py-4 bg-white hover:bg-brand-neutral/30 border-t border-brand-primary/5 block uppercase tracking-wider shrink-0 transition"
            >
               See All Transactions
            </Link>
         </div>
 
         {/* Today's Checklist */}
-        <div className="bg-white border border-gray-200 rounded-xl shadow-3xs flex flex-col h-[360px] overflow-hidden">
-           <div className="px-5 py-4 border-b border-gray-150 bg-gray-50/50 shrink-0">
-             <h2 className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">Today's Checklist</h2>
+        <div className="bg-white border border-brand-primary/10 rounded-2xl shadow-sm flex flex-col h-[360px] overflow-hidden">
+           <div className="px-6 py-4 border-b border-brand-primary/5 bg-brand-neutral/30 shrink-0">
+             <h2 className="text-[11px] font-bold text-brand-primary/80 uppercase tracking-wider">Today's Checklist</h2>
            </div>
            
            <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
-             <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center text-orange-400 mb-4 opacity-75">
+             <div className="w-16 h-16 bg-brand-neutral rounded-full flex items-center justify-center text-orange-400 mb-4 opacity-75">
                <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M4 22h16" strokeLinecap="round" />
                   <path d="M12 2L6 19h12L12 2z" fill="#FFEDD5" />
@@ -626,10 +626,10 @@ export default function Dashboard() {
       </div>
 
       {/* 3. SALES REPORT CHART SECTION */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-3xs overflow-hidden">
+      <div className="bg-white border border-brand-primary/10 rounded-2xl shadow-sm overflow-hidden">
          
-         <div className="px-5 py-4 border-b border-gray-150 bg-gray-50/50 flex justify-between items-center">
-           <h2 className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">
+         <div className="px-6 py-4 border-b border-brand-primary/5 bg-brand-neutral/30 flex justify-between items-center">
+           <h2 className="text-[11px] font-bold text-brand-primary/80 uppercase tracking-wider">
              Sales Report - {get7DaysRangeString()}
            </h2>
          </div>
@@ -715,31 +715,31 @@ export default function Dashboard() {
             </div>
 
             {/* Right-hand side stats details drawer */}
-            <div className="w-full lg:w-56 shrink-0 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-gray-150 pt-4 lg:pt-0 lg:pl-6 h-full font-sans gap-4 select-none">
+            <div className="w-full lg:w-56 shrink-0 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-brand-primary/10 pt-4 lg:pt-0 lg:pl-6 h-full font-sans gap-4 select-none">
                
                <div className="flex items-center justify-between lg:justify-end gap-2 shrink-0">
                   <div className="relative inline-block text-left">
                      <button 
                        onClick={() => setShowGraphDropdown(!showGraphDropdown)}
-                       className="flex items-center gap-1 text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-100 transition"
+                       className="flex items-center gap-1 text-[10px] font-bold text-brand-primary/60 bg-brand-neutral/30 border border-brand-primary/10 px-3 py-1.5 rounded-lg hover:bg-brand-neutral transition"
                      >
                        <span className="capitalize">{graphMode === "daily" ? "Daily" : "Weekly"}</span>
-                       <ChevronDown size={11} className="text-gray-400" />
+                       <ChevronDown size={11} className="text-brand-primary/40" />
                      </button>
 
                      {showGraphDropdown && (
                        <>
                          <div className="fixed inset-0 z-10" onClick={() => setShowGraphDropdown(false)}></div>
-                         <div className="absolute right-0 mt-1 w-24 bg-white border border-gray-200 rounded-lg shadow-md z-20 overflow-hidden text-[11px]">
+                         <div className="absolute right-0 mt-2 w-24 bg-white border border-brand-primary/10 rounded-xl shadow-md shadow-brand-primary/5 z-20 overflow-hidden text-[11px]">
                            <button 
                              onClick={() => { setGraphMode("daily"); setShowGraphDropdown(false); }}
-                             className={`w-full text-left px-3 py-2 hover:bg-gray-50 font-semibold ${graphMode === "daily" ? "text-indigo-600 bg-indigo-50" : "text-gray-700"}`}
+                             className={`w-full text-left px-3 py-2.5 hover:bg-brand-neutral/50 font-bold ${graphMode === "daily" ? "text-brand-secondary bg-brand-neutral" : "text-brand-primary/70"}`}
                            >
                              Daily
                            </button>
                            <button 
                              onClick={() => { setGraphMode("weekly"); setShowGraphDropdown(false); }}
-                             className={`w-full text-left px-3 py-2 hover:bg-gray-50 font-semibold ${graphMode === "weekly" ? "text-indigo-600 bg-indigo-50" : "text-gray-700"}`}
+                             className={`w-full text-left px-3 py-2.5 hover:bg-brand-neutral/50 font-bold ${graphMode === "weekly" ? "text-brand-secondary bg-brand-neutral" : "text-brand-primary/70"}`}
                            >
                              Weekly
                            </button>
@@ -750,17 +750,17 @@ export default function Dashboard() {
                </div>
 
                <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                  <p className="text-[10px] text-brand-primary/50 font-bold uppercase tracking-wider">
                      {graphMode === "daily" ? "Last 7 days sales" : "Last 4 weeks sales"}
                   </p>
-                  <p className="text-xl font-bold text-gray-900 font-mono tracking-tight">
+                  <p className="text-xl font-bold text-brand-primary font-mono tracking-tight">
                     ₹ {(graphMode === "daily" ? last7DaysSales : lastWeeksSales).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                   </p>
                </div>
 
                <div className="space-y-1.5 mt-auto">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Invoices Made</p>
-                  <p className="text-xl font-bold text-gray-900 font-mono tracking-tight">
+                  <p className="text-[10px] text-brand-primary/50 font-bold uppercase tracking-wider">Invoices Made</p>
+                  <p className="text-xl font-bold text-brand-primary font-mono tracking-tight">
                     {graphMode === "daily" ? last7DaysInvoicesCount : lastWeeksInvoicesCount}
                   </p>
                </div>

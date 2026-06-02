@@ -371,7 +371,7 @@ export default function ViewInvoice() {
               <span>{salesReturnTypeTitle} #{invoice.salesReturnNumber || "1"}</span>
               <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                 invoice.status === "paid" 
-                  ? "bg-green-50 text-green-600 border border-green-200/50" 
+                  ? "bg-green-50 text-brand-tertiary border border-green-200/50" 
                   : "bg-amber-50 text-amber-600 border border-amber-200/50"
               }`}>
                 {invoice.status}
@@ -510,11 +510,11 @@ export default function ViewInvoice() {
               </button>
               {isShareOpen && (
                 <div className="absolute left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-md py-1 w-36 z-50 text-xs font-semibold">
-                  <button onClick={handleWhatsAppShare} className="w-full flex items-center gap-2 px-4 py-2 text-green-600 hover:bg-green-50">
+                  <button onClick={handleWhatsAppShare} className="w-full flex items-center gap-2 px-4 py-2 text-brand-tertiary hover:bg-green-50">
                     <FaWhatsapp size={14} />
                     <span>WhatsApp</span>
                   </button>
-                  <button onClick={() => { setShowSMSModal(true); setIsShareOpen(false); }} className="w-full flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50">
+                  <button onClick={() => { setShowSMSModal(true); setIsShareOpen(false); }} className="w-full flex items-center gap-2 px-4 py-2 text-brand-primary hover:bg-blue-50">
                     <FileText size={14} />
                     <span>SMS</span>
                   </button>
@@ -584,7 +584,7 @@ export default function ViewInvoice() {
                      {/* myBillBook Logo */}
                      <div className="flex items-center font-sans tracking-tight select-none">
                        <span className="text-sm font-black text-gray-800">my</span>
-                       <span className="text-sm font-black text-orange-500">BillBook</span>
+                       <span className="text-sm font-black text-brand-secondary">BillBook</span>
                      </div>
                   </div>
 
@@ -683,7 +683,7 @@ export default function ViewInvoice() {
                                   </td>
                                   <td className="py-2 px-3 text-center font-mono text-gray-900">
                                     <span>{item.qty} PCS</span>
-                                    {freeItemQty && <span className="text-green-500 font-bold block text-[9px]">(+0 Free)</span>}
+                                    {freeItemQty && <span className="text-brand-tertiary font-bold block text-[9px]">(+0 Free)</span>}
                                   </td>
                                   <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
                                   <td className="py-2 px-3 text-center font-mono text-gray-500">{taxRate}%</td>
@@ -746,7 +746,7 @@ export default function ViewInvoice() {
                         )}
 
                         {invoice.discountAmount > 0 && (
-                          <div className="flex justify-between text-green-600">
+                          <div className="flex justify-between text-brand-tertiary">
                              <span>Discount</span>
                              <span>-₹{invoice.discountAmount.toFixed(2)}</span>
                           </div>
@@ -814,7 +814,7 @@ export default function ViewInvoice() {
                      <p className="flex items-center gap-1 select-none">
                        <span>Invoice created using</span>
                        <span className="font-black text-gray-600">my</span>
-                       <span className="font-black text-orange-500">BillBook</span>
+                       <span className="font-black text-brand-secondary">BillBook</span>
                      </p>
                      <p className="text-[7px] text-gray-300 lowercase font-semibold">Download now at playstore / appstore</p>
                   </div>
@@ -871,7 +871,7 @@ export default function ViewInvoice() {
                 </div>
                 <div className="flex justify-between text-[11px] font-bold text-gray-800 border-t border-gray-100 pt-2">
                    <span>Balance Amount</span>
-                   <span className={`font-mono ${balanceAmount === 0 ? "text-green-600" : "text-red-500"}`}>
+                   <span className={`font-mono ${balanceAmount === 0 ? "text-brand-tertiary" : "text-red-500"}`}>
                      ₹{balanceAmount.toFixed(2)}
                    </span>
                 </div>
@@ -920,7 +920,7 @@ export default function ViewInvoice() {
                    {/* myBillBook Logo */}
                    <div className="flex items-center font-sans tracking-tight select-none">
                      <span className="text-sm font-black text-gray-800">my</span>
-                     <span className="text-sm font-black text-orange-500">BillBook</span>
+                     <span className="text-sm font-black text-brand-secondary">BillBook</span>
                    </div>
                 </div>
 
@@ -983,7 +983,7 @@ export default function ViewInvoice() {
                                 </td>
                                 <td className="py-2 px-3 text-center font-mono text-gray-900">
                                   <span>{item.qty} PCS</span>
-                                  {freeItemQty && <span className="text-green-500 font-bold block text-[9px]">(+0 Free)</span>}
+                                  {freeItemQty && <span className="text-brand-tertiary font-bold block text-[9px]">(+0 Free)</span>}
                                 </td>
                                 <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
                                 <td className="py-2 px-3 text-center font-mono text-gray-500">{taxRate}%</td>
@@ -1046,7 +1046,7 @@ export default function ViewInvoice() {
                       )}
 
                       {invoice.discountAmount > 0 && (
-                        <div className="flex justify-between text-green-600">
+                        <div className="flex justify-between text-brand-tertiary">
                            <span>Discount</span>
                            <span>-₹{invoice.discountAmount.toFixed(2)}</span>
                         </div>
@@ -1114,7 +1114,7 @@ export default function ViewInvoice() {
                    <p className="flex items-center gap-1 select-none">
                      <span>Invoice created using</span>
                      <span className="font-black text-gray-600">my</span>
-                     <span className="font-black text-orange-500">BillBook</span>
+                     <span className="font-black text-brand-secondary">BillBook</span>
                    </p>
                    <p className="text-[7px] text-gray-300 lowercase font-semibold">Download now at playstore / appstore</p>
                 </div>
@@ -1227,7 +1227,7 @@ export default function ViewInvoice() {
                   <span>Estimated Item Cost (Avg):</span>
                   <span className="font-mono">₹{(invoice.subtotal * 0.75).toFixed(2)}</span>
                </div>
-               <div className="border-t border-gray-100 pt-3 flex justify-between text-xs font-bold text-green-600">
+               <div className="border-t border-gray-100 pt-3 flex justify-between text-xs font-bold text-brand-tertiary">
                   <span>Calculated Net Profit:</span>
                   <span className="font-mono">₹{(invoice.total - (invoice.subtotal * 0.75)).toFixed(2)}</span>
                </div>

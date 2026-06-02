@@ -180,7 +180,7 @@ export default function PremiumStorePage() {
   if (orderPlaced) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white p-6 text-center">
-        <div className="w-24 h-24 bg-green-50 text-green-500 rounded-full flex items-center justify-center animate-in zoom-in duration-500 mb-8">
+        <div className="w-24 h-24 bg-green-50 text-brand-tertiary rounded-full flex items-center justify-center animate-in zoom-in duration-500 mb-8">
           <CheckCircle size={48} strokeWidth={1.5} />
         </div>
         <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight mb-4">Order Confirmed!</h1>
@@ -395,7 +395,7 @@ export default function PremiumStorePage() {
                   </div>
                   <div className="flex justify-between text-sm text-gray-500">
                     <span>Shipping</span>
-                    <span className="font-medium text-green-600">Free</span>
+                    <span className="font-medium text-brand-tertiary">Free</span>
                   </div>
                   <div className="pt-3 border-t border-gray-100 flex justify-between items-center">
                     <span className="text-base font-bold text-gray-900">Total</span>

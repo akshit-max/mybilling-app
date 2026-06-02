@@ -220,11 +220,11 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
   })).filter(group => group.items.length > 0);
 
   return (
-    <aside className={`${collapsed ? "w-20" : "w-64"} bg-[#141725] text-white flex flex-col h-screen flex-shrink-0 font-sans border-r border-gray-800 relative z-50 transition-all duration-300`}>
+    <aside className={`${collapsed ? "w-20" : "w-64"} bg-brand-primary text-white flex flex-col h-screen flex-shrink-0 font-sans border-r border-white/5 relative z-50 transition-all duration-300 shadow-[4px_0_24px_rgba(31,41,55,0.15)]`}>
 
       {/* User Profile Area */}
-      <Link href="/dashboard/settings/account" className={`p-4 flex items-center ${collapsed ? "justify-center" : "gap-3"} border-b border-gray-800 hover:bg-white/5 transition-colors cursor-pointer`}>
-        <div className="w-10 h-10 rounded-full bg-purple-900/50 flex items-center justify-center text-purple-300 font-bold text-sm uppercase shrink-0">
+      <Link href="/dashboard/settings/account" className={`p-4 flex items-center ${collapsed ? "justify-center" : "gap-3"} border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer`}>
+        <div className="w-10 h-10 rounded-full bg-brand-secondary/20 flex items-center justify-center text-brand-secondary font-bold text-sm uppercase shrink-0">
           {businessName.charAt(0)}
         </div>
         {!collapsed && (
@@ -240,10 +240,10 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
         <div className="relative z-50">
           <button
             onClick={() => router.push('/dashboard/invoices/create')}
-            className={`w-full bg-white text-[#141725] flex items-center ${collapsed ? "justify-center" : "justify-center gap-2"} px-4 py-2.5 rounded-full font-semibold hover:bg-gray-100 transition-colors text-sm shadow-sm`}
+            className={`w-full bg-white text-brand-primary flex items-center ${collapsed ? "justify-center" : "justify-center gap-2"} px-4 py-2.5 rounded-xl font-bold hover:bg-brand-neutral transition-colors text-sm shadow-sm`}
             title="Create Sales Invoice"
           >
-              <Plus size={16} className="text-indigo-600 font-bold shrink-0" />
+              <Plus size={16} className="text-brand-secondary font-extrabold shrink-0" />
               {!collapsed && <span>Create Sales Invoice</span>}
           </button>
         </div>
@@ -308,15 +308,15 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
                   <Link
                     key={item.name}
                     href={item.href}
-                    className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} px-3 py-2 rounded-lg text-sm transition-colors ${
+                    className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} px-3 py-2.5 rounded-xl text-sm transition-all ${
                       isParentActive
-                        ? "bg-indigo-600/20 text-indigo-300 font-medium"
-                        : "text-gray-400 hover:bg-white/5 hover:text-white"
+                        ? "bg-brand-secondary text-white font-bold shadow-md shadow-brand-secondary/20"
+                        : "text-white/60 hover:bg-white/10 hover:text-white"
                     }`}
                     title={collapsed ? item.name : undefined}
                   >
                     <div className="flex items-center gap-3">
-                      <item.icon size={17} className={`${isParentActive ? "text-indigo-400" : "text-gray-500"} shrink-0`} />
+                      <item.icon size={18} className={`${isParentActive ? "text-white" : "text-white/50"} shrink-0`} />
                       {!collapsed && <span>{item.name}</span>}
                     </div>
                   </Link>
@@ -331,17 +331,17 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
                       if (collapsed) setCollapsed?.(false);
                       toggleMenu(item.name);
                     }}
-                    className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-between"} px-3 py-2 rounded-lg text-sm transition-colors ${
+                    className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-between"} px-3 py-2.5 rounded-xl text-sm transition-all ${
                       isParentActive && !isExpanded
-                        ? "bg-indigo-600/20 text-indigo-300 font-medium"
-                        : "text-gray-400 hover:bg-white/5 hover:text-white"
+                        ? "bg-brand-secondary text-white font-bold shadow-md shadow-brand-secondary/20"
+                        : "text-white/60 hover:bg-white/10 hover:text-white"
                     }`}
                     title={collapsed ? item.name : undefined}
                   >
                     <div className="flex items-center gap-3">
                       <item.icon
-                        size={17}
-                        className={`${isParentActive && !isExpanded ? "text-indigo-400" : "text-gray-500"} shrink-0`}
+                        size={18}
+                        className={`${isParentActive && !isExpanded ? "text-white" : "text-white/50"} shrink-0`}
                       />
                       {!collapsed && <span>{item.name}</span>}
                     </div>
@@ -362,10 +362,10 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
                           <Link
                             key={sub.name}
                             href={sub.href}
-                            className={`flex items-center justify-between px-3 py-1.5 text-[13px] rounded-md transition-colors ${
+                            className={`flex items-center justify-between px-3 py-2 text-[13px] rounded-lg transition-all ${
                               isSubActive
-                                ? "bg-indigo-600/25 text-indigo-300 font-semibold"
-                                : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                                ? "bg-white/10 text-white font-bold"
+                                : "text-white/50 hover:text-white hover:bg-white/5"
                             }`}
                           >
                             <span>{sub.name}</span>
@@ -391,10 +391,10 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
         {(role === "Admin" || role === "Partner") && (
           <Link
             href="/dashboard/settings"
-            className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} px-3 py-2 rounded-lg text-sm transition-colors ${
+            className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} px-3 py-2.5 rounded-xl text-sm transition-all ${
               pathname?.startsWith("/dashboard/settings")
-                ? "bg-indigo-600/20 text-indigo-300"
-                : "text-gray-400 hover:bg-white/5 hover:text-white"
+                ? "bg-brand-secondary text-white font-bold shadow-md shadow-brand-secondary/20"
+                : "text-white/60 hover:bg-white/10 hover:text-white"
             }`}
             title={collapsed ? "Settings" : undefined}
           >

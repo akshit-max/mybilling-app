@@ -111,7 +111,7 @@ export default function ItemSettingsPage() {
             <p className="text-[10px] text-gray-500 font-medium">Configure advanced item tracking and pricing rules</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={openChat} className="flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-md font-semibold transition-colors">
+            <button onClick={openChat} className="flex items-center gap-1.5 text-xs text-brand-primary hover:bg-blue-50 px-3 py-1.5 rounded-md font-semibold transition-colors">
               <MessageSquare size={13} /> 
               <span>Chat Support</span>
             </button>

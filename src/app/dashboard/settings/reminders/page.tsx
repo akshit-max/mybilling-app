@@ -10,7 +10,18 @@ import { useChat } from "@/context/ChatContext";
 export default function RemindersPage() {
   const [sendBilling, setSendBilling] = useState(true);
   const [getPayment, setGetPayment] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<string | null>("party");
+  const [innerToggles, setInnerToggles] = useState<Record<string, boolean>>({
+    payment: true,
+    purchase: false,
+    lowStock: true,
+    salesReturn: false
+  });
   const { openChat } = useChat();
+
+  const toggleInner = (key: string) => {
+    setInnerToggles(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const handleSave = () => {
     toast.success("Reminder settings saved successfully!");
@@ -85,20 +96,92 @@ export default function RemindersPage() {
           {/* Collapsible Lists */}
           <div className="bg-white border border-gray-200 rounded shadow-sm divide-y divide-gray-100">
             
-            {/* Row 1 */}
-            <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors group">
-              <h4 className="text-xs font-bold text-gray-800">
-                TO PARTY <span className="font-normal text-gray-500 ml-1">(Reminders will be sent through sms)</span>
-              </h4>
-              <ChevronRight size={16} className="text-gray-400 group-hover:text-gray-600" />
+            {/* Section 1: TO PARTY */}
+            <div>
+              <div 
+                onClick={() => setExpandedSection(expandedSection === "party" ? null : "party")}
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors group"
+              >
+                <h4 className="text-xs font-bold text-gray-800">
+                  TO PARTY <span className="font-normal text-gray-500 ml-1">(Reminders will be sent through sms)</span>
+                </h4>
+                <ChevronRight size={16} className={`text-gray-400 group-hover:text-gray-600 transition-transform ${expandedSection === "party" ? "rotate-90" : ""}`} />
+              </div>
+              {expandedSection === "party" && (
+                <div className="bg-gray-50/50 p-4 border-t border-gray-100 space-y-4">
+                  
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">Payment Reminders</p>
+                      <p className="text-[10px] text-gray-500">Automatically remind customers of pending invoices</p>
+                    </div>
+                    <div 
+                      onClick={() => toggleInner("payment")}
+                      className={`w-8 h-4 flex items-center rounded-full p-0.5 cursor-pointer transition-colors ${innerToggles.payment ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                    >
+                      <div className={`bg-white w-3 h-3 rounded-full shadow-sm transform transition-transform ${innerToggles.payment ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">Sales Return Receipts</p>
+                      <p className="text-[10px] text-gray-500">Send an SMS receipt when a return is processed</p>
+                    </div>
+                    <div 
+                      onClick={() => toggleInner("salesReturn")}
+                      className={`w-8 h-4 flex items-center rounded-full p-0.5 cursor-pointer transition-colors ${innerToggles.salesReturn ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                    >
+                      <div className={`bg-white w-3 h-3 rounded-full shadow-sm transform transition-transform ${innerToggles.salesReturn ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                    </div>
+                  </div>
+
+                </div>
+              )}
             </div>
 
-            {/* Row 2 */}
-            <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors group">
-              <h4 className="text-xs font-bold text-gray-800">
-                TO YOU <span className="font-normal text-gray-500 ml-1">(Reminders will be sent on mobile app and whatsapp)</span>
-              </h4>
-              <ChevronRight size={16} className="text-gray-400 group-hover:text-gray-600" />
+            {/* Section 2: TO YOU */}
+            <div>
+              <div 
+                onClick={() => setExpandedSection(expandedSection === "you" ? null : "you")}
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors group"
+              >
+                <h4 className="text-xs font-bold text-gray-800">
+                  TO YOU <span className="font-normal text-gray-500 ml-1">(Reminders will be sent on mobile app and whatsapp)</span>
+                </h4>
+                <ChevronRight size={16} className={`text-gray-400 group-hover:text-gray-600 transition-transform ${expandedSection === "you" ? "rotate-90" : ""}`} />
+              </div>
+              {expandedSection === "you" && (
+                <div className="bg-gray-50/50 p-4 border-t border-gray-100 space-y-4">
+                  
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">Low Stock Alerts</p>
+                      <p className="text-[10px] text-gray-500">Get notified when items drop below minimum threshold</p>
+                    </div>
+                    <div 
+                      onClick={() => toggleInner("lowStock")}
+                      className={`w-8 h-4 flex items-center rounded-full p-0.5 cursor-pointer transition-colors ${innerToggles.lowStock ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                    >
+                      <div className={`bg-white w-3 h-3 rounded-full shadow-sm transform transition-transform ${innerToggles.lowStock ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">Purchase Order Updates</p>
+                      <p className="text-[10px] text-gray-500">Get notified when vendors accept purchase orders</p>
+                    </div>
+                    <div 
+                      onClick={() => toggleInner("purchase")}
+                      className={`w-8 h-4 flex items-center rounded-full p-0.5 cursor-pointer transition-colors ${innerToggles.purchase ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                    >
+                      <div className={`bg-white w-3 h-3 rounded-full shadow-sm transform transition-transform ${innerToggles.purchase ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                    </div>
+                  </div>
+
+                </div>
+              )}
             </div>
 
           </div>

@@ -329,7 +329,7 @@ export default function SharedLedgerPage() {
         <div className="h-16 border-b border-gray-200 flex items-center justify-between px-4 shrink-0 shadow-xs">
           <div className="flex items-center gap-3">
             <h2 className="text-sm font-bold text-gray-800">SharedLedger</h2>
-            <button onClick={() => setShowHowItWorks(true)} className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[10px] font-bold uppercase hover:bg-blue-100 transition-colors">
+            <button onClick={() => setShowHowItWorks(true)} className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-brand-primary border border-blue-100 rounded text-[10px] font-bold uppercase hover:bg-blue-100 transition-colors">
               <PlayCircle size={12} />
               How it Works?
             </button>
@@ -417,12 +417,12 @@ export default function SharedLedgerPage() {
                       <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Party Name</p>
                       <p className="text-xs font-bold text-gray-800 flex items-center gap-1">
                          {selectedParty.name} 
-                         <span className="text-orange-500">↹</span>
+                         <span className="text-brand-secondary">↹</span>
                       </p>
                     </div>
                     <div>
                       <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Balance</p>
-                      <p className={`text-xs font-bold ${selectedParty.balance > 0 ? 'text-red-600' : selectedParty.balance < 0 ? 'text-emerald-600' : 'text-gray-800'}`}>
+                      <p className={`text-xs font-bold ${selectedParty.balance > 0 ? 'text-red-600' : selectedParty.balance < 0 ? 'text-brand-tertiary' : 'text-gray-800'}`}>
                         {selectedParty.balance > 0 ? "↓ " : selectedParty.balance < 0 ? "↑ " : ""}
                         ₹{Math.abs(selectedParty.balance).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                       </p>
@@ -484,7 +484,7 @@ export default function SharedLedgerPage() {
                               {t.status === "Unpaid" ? (
                                 <span className="text-red-500 bg-red-50 px-2 py-0.5 rounded text-[10px] font-bold">Unpaid</span>
                               ) : (
-                                <span className="text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded text-[10px] font-bold">Completed</span>
+                                <span className="text-brand-tertiary bg-emerald-50 px-2 py-0.5 rounded text-[10px] font-bold">Completed</span>
                               )}
                             </td>
                             <td className="px-4 py-3 text-right">
@@ -545,7 +545,7 @@ export default function SharedLedgerPage() {
                />
                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="bg-white p-1 rounded shadow-sm border border-gray-100">
-                    <span className="text-orange-500 font-bold text-xl leading-none">↹</span>
+                    <span className="text-brand-secondary font-bold text-xl leading-none">↹</span>
                   </div>
                </div>
             </div>
@@ -734,9 +734,9 @@ export default function SharedLedgerPage() {
              ) : (
                 <>
                   <div className="bg-[#fff8eb] p-4 flex items-start gap-3 border-b border-orange-100">
-                    <AlertTriangle className="text-orange-500 shrink-0 mt-0.5" size={18} />
+                    <AlertTriangle className="text-brand-secondary shrink-0 mt-0.5" size={18} />
                     <p className="text-sm font-bold text-gray-800 leading-snug">
-                      Please check the details wisely before proceeding, as <span className="text-orange-500">AI can make mistakes.</span>
+                      Please check the details wisely before proceeding, as <span className="text-brand-secondary">AI can make mistakes.</span>
                     </p>
                     <button onClick={() => setShowAiModal(null)} className="text-gray-400 hover:text-gray-600 ml-auto shrink-0">
                       <X size={16} />

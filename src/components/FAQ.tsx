@@ -22,11 +22,11 @@ export default function FAQ() {
   ];
 
   return (
-    <section className="py-24  bg-gray-50">
+    <section className="py-24 bg-white font-sans">
       <div className="max-w-4xl mx-auto px-6">
 
         {/* HEADING */}
-        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-10">
+        <h2 className="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-gray-500 text-center mb-10 tracking-tight pb-1 drop-shadow-sm">
           Frequently Asked Questions
         </h2>
 
@@ -35,35 +35,34 @@ export default function FAQ() {
           {faqs.map((item, i) => (
             <div
               key={i}
-              className="bg-white border border-gray-200 rounded-xl overflow-hidden"
+              className="bg-slate-50 border border-brand-primary/5 rounded-[1.5rem] overflow-hidden shadow-sm hover:shadow-md transition-shadow ring-1 ring-black/5"
             >
 
               {/* QUESTION */}
               <button
                 onClick={() => setOpen(open === i ? null : i)}
-                className="w-full flex items-center justify-between px-6 py-4 text-left"
+                className="w-full flex items-center justify-between px-6 py-5 text-left"
               >
-                <span className="font-medium text-gray-900">
+                <span className="font-extrabold text-brand-primary">
                   {item.q}
                 </span>
 
                 <ChevronDown
                   size={18}
                   className={`transition-transform duration-300 ${
-                    open === i ? "rotate-180 text-purple-600" : "text-gray-500"
+                    open === i ? "rotate-180 text-brand-secondary" : "text-brand-primary/40"
                   }`}
                 />
               </button>
 
-              {/* ANSWER */}
               <div
                 className={`px-6 transition-all duration-300 ease-in-out ${
                   open === i
-                    ? "max-h-40 pb-4 opacity-100"
+                    ? "max-h-40 pb-5 opacity-100"
                     : "max-h-0 opacity-0"
                 } overflow-hidden`}
               >
-                <p className="text-gray-600 text-sm leading-relaxed">
+                <p className="text-brand-primary/70 font-medium text-sm leading-relaxed">
                   {item.a}
                 </p>
               </div>

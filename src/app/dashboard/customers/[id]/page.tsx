@@ -669,7 +669,7 @@ export default function CustomerDetailsPage() {
                         </td>
                         <td className="px-4 py-3 text-gray-500">{inv.paymentMode || "Cash"}</td>
                         <td className="px-4 py-3 text-right font-semibold font-mono text-gray-800">₹ {debit.toLocaleString("en-IN")}</td>
-                        <td className="px-4 py-3 text-right font-semibold font-mono text-green-600">
+                        <td className="px-4 py-3 text-right font-semibold font-mono text-brand-tertiary">
                           {credit > 0 ? `₹ ${credit.toLocaleString("en-IN")}` : "-"}
                         </td>
                         <td className="px-4 py-3 text-right font-semibold font-mono text-amber-700">₹ {remainingBalance.toLocaleString("en-IN")}</td>

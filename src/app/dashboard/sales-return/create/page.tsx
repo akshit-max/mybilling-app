@@ -610,8 +610,8 @@ export default function CreateSalesReturn() {
         }
 
         await saveOfflineInvoice(invoiceData as any);
-        toast.success("Invoice saved offline draft ✅");
-        router.push("/dashboard/invoices");
+        toast.success("Sales Return saved offline draft ✅");
+        router.push("/dashboard/sales-return");
         return;
       }
 
@@ -631,8 +631,8 @@ export default function CreateSalesReturn() {
       }
 
       await addDoc(collection(db, "salesReturns"), invoiceData);
-      toast.success("Sales Invoice created successfully! ✅");
-      router.push("/dashboard/invoices");
+      toast.success("Sales Return created successfully! ✅");
+      router.push("/dashboard/sales-return");
 
     } catch (err) {
       console.error(err);
@@ -1379,8 +1379,8 @@ export default function CreateSalesReturn() {
 
               {/* Balance remaining */}
               <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                <span className="font-bold text-green-600 text-xs">Balance Amount</span>
-                <span className="font-bold font-mono text-green-600">
+                <span className="font-bold text-brand-tertiary text-xs">Balance Amount</span>
+                <span className="font-bold font-mono text-brand-tertiary">
                   ₹ {Math.max(0, finalTotal - Number(amountReceived || 0)).toFixed(2)}
                 </span>
               </div>

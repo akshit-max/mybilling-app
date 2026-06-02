@@ -96,13 +96,22 @@ export default function QuotationsPage() {
         console.error("IndexedDB fetch error:", err);
       }
 
-      // Combine both sources
-      const combined = [...offlineData, ...onlineData];
+      // Combine both sources (offlineData comes after so it overwrites stale online data in the Map)
+      const combined = [...onlineData, ...offlineData];
       
-      // Remove duplicate IDs just in case
+      // Remove duplicate IDs just in case, prioritizing the latter (offline)
       const uniqueMap = new Map<string, Invoice>();
       combined.forEach(inv => {
-        uniqueMap.set(inv.id, inv);
+        if (uniqueMap.has(inv.id)) {
+          // If we have timestamps, we could compare them, but generally offline data 
+          // waiting to sync is the most recent user intent.
+          const existing = uniqueMap.get(inv.id)!;
+          // In case of conflict, we already know `inv` comes later in the array 
+          // (meaning it's likely the offline pending edit).
+          uniqueMap.set(inv.id, inv);
+        } else {
+          uniqueMap.set(inv.id, inv);
+        }
       });
 
       setInvoices(Array.from(uniqueMap.values()));
@@ -253,7 +262,7 @@ export default function QuotationsPage() {
 
         {/* Paid */}
         <div className="bg-green-50/40 border border-green-100 rounded-lg p-4 flex flex-col justify-center h-22 shadow-xs">
-          <span className="text-[10px] text-green-600 font-bold uppercase tracking-wider mb-1">Paid</span>
+          <span className="text-[10px] text-brand-tertiary font-bold uppercase tracking-wider mb-1">Paid</span>
           <span className="text-xl font-bold text-gray-800 font-mono">₹ {totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
         </div>
 
@@ -381,7 +390,7 @@ export default function QuotationsPage() {
                       <td className="px-4 py-3 text-gray-500 font-mono">{inv.date || "-"}</td>
                       <td className="px-4 py-3 font-bold font-mono text-gray-700">
                         {inv.invoiceType === "estimate" ? (
-                          <span className="text-orange-600 bg-orange-50 border border-orange-100 rounded-sm text-[9px] px-1 py-0.5 mr-1 font-bold">EST</span>
+                          <span className="text-orange-600 bg-brand-neutral border border-orange-100 rounded-sm text-[9px] px-1 py-0.5 mr-1 font-bold">EST</span>
                         ) : null}
                         {inv.isOffline ? (
                           <span className="text-gray-500 bg-gray-50 border border-gray-200 rounded-sm text-[9px] px-1 py-0.5 mr-1 font-bold">DRAFT</span>

@@ -16,6 +16,7 @@ type SalesReturn = {
   linkedInvoiceNumber: string;
   totalAmount: number;
   status: string;
+  isOffline?: boolean;
 };
 
 export default function SalesReturnList() {
@@ -33,19 +34,59 @@ export default function SalesReturnList() {
         where("userId", "==", userId)
       );
       
-      const snapshot = await getDocs(q);
-      const list = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          date: data.date || "",
-          salesReturnNumber: data.salesReturnNumber || "-",
-          partyName: data.customerName || data.partyName || "Unknown",
-          linkedInvoiceNumber: data.linkedInvoiceNumber || "-",
-          totalAmount: Number(data.total || data.totalAmount || 0),
-          status: data.status || "Settled"
-        };
+      let onlineData: SalesReturn[] = [];
+      try {
+        const snapshot = await getDocs(q);
+        onlineData = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            date: data.date || "",
+            salesReturnNumber: data.salesReturnNumber || "-",
+            partyName: data.customerName || data.partyName || "Unknown",
+            linkedInvoiceNumber: data.linkedInvoiceNumber || "-",
+            totalAmount: Number(data.total || data.totalAmount || 0),
+            status: data.status || "Settled",
+            isOffline: false
+          };
+        });
+      } catch (err) {
+        console.warn("Firestore fetch offline fallback:", err);
+      }
+
+      let offlineData: SalesReturn[] = [];
+      try {
+        const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
+        const cached = await getOfflineInvoices();
+        offlineData = cached
+          .filter((c: any) => c.salesReturnNumber)
+          .map((c: any) => ({
+            id: c.id?.toString() || c.salesReturnNumber,
+            date: c.date || new Date().toISOString().split("T")[0],
+            salesReturnNumber: c.salesReturnNumber || "-",
+            partyName: c.customerName || c.partyName || "Unknown",
+            linkedInvoiceNumber: c.linkedInvoiceNumber || "-",
+            totalAmount: Number(c.total || c.totalAmount || 0),
+            status: c.status || "Settled",
+            isOffline: true
+          }));
+      } catch (err) {
+        console.error("IndexedDB fetch error:", err);
+      }
+
+      const combined = [...onlineData, ...offlineData];
+      
+      const uniqueMap = new Map<string, SalesReturn>();
+      combined.forEach(inv => {
+        if (uniqueMap.has(inv.id)) {
+          uniqueMap.set(inv.id, inv);
+        } else {
+          uniqueMap.set(inv.id, inv);
+        }
       });
+      
+      const list = Array.from(uniqueMap.values());
+      // We already mapped in the blocks above
       
       // Sort client side by date desc
       list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -171,6 +212,9 @@ export default function SalesReturnList() {
                           {new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </td>
                         <td className="p-4 text-sm font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                          {item.isOffline ? (
+                            <span className="text-gray-500 bg-gray-50 border border-gray-200 rounded-sm text-[9px] px-1 py-0.5 mr-1 font-bold">DRAFT</span>
+                          ) : null}
                           {item.salesReturnNumber}
                         </td>
                         <td className="p-4 text-sm font-medium text-gray-800">{item.partyName}</td>

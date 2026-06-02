@@ -269,7 +269,7 @@ export default function BillWiseProfitReport() {
           <p className="text-xl font-bold text-gray-800 font-mono">₹ {totalSalesAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
         </div>
         <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 inline-block shadow-sm">
-          <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mb-0.5">Gross Profit Computed</p>
+          <p className="text-[10px] text-brand-tertiary font-bold uppercase tracking-wider mb-0.5">Gross Profit Computed</p>
           <p className="text-xl font-bold text-gray-800 font-mono">₹ {totalProfit.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
         </div>
         <div className="bg-purple-50 border border-purple-100 rounded-lg p-4 flex items-center gap-3 shadow-sm">
@@ -327,7 +327,7 @@ export default function BillWiseProfitReport() {
                     <td className="px-4 py-3 font-mono text-right text-gray-500 border-r border-gray-50 print:border-gray-300">
                       ₹ {entry.costAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="px-4 py-3 font-mono font-bold text-right text-emerald-600 border-r border-gray-50 print:border-gray-300">
+                    <td className="px-4 py-3 font-mono font-bold text-right text-brand-tertiary border-r border-gray-50 print:border-gray-300">
                       ₹ {entry.profit.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 font-mono font-bold text-right text-purple-600 print:border-gray-300 bg-purple-50/10">

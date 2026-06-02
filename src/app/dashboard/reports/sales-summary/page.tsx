@@ -281,7 +281,7 @@ export default function SalesSummaryReport() {
                     </td>
                     <td className="px-4 py-3 text-center border-r border-gray-50 print:border-gray-300">
                        <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
-                         inv.status === "paid" ? "bg-green-50 text-green-600 border border-green-100" :
+                         inv.status === "paid" ? "bg-green-50 text-brand-tertiary border border-green-100" :
                          inv.status === "pending" ? "bg-amber-50 text-amber-600 border border-amber-100" :
                          "bg-gray-100 text-gray-600 border border-gray-200"
                        }`}>

@@ -251,8 +251,8 @@ export default function ViewCreditNote() {
               <span>Purchase Return #{purchaseReturn.purchaseReturnNumber}</span>
               <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                 purchaseReturn.status === "adjusted" 
-                  ? "bg-green-50 text-green-600 border border-green-200/50" 
-                  : "bg-blue-50 text-blue-600 border border-blue-200/50"
+                  ? "bg-green-50 text-brand-tertiary border border-green-200/50" 
+                  : "bg-blue-50 text-brand-primary border border-blue-200/50"
               }`}>
                 {purchaseReturn.status}
               </span>
@@ -336,7 +336,7 @@ export default function ViewCreditNote() {
               </button>
               {isShareOpen && (
                 <div className="absolute left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-md py-1 w-36 z-50 text-xs font-semibold">
-                  <button onClick={handleWhatsAppShare} className="w-full flex items-center gap-2 px-4 py-2 text-green-600 hover:bg-green-50">
+                  <button onClick={handleWhatsAppShare} className="w-full flex items-center gap-2 px-4 py-2 text-brand-tertiary hover:bg-green-50">
                     <FaWhatsapp size={14} />
                     <span>WhatsApp</span>
                   </button>
@@ -460,7 +460,7 @@ export default function ViewCreditNote() {
                       )}
 
                       {purchaseReturn.discountAmount > 0 && (
-                        <div className="flex justify-between text-green-600">
+                        <div className="flex justify-between text-brand-tertiary">
                            <span>Discount</span>
                            <span>-₹{purchaseReturn.discountAmount.toFixed(2)}</span>
                         </div>
@@ -621,7 +621,7 @@ export default function ViewCreditNote() {
                       )}
 
                       {purchaseReturn.discountAmount > 0 && (
-                        <div className="flex justify-between text-green-600">
+                        <div className="flex justify-between text-brand-tertiary">
                            <span>Discount</span>
                            <span>-₹{purchaseReturn.discountAmount.toFixed(2)}</span>
                         </div>

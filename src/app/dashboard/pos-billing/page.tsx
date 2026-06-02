@@ -463,7 +463,7 @@ export default function POSBillingPage() {
           </button>
           <div className="text-sm font-bold text-gray-700 uppercase tracking-wider absolute left-1/2 -translate-x-1/2">POS Billing</div>
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1 text-[11px] font-bold text-blue-600 border border-blue-200 bg-blue-50/50 px-3 py-1 rounded hover:bg-blue-100 transition-colors">
+            <button className="flex items-center gap-1 text-[11px] font-bold text-brand-primary border border-blue-200 bg-blue-50/50 px-3 py-1 rounded hover:bg-blue-100 transition-colors">
               <PlayCircle size={12} /> Watch how to use POS Billing
             </button>
             <button onClick={() => setShowSettingsModal(true)} className="flex items-center gap-1 text-[11px] font-bold text-gray-600 border border-gray-200 px-3 py-1 rounded hover:bg-gray-50 transition-colors">
@@ -543,7 +543,7 @@ export default function POSBillingPage() {
                     >
                       <div>
                         <p className="text-xs font-bold text-gray-800">{p.name}</p>
-                        <p className="text-[10px] text-gray-500">Code: {p.itemCode || "-"} | Stock: <span className={p.stock > 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>{p.stock}</span></p>
+                        <p className="text-[10px] text-gray-500">Code: {p.itemCode || "-"} | Stock: <span className={p.stock > 0 ? "text-brand-tertiary font-bold" : "text-red-600 font-bold"}>{p.stock}</span></p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-bold text-indigo-600">₹{p.price}</p>

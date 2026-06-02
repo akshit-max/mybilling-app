@@ -4,12 +4,37 @@ import React, { useState } from "react";
 import { Check, X, ShieldCheck, Crown } from "lucide-react";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { db, auth } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
 import SettingsSidebar from "../SettingsSidebar";
 
 export default function PricingPage() {
   const router = useRouter();
   const [billingCycle, setBillingCycle] = useState<"Monthly" | "Yearly">("Yearly");
+  const [activePlan, setActivePlan] = useState<any>(null);
+  const [isPaid, setIsPaid] = useState(false);
+
+  React.useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setIsPaid(!!data.isPaid);
+            if (data.isPaid && data.plan) {
+              setActivePlan({ plan: data.plan, cycle: data.subscriptionCycle || "Monthly" });
+            }
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    });
+    return () => unsub();
+  }, []);
 
   const handleBuy = (plan: string) => {
     router.push(`/dashboard/settings/pricing/checkout?plan=${plan}&cycle=${billingCycle}`);
@@ -78,12 +103,23 @@ export default function PricingPage() {
       <div className="flex-1 bg-gray-50 flex flex-col font-sans h-[calc(100vh-60px)] overflow-hidden">
         
         {/* HEADER BANNER */}
-        <div className="bg-orange-50 border-b border-orange-100 px-6 py-4 flex flex-col items-center justify-center shrink-0 z-10 text-center relative shadow-sm">
-          <h2 className="text-sm font-bold text-gray-800">
-            You don't have any active plan
-          </h2>
-          <p className="text-xs text-gray-600 mt-1">Choose the best plan to continue using myBillBook without any interruption</p>
-          <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 mt-2 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+        <div className="bg-brand-neutral border-b border-orange-100 px-6 py-4 flex flex-col items-center justify-center shrink-0 z-10 text-center relative shadow-sm">
+          {isPaid && activePlan ? (
+            <>
+              <h2 className="text-sm font-bold text-gray-800">
+                You are currently on the <span className="text-brand-tertiary">{activePlan.plan}</span> Plan
+              </h2>
+              <p className="text-xs text-gray-600 mt-1">Your {activePlan.cycle.toLowerCase()} subscription is active.</p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-sm font-bold text-gray-800">
+                You don't have any active plan
+              </h2>
+              <p className="text-xs text-gray-600 mt-1">Choose the best plan to continue using myBillBook without any interruption</p>
+            </>
+          )}
+          <div className="flex items-center gap-1 text-[10px] font-bold text-brand-tertiary mt-2 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
             <ShieldCheck size={12} /> 7 days moneyback guarantee
           </div>
         </div>
@@ -94,7 +130,7 @@ export default function PricingPage() {
           {/* Billing Toggle */}
           <div className="flex justify-center mb-8">
             <div className="relative inline-flex bg-white border border-indigo-200 rounded-lg p-1 shadow-sm">
-               <div className="absolute -top-3 right-2 bg-emerald-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded z-10">upto 50% off</div>
+               <div className="absolute -top-3 right-2 bg-brand-tertiary text-white text-[8px] font-bold px-1.5 py-0.5 rounded z-10">upto 50% off</div>
                <button 
                  onClick={() => setBillingCycle("Monthly")}
                  className={`px-8 py-2 text-xs font-bold rounded-md transition-colors ${billingCycle === "Monthly" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-600 hover:bg-gray-50"}`}
@@ -131,7 +167,7 @@ export default function PricingPage() {
                       <div className="flex items-center gap-1 mt-1">
                         <p className="text-[10px] text-gray-400 line-through">₹3,599/year</p>
                         <p className="text-[10px] text-gray-500 font-medium">Billed Annually ₹2,599/year</p>
-                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded border border-emerald-100">28% Off</span>
+                        <span className="text-[9px] font-bold text-brand-tertiary bg-emerald-50 px-1 rounded border border-emerald-100">28% Off</span>
                       </div>
                     </>
                   ) : (
@@ -144,7 +180,7 @@ export default function PricingPage() {
                     </>
                   )}
                 </div>
-                <button onClick={() => handleBuy("Diamond")} className="w-full py-2 border border-[#F16D31] text-[#F16D31] font-bold text-xs rounded hover:bg-orange-50 transition-colors">
+                <button onClick={() => handleBuy("Diamond")} className="w-full py-2 border border-[#F16D31] text-[#F16D31] font-bold text-xs rounded hover:bg-brand-neutral transition-colors">
                   Buy Diamond Plan
                 </button>
                 <div className="space-y-2 text-[11px] font-medium text-gray-600 pt-2">
@@ -159,7 +195,7 @@ export default function PricingPage() {
                 <ul className="space-y-3">
                   {DiamondFeatures.map((f, i) => (
                     <li key={i} className={`flex items-start gap-2 text-[11px] ${f.inc ? 'text-gray-800 font-medium bg-[#FFF4E5]/50 -mx-2 px-2 py-1 rounded' : 'text-gray-400'}`}>
-                      {f.inc ? <Check size={14} className="text-green-600 shrink-0 mt-0.5" /> : <X size={14} className="text-red-500 shrink-0 mt-0.5" />}
+                      {f.inc ? <Check size={14} className="text-brand-tertiary shrink-0 mt-0.5" /> : <X size={14} className="text-red-500 shrink-0 mt-0.5" />}
                       <span>{f.name}</span>
                     </li>
                   ))}
@@ -188,7 +224,7 @@ export default function PricingPage() {
                       <div className="flex items-center gap-1 mt-1">
                         <p className="text-[10px] text-gray-400 line-through">₹5,999/year</p>
                         <p className="text-[10px] text-gray-500 font-medium">Billed Annually ₹2,999/year</p>
-                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded border border-emerald-100">50% Off</span>
+                        <span className="text-[9px] font-bold text-brand-tertiary bg-emerald-50 px-1 rounded border border-emerald-100">50% Off</span>
                       </div>
                     </>
                   ) : (
@@ -241,10 +277,10 @@ export default function PricingPage() {
                   <div className="flex items-center gap-1 mt-1">
                     <p className="text-[10px] text-gray-400 line-through">₹8,999/year</p>
                     <p className="text-[10px] text-gray-500 font-medium">Billed Annually ₹4,999/year</p>
-                    <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded border border-emerald-100">44% Off</span>
+                    <span className="text-[9px] font-bold text-brand-tertiary bg-emerald-50 px-1 rounded border border-emerald-100">44% Off</span>
                   </div>
                 </div>
-                <button onClick={() => handleBuy("Enterprise")} className="w-full py-2 border border-emerald-500 text-emerald-600 font-bold text-xs rounded hover:bg-emerald-50 transition-colors">
+                <button onClick={() => handleBuy("Enterprise")} className="w-full py-2 border border-emerald-500 text-brand-tertiary font-bold text-xs rounded hover:bg-emerald-50 transition-colors">
                   Talk To Sales
                 </button>
                 <div className="space-y-2 text-[11px] font-medium text-gray-600 pt-2">
@@ -255,11 +291,11 @@ export default function PricingPage() {
                 </div>
               </div>
               <div className="p-6 flex-1 bg-emerald-50/10">
-                <p className="text-[10px] font-bold text-emerald-600 mb-4">Features Exclusive to Enterprise Plan</p>
+                <p className="text-[10px] font-bold text-brand-tertiary mb-4">Features Exclusive to Enterprise Plan</p>
                 <ul className="space-y-3">
                   {EnterpriseFeatures.map((f, i) => (
                     <li key={i} className={`flex items-start gap-2 text-[11px] ${f.inc ? 'text-gray-800 font-medium bg-emerald-50/30 -mx-2 px-2 py-1 rounded' : 'text-gray-400'}`}>
-                      {f.inc ? <Check size={14} className="text-emerald-600 shrink-0 mt-0.5" /> : <X size={14} className="text-red-500 shrink-0 mt-0.5" />}
+                      {f.inc ? <Check size={14} className="text-brand-tertiary shrink-0 mt-0.5" /> : <X size={14} className="text-red-500 shrink-0 mt-0.5" />}
                       <span>{f.name}</span>
                     </li>
                   ))}

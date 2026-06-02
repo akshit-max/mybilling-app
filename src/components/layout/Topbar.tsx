@@ -248,34 +248,34 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
   };
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-6 flex-shrink-0 font-sans relative">
-      <div className="flex items-center gap-3">
+    <header className="h-16 bg-white border-b border-brand-primary/10 flex items-center justify-between px-4 md:px-8 flex-shrink-0 font-sans relative shadow-sm">
+      <div className="flex items-center gap-4">
         <button 
           onClick={toggleMobileMenu} 
-          className="md:hidden p-1.5 -ml-1.5 text-gray-600 hover:bg-gray-100 rounded-md"
+          className="md:hidden p-2 -ml-2 text-brand-primary/70 hover:bg-brand-neutral rounded-xl transition-colors"
         >
-          <Menu size={20} />
+          <Menu size={22} />
         </button>
         <button 
           onClick={toggleSidebar} 
-          className="hidden md:block p-1.5 -ml-2 text-gray-500 hover:bg-gray-100 hover:text-indigo-600 rounded-md transition-colors"
+          className="hidden md:block p-2 -ml-2 text-brand-primary/60 hover:bg-brand-neutral hover:text-brand-secondary rounded-xl transition-colors"
           title="Toggle Sidebar"
         >
-          <Indent size={18} />
+          <Indent size={20} />
         </button>
-        <h1 className="text-lg font-medium text-gray-800">{getPageTitle()}</h1>
+        <h1 className="text-xl font-bold text-brand-primary tracking-tight">{getPageTitle()}</h1>
       </div>
       
-      <div className="flex items-center gap-2 md:gap-4">
+      <div className="flex items-center gap-2 md:gap-5">
         {/* Icon Nav */}
-        <div className="flex items-center gap-3 text-gray-500">
+        <div className="flex items-center gap-2 text-brand-primary/60">
           <button 
             onClick={() => setShowInstallModal(true)}
-            className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center relative" 
+            className="p-2.5 hover:bg-brand-neutral rounded-xl transition-colors flex items-center justify-center relative" 
             title="Download Desktop App"
           >
-            <Monitor size={20} strokeWidth={1.5} className="text-gray-500 hover:text-indigo-600 transition-colors" />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+            <Monitor size={22} strokeWidth={1.5} className="text-brand-primary/70 hover:text-brand-secondary transition-colors" />
+            <span className="absolute top-2 right-2 w-2 h-2 bg-brand-secondary rounded-full shadow-sm"></span>
           </button>
           
           {/* <a 
@@ -290,35 +290,35 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
 
           <Link 
             href="/dashboard/settings/refer-and-earn" 
-            className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center" 
+            className="p-2.5 hover:bg-brand-neutral rounded-xl transition-colors flex items-center justify-center" 
             title="Refer a friend"
           >
-            <Gift size={20} strokeWidth={1.5} className="hover:text-indigo-600 transition-colors" />
+            <Gift size={22} strokeWidth={1.5} className="text-brand-primary/70 hover:text-brand-secondary transition-colors" />
           </Link>
 
           {/* Profile Switcher Dropdown */}
           <div className="relative">
             <button 
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-50 rounded-full transition-colors border border-transparent hover:border-gray-200"
+              className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-brand-neutral rounded-xl transition-colors border border-transparent hover:border-brand-primary/10 ml-2"
               title="Switch Active Profile"
             >
-              <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 text-xs font-bold">
+              <div className="w-8 h-8 bg-brand-primary rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm">
                 {activeProfile.name.charAt(0).toUpperCase()}
               </div>
-              <div className="flex flex-col items-start">
-                <span className="text-[10px] font-bold text-gray-800 leading-tight">{activeProfile.name}</span>
-                <span className="text-[9px] text-gray-500 leading-tight">{activeProfile.role}</span>
+              <div className="flex flex-col items-start hidden sm:flex">
+                <span className="text-[12px] font-bold text-brand-primary leading-tight">{activeProfile.name}</span>
+                <span className="text-[10px] text-brand-primary/60 leading-tight tracking-wide uppercase font-medium">{activeProfile.role}</span>
               </div>
-              <ChevronDown size={12} className="text-gray-400 ml-1" />
+              <ChevronDown size={14} className="text-brand-primary/40 ml-1 hidden sm:block" />
             </button>
 
             {showProfileDropdown && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowProfileDropdown(false)}></div>
-                <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
-                  <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Switch Session</p>
+                <div className="absolute right-0 mt-3 w-64 bg-white border border-brand-primary/10 rounded-2xl shadow-xl shadow-brand-primary/5 z-50 overflow-hidden">
+                  <div className="px-5 py-3 bg-brand-neutral/50 border-b border-brand-primary/5">
+                    <p className="text-[10px] font-bold text-brand-primary/50 uppercase tracking-widest">Switch Session</p>
                   </div>
                   <div className="max-h-64 overflow-y-auto p-1.5 space-y-1">
                     {/* Admin Option */}
@@ -357,23 +357,23 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
 
           <button 
             onClick={() => isChatOpen ? closeChat() : openChat()}
-            className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center" 
+            className="p-2.5 hover:bg-brand-neutral rounded-xl transition-colors flex items-center justify-center ml-2" 
             title="Chat Support"
           >
-            <MessagesSquare size={20} strokeWidth={1.5} className="hover:text-blue-600 transition-colors" />
+            <MessagesSquare size={22} strokeWidth={1.5} className="text-brand-primary/70 hover:text-brand-secondary transition-colors" />
           </button>
 
           <button 
             onClick={() => setShowShortcuts(!showShortcuts)}
-            className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center" 
+            className="p-2.5 hover:bg-brand-neutral rounded-xl transition-colors flex items-center justify-center" 
             title="Press ALT to open or close the shortcuts panel"
           >
-            <Keyboard size={20} strokeWidth={1.5} className="hover:text-indigo-600 transition-colors" />
+            <Keyboard size={22} strokeWidth={1.5} className="text-brand-primary/70 hover:text-brand-secondary transition-colors" />
           </button>
         </div>
 
         {/* Action Button */}
-        {/* <button className="ml-2 border border-blue-100 text-blue-600 hover:bg-blue-50 px-4 py-1.5 rounded-md text-sm font-medium transition-colors">
+        {/* <button className="ml-2 border border-blue-100 text-brand-primary hover:bg-blue-50 px-4 py-1.5 rounded-md text-sm font-medium transition-colors">
           Book Demo
         </button> */}
       </div>
@@ -436,7 +436,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
                 <X size={16} />
               </button>
               
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg mb-4 transition-transform duration-500 ${pinSuccess ? 'scale-110 bg-green-500 text-white' : pendingProfile.id === 'admin' ? 'bg-indigo-600 text-white' : 'bg-amber-500 text-white'}`}>
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg mb-4 transition-transform duration-500 ${pinSuccess ? 'scale-110 bg-brand-tertiary text-white' : pendingProfile.id === 'admin' ? 'bg-indigo-600 text-white' : 'bg-amber-500 text-white'}`}>
                 {pendingProfile.name.charAt(0).toUpperCase()}
               </div>
               
@@ -452,7 +452,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
                 <div 
                   key={i} 
                   className={`w-3.5 h-3.5 rounded-full transition-all duration-300 shadow-inner
-                    ${pinSuccess ? "bg-green-500 scale-110" : 
+                    ${pinSuccess ? "bg-brand-tertiary scale-110" : 
                       pinError ? "bg-red-500" : 
                       i < pinInput.length ? "bg-indigo-600 scale-110 shadow-indigo-600/50" : "bg-gray-200"
                     }

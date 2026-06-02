@@ -258,7 +258,7 @@ export default function InvoiceSettingsPage() {
                              {showDescription && <p className="text-[8px] text-gray-400">samsung phone</p>}
                            </td>
                            <td className="py-2.5 px-1.5 font-mono">1234</td>
-                           <td className="py-2.5 px-1.5 text-right font-mono">1 PCS {freeItemQty && <span className="text-green-500 text-[8px] font-bold block">(+0 Free)</span>}</td>
+                           <td className="py-2.5 px-1.5 text-right font-mono">1 PCS {freeItemQty && <span className="text-brand-tertiary text-[8px] font-bold block">(+0 Free)</span>}</td>
                            <td className="py-2.5 px-1.5 text-right font-mono">10,000</td>
                            <td className="py-2.5 px-1.5 text-right font-mono text-gray-400">1,000<br/>(10%)</td>
                            <td className="py-2.5 px-1.5 text-right font-mono">1,620<br/>(18%)</td>
@@ -271,7 +271,7 @@ export default function InvoiceSettingsPage() {
                              {showDescription && <p className="text-[8px] text-gray-400">parle biscuit</p>}
                            </td>
                            <td className="py-2.5 px-1.5 font-mono">40511200</td>
-                           <td className="py-2.5 px-1.5 text-right font-mono">1 BOX {freeItemQty && <span className="text-green-500 text-[8px] font-bold block">(+1 Free)</span>}</td>
+                           <td className="py-2.5 px-1.5 text-right font-mono">1 BOX {freeItemQty && <span className="text-brand-tertiary text-[8px] font-bold block">(+1 Free)</span>}</td>
                            <td className="py-2.5 px-1.5 text-right font-mono">342.86</td>
                            <td className="py-2.5 px-1.5 text-right font-mono text-gray-400">51.43<br/>(15%)</td>
                            <td className="py-2.5 px-1.5 text-right font-mono">14.57<br/>(5%)</td>
@@ -443,7 +443,7 @@ export default function InvoiceSettingsPage() {
              <div className="space-y-2">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                   Theme Styling 
-                  <span className="bg-blue-100 text-blue-600 text-[8px] px-1 rounded uppercase font-bold ml-1">New</span>
+                  <span className="bg-blue-100 text-brand-primary text-[8px] px-1 rounded uppercase font-bold ml-1">New</span>
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {["Uttar Pradesh", "Maharashtra", "Electronics", "Gujarat"].map((pill) => (
@@ -484,7 +484,7 @@ export default function InvoiceSettingsPage() {
              <div className="space-y-4 pt-4 border-t border-gray-150">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">Theme Configuration settings</span>
-                  <span className="bg-blue-100 text-blue-600 text-[8px] px-1 rounded uppercase font-bold">New</span>
+                  <span className="bg-blue-100 text-brand-primary text-[8px] px-1 rounded uppercase font-bold">New</span>
                 </div>
 
                 <div className="space-y-3 text-xs text-gray-600 font-semibold">
@@ -584,7 +584,7 @@ export default function InvoiceSettingsPage() {
                       >
                         <span className="flex items-center gap-1">
                           {title}
-                          {title === "Miscellaneous Details" && <span className="bg-blue-100 text-blue-600 text-[8px] px-1 rounded uppercase font-bold">New</span>}
+                          {title === "Miscellaneous Details" && <span className="bg-blue-100 text-brand-primary text-[8px] px-1 rounded uppercase font-bold">New</span>}
                         </span>
                         <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                       </button>

@@ -86,7 +86,7 @@ export default function DaybookReport() {
             });
           });
         } catch (e) {
-          console.log("No expenses collection found or empty.");
+          // Expenses collection might not exist yet, safe to ignore
         }
         
         data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -272,9 +272,9 @@ export default function DaybookReport() {
 
       <div className="px-6 pb-2 print:hidden flex gap-4">
         <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 inline-flex items-center gap-3 shadow-sm min-w-[200px]">
-          <div className="bg-emerald-100 p-2 rounded-full text-emerald-600"><ArrowUpRight size={20} /></div>
+          <div className="bg-emerald-100 p-2 rounded-full text-brand-tertiary"><ArrowUpRight size={20} /></div>
           <div>
-            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mb-0.5">Total Cash In</p>
+            <p className="text-[10px] text-brand-tertiary font-bold uppercase tracking-wider mb-0.5">Total Cash In</p>
             <p className="text-xl font-bold text-gray-800 font-mono">₹ {totalCashIn.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
           </div>
         </div>
@@ -322,7 +322,7 @@ export default function DaybookReport() {
                     </td>
                     <td className="px-4 py-3 font-semibold border-r border-gray-50 print:border-gray-300">
                       <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                        entry.type === "Sales Invoice" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                        entry.type === "Sales Invoice" ? "bg-emerald-50 text-brand-tertiary border border-emerald-100" :
                         entry.type === "Purchase Bill" ? "bg-rose-50 text-rose-600 border border-rose-100" :
                         "bg-gray-100 text-gray-600 border border-gray-200"
                       }`}>
@@ -335,7 +335,7 @@ export default function DaybookReport() {
                     <td className="px-4 py-3 text-gray-800 font-semibold border-r border-gray-50 print:border-gray-300">
                       {entry.partyName}
                     </td>
-                    <td className="px-4 py-3 font-mono font-bold text-right text-emerald-600 border-r border-gray-50 print:border-gray-300 bg-emerald-50/10">
+                    <td className="px-4 py-3 font-mono font-bold text-right text-brand-tertiary border-r border-gray-50 print:border-gray-300 bg-emerald-50/10">
                       {entry.cashIn > 0 ? `₹ ${entry.cashIn.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "-"}
                     </td>
                     <td className="px-4 py-3 font-mono font-bold text-right text-rose-600 print:border-gray-300 bg-rose-50/10">

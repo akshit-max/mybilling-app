@@ -817,7 +817,7 @@ export default function EditAutomatedBill() {
                   color: status === "Active" ? "#16a34a" : status === "Paused" ? "#d97706" : "#dc2626"
                 }}
               >
-                <option value="Active" className="text-green-600">Active (Running)</option>
+                <option value="Active" className="text-brand-tertiary">Active (Running)</option>
                 <option value="Paused" className="text-amber-600">Paused (Temporary Stop)</option>
                 <option value="Stopped" className="text-red-600">Stopped (Terminated)</option>
               </select>

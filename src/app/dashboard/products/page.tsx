@@ -927,10 +927,10 @@ export default function ItemsPage() {
 
                   return (
                     <tr key={p.id} className="hover:bg-gray-50/50 transition-colors group">
-                      <td className="px-4 py-3 font-semibold text-blue-600 hover:underline">
+                      <td className="px-4 py-3 font-semibold text-brand-primary hover:underline">
                         <Link href={`/dashboard/products/${p.id}`}>
                           <div>
-                            <p className="font-semibold text-blue-600">{p.name}</p>
+                            <p className="font-semibold text-brand-primary">{p.name}</p>
                             {p.category && p.category !== "-" && (
                               <span className="inline-block bg-gray-100 text-gray-600 text-[9px] px-1.5 py-0.5 rounded mt-0.5 font-normal">{p.category}</span>
                             )}

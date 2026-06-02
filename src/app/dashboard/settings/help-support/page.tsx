@@ -32,15 +32,15 @@ export default function HelpSupportPage() {
       id: 3,
       title: "Inventory Management",
       articles: 8,
-      icon: <Package className="text-orange-500 w-8 h-8" />,
-      color: "bg-orange-50",
+      icon: <Package className="text-brand-secondary w-8 h-8" />,
+      color: "bg-brand-neutral",
       description: "Track stock, items, and categories"
     },
     {
       id: 4,
       title: "Party Management",
       articles: 5,
-      icon: <Users className="text-green-500 w-8 h-8" />,
+      icon: <Users className="text-brand-tertiary w-8 h-8" />,
       color: "bg-green-50",
       description: "Manage customers and suppliers"
     },

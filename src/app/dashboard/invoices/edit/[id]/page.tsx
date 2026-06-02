@@ -936,7 +936,7 @@ export default function EditSalesInvoice() {
                     <div>
                       <p className="font-bold text-gray-600">{customerName}</p>
                       <p className="leading-relaxed mt-0.5">{shippingAddress}</p>
-                      <span className="text-[8px] bg-green-50 text-green-600 border border-green-150 px-1 py-0.2 rounded font-bold uppercase mt-1 inline-block">Custom Shipping Address</span>
+                      <span className="text-[8px] bg-green-50 text-brand-tertiary border border-green-150 px-1 py-0.2 rounded font-bold uppercase mt-1 inline-block">Custom Shipping Address</span>
                     </div>
                   ) : (
                     <span className="text-gray-400 italic">Same as billing address</span>
@@ -1277,7 +1277,7 @@ export default function EditSalesInvoice() {
                 </button>
 
                 {selectedQRBank && (
-                  <span className="text-[9px] bg-green-50 text-green-600 border border-green-150 px-2 py-0.5 rounded font-bold uppercase">
+                  <span className="text-[9px] bg-green-50 text-brand-tertiary border border-green-150 px-2 py-0.5 rounded font-bold uppercase">
                     UPI QR connected: {selectedQRBank.name}
                   </span>
                 )}
@@ -1376,7 +1376,7 @@ export default function EditSalesInvoice() {
               </div>
 
               {calc.discountAmount > 0 && (
-                <div className="flex justify-between items-center text-[10px] text-green-600 font-bold uppercase tracking-wider pl-1">
+                <div className="flex justify-between items-center text-[10px] text-brand-tertiary font-bold uppercase tracking-wider pl-1">
                   <span>Discount Adjusted ({discountType === "flat" ? "Flat" : `${discountValue}%`})</span>
                   <span>- ₹{calc.discountAmount.toFixed(2)}</span>
                 </div>
@@ -1447,7 +1447,7 @@ export default function EditSalesInvoice() {
 
                 <div className="text-[10px] font-bold flex gap-1">
                   <span className="text-gray-400 uppercase">Balance Amount:</span>
-                  <span className={`font-mono ${finalTotal - Number(amountReceived) > 0 ? "text-red-500" : "text-green-600"}`}>
+                  <span className={`font-mono ${finalTotal - Number(amountReceived) > 0 ? "text-red-500" : "text-brand-tertiary"}`}>
                     ₹{(finalTotal - Number(amountReceived)).toFixed(2)}
                   </span>
                 </div>

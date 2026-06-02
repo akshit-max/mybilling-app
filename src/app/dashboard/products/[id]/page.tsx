@@ -378,7 +378,7 @@ export default function ItemDetailsPage() {
               ) : isLowStock ? (
                 <span className="bg-amber-50 text-amber-600 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase border border-amber-100">Low Stock</span>
               ) : (
-                <span className="bg-green-50 text-green-600 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase border border-green-100">In Stock</span>
+                <span className="bg-green-50 text-brand-tertiary text-[9px] px-2 py-0.5 rounded-full font-bold uppercase border border-green-100">In Stock</span>
               )}
             </div>
             {product.category && product.category !== "-" && (
@@ -488,7 +488,7 @@ export default function ItemDetailsPage() {
                 </div>
                 <div>
                   <p className="text-gray-400 font-medium">Stock Value</p>
-                  <p className="font-bold text-green-600 mt-0.5 font-mono">₹ {(product.stock * product.price).toLocaleString("en-IN")}</p>
+                  <p className="font-bold text-brand-tertiary mt-0.5 font-mono">₹ {(product.stock * product.price).toLocaleString("en-IN")}</p>
                 </div>
                 <div>
                   <p className="text-gray-400 font-medium">Low Stock Warning</p>
@@ -575,7 +575,7 @@ export default function ItemDetailsPage() {
                   <tr key={idx} className="hover:bg-gray-50/50">
                     <td className="px-4 py-2.5 text-gray-500 font-mono">{tx.date}</td>
                     <td className="px-4 py-2.5 font-semibold text-gray-700">{tx.type}</td>
-                    <td className={`px-4 py-2.5 font-bold font-mono ${tx.quantity.startsWith("-") ? "text-red-500" : "text-green-600"}`}>
+                    <td className={`px-4 py-2.5 font-bold font-mono ${tx.quantity.startsWith("-") ? "text-red-500" : "text-brand-tertiary"}`}>
                       {tx.quantity}
                     </td>
                     <td className="px-4 py-2.5 text-gray-500 font-mono">{tx.invoiceNo}</td>

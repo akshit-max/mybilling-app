@@ -182,7 +182,7 @@ export default function PaymentInReceipt() {
                    payment.settledInvoices.map((inv, idx) => (
                      <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
                        <td className="p-3 text-sm font-bold text-gray-800">{inv.invoiceNumber}</td>
-                       <td className="p-3 text-sm font-bold text-green-600 text-right">₹{inv.amountSettled.toLocaleString()}</td>
+                       <td className="p-3 text-sm font-bold text-brand-tertiary text-right">₹{inv.amountSettled.toLocaleString()}</td>
                      </tr>
                    ))
                  )}

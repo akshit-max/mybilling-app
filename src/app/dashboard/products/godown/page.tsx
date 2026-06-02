@@ -319,7 +319,7 @@ export default function GodownPage() {
               </div>
             </div>
             <div className="absolute right-8 bottom-0 flex items-end gap-1">
-              <div className="w-8 h-12 bg-blue-600/80 rounded flex flex-col items-center justify-end pb-1 border border-blue-700">
+              <div className="w-8 h-12 bg-brand-primary/80 rounded flex flex-col items-center justify-end pb-1 border border-blue-700">
                  <div className="w-3 h-3 bg-yellow-400 rounded-full mb-1"></div>
               </div>
               <div className="flex flex-col gap-0.5">
@@ -664,7 +664,7 @@ export default function GodownPage() {
       {showSuccessModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 p-4 animate-in fade-in">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden p-8 flex flex-col items-center justify-center animate-in zoom-in-95 border-t-4 border-emerald-500">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mb-4">
+            <div className="w-16 h-16 bg-emerald-100 text-brand-tertiary rounded-full flex items-center justify-center mb-4">
               <Check size={32} strokeWidth={3} />
             </div>
             <h2 className="text-lg font-bold text-gray-800">Stock Transfered Successfully</h2>

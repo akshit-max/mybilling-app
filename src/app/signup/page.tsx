@@ -125,7 +125,7 @@ export default function Signup() {
               </div>
               <button 
                 onClick={() => router.push("/dashboard/invoices/create")}
-                className="w-full py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition active:scale-95 duration-150"
+                className="w-full py-2.5 rounded-xl text-xs font-bold bg-brand-primary hover:bg-brand-primary/90 text-white transition active:scale-95 duration-150"
               >
                 Create Invoice
               </button>
@@ -133,7 +133,7 @@ export default function Signup() {
 
             {/* Explore Dashboard Card */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition duration-300 flex flex-col justify-between items-center text-center space-y-6">
-              <div className="p-4 bg-orange-50 text-orange-600 rounded-2xl">
+              <div className="p-4 bg-brand-neutral text-orange-600 rounded-2xl">
                 <LayoutDashboard size={32} />
               </div>
               <div>
@@ -142,7 +142,7 @@ export default function Signup() {
               </div>
               <button 
                 onClick={() => router.push("/dashboard")}
-                className="w-full py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition active:scale-95 duration-150"
+                className="w-full py-2.5 rounded-xl text-xs font-bold bg-brand-primary hover:bg-brand-primary/90 text-white transition active:scale-95 duration-150"
               >
                 Explore Now
               </button>
@@ -150,7 +150,7 @@ export default function Signup() {
 
             {/* Book Demo Card */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition duration-300 flex flex-col justify-between items-center text-center space-y-6">
-              <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl">
+              <div className="p-4 bg-emerald-50 text-brand-tertiary rounded-2xl">
                 <Headset size={32} />
               </div>
               <div>
@@ -162,7 +162,7 @@ export default function Signup() {
                   toast.success("Demo Booked! Our expert will call you shortly.");
                   router.push("/dashboard");
                 }}
-                className="w-full py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition active:scale-95 duration-150"
+                className="w-full py-2.5 rounded-xl text-xs font-bold bg-brand-primary hover:bg-brand-primary/90 text-white transition active:scale-95 duration-150"
               >
                 Book Demo
               </button>
@@ -173,41 +173,56 @@ export default function Signup() {
         /* ================= ONBOARDING STEP 1 & 2 DUAL PANELS ================= */
         <div className="w-full min-h-screen grid lg:grid-cols-2">
           
-          {/* LEFT SIDE BRICK PANEL */}
-          <div className="hidden lg:flex flex-col justify-between p-12 bg-slate-50 border-r border-slate-200 select-none text-center items-center relative overflow-hidden">
-            <div className="my-auto space-y-8 relative z-10 flex flex-col items-center">
-              {/* Welcome text */}
-              <p className="text-xl font-bold text-gray-800 flex items-center gap-1.5 justify-center">
-                Welcome <span className="text-2xl animate-bounce">🙏</span> to
-              </p>
+          {/* LEFT SIDE: Premium Hero Graphic Panel */}
+          <div className="hidden lg:flex flex-col justify-between p-12 bg-brand-primary relative overflow-hidden">
+            {/* Abstract Background Elements */}
+            <div className="absolute inset-0 z-0 opacity-20">
+              <div className="absolute top-0 -left-1/4 w-full h-full bg-gradient-to-br from-brand-secondary/40 to-transparent blur-3xl transform rotate-12 rounded-full"></div>
+              <div className="absolute bottom-0 -right-1/4 w-full h-full bg-gradient-to-tl from-brand-tertiary/20 to-transparent blur-3xl transform -rotate-12 rounded-full"></div>
+            </div>
 
-              {/* myBillBook Logo */}
+            <div className="relative z-10 flex flex-col h-full justify-between">
+              {/* Logo */}
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-orange-500 rounded-2xl text-white shadow-md shadow-orange-500/20">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M2 22l20-20L12 12z" />
+                <div className="p-2.5 bg-brand-secondary rounded-xl text-white shadow-lg shadow-brand-secondary/30 flex items-center justify-center">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="rotate-45 transform">
+                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">my<span className="text-orange-500">BillBook</span></h1>
-                  <p className="text-[10px] font-bold text-slate-400 tracking-widest text-left mt-0.5 uppercase">by flobiz</p>
+                  <span className="text-3xl font-extrabold text-white tracking-tight">my<span className="text-brand-secondary">BillBook</span></span>
                 </div>
               </div>
-            </div>
 
-            {/* Bottom secure banner */}
-            <div className="flex flex-col items-center space-y-2 relative z-10 mt-auto pt-6">
-              <div className="flex items-center gap-4 text-xs font-bold text-slate-400">
-                <span className="flex items-center gap-1"><ShieldCheck size={14} className="text-emerald-500" /> 100% Secure</span>
-                <span className="flex items-center gap-1"><CheckCircle2 size={14} className="text-emerald-500" /> ISO Certified</span>
+              {/* Value Proposition */}
+              <div className="max-w-md space-y-6 my-auto">
+                <h1 className="text-4xl lg:text-5xl font-extrabold text-white leading-[1.1] tracking-tight">
+                  Join millions of successful businesses.
+                </h1>
+                <p className="text-lg text-brand-neutral/80 font-medium">
+                  Create invoices in seconds, manage stock automatically, and accelerate your growth with myBillBook.
+                </p>
               </div>
-              <p className="text-xs font-bold text-slate-500 pt-1">Trusted by <span className="text-orange-500">1 Crore+</span> Businesses</p>
+
+              {/* Badges */}
+              <div className="flex items-center gap-6 text-sm font-bold text-brand-neutral/60">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={18} className="text-brand-secondary" />
+                  100% Secure
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={18} className="text-brand-secondary" />
+                  ISO 27001 Certified
+                </div>
+              </div>
             </div>
           </div>
 
           {/* RIGHT SIDE FORM PANEL */}
-          <div className="flex flex-col justify-center px-6 sm:px-16 py-12 bg-white max-w-xl mx-auto lg:max-w-none lg:w-full">
-            <div className="max-w-md lg:max-w-[450px] mx-auto w-full space-y-8">
+          <div className="flex flex-col justify-center px-6 sm:px-16 py-12 bg-slate-50 relative max-w-xl mx-auto lg:max-w-none lg:w-full">
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-[size:32px_32px] opacity-40"></div>
+            
+            <div className="relative z-10 max-w-md lg:max-w-[480px] mx-auto w-full space-y-8 bg-white p-8 sm:p-10 rounded-[2rem] shadow-2xl shadow-brand-primary/5 ring-1 ring-brand-primary/5">
               
               {/* Header Title */}
               <div className="text-left space-y-4">
@@ -219,16 +234,16 @@ export default function Signup() {
                 <div className="flex items-center gap-3 pt-2 select-none">
                   {/* Step 1 Checkmark */}
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition duration-300 ${
-                    step > 1 ? "bg-indigo-600 text-white" : "bg-indigo-50 text-indigo-600 border-2 border-indigo-600"
+                    step > 1 ? "bg-brand-primary text-white" : "bg-brand-neutral text-brand-primary border-2 border-brand-primary"
                   }`}>
                     {step > 1 ? <Check size={12} strokeWidth={3} /> : "1"}
                   </div>
-                  <div className="w-16 h-[2px] bg-slate-200 rounded-full">
-                    <div className={`h-[2px] rounded-full transition-all duration-300 ${step > 1 ? "w-full bg-indigo-600" : "w-0 bg-indigo-200"}`}></div>
+                  <div className="w-16 h-[2px] bg-brand-primary/10 rounded-full">
+                    <div className={`h-[2px] rounded-full transition-all duration-300 ${step > 1 ? "w-full bg-brand-primary" : "w-0 bg-brand-primary/30"}`}></div>
                   </div>
                   {/* Step 2 Indicator */}
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition duration-300 ${
-                    step === 2 ? "bg-indigo-50 text-indigo-600 border-2 border-indigo-600" : "bg-slate-100 text-slate-400"
+                    step === 2 ? "bg-brand-neutral text-brand-primary border-2 border-brand-primary" : "bg-brand-neutral text-brand-primary/40 border border-brand-primary/10"
                   }`}>
                     2
                   </div>
@@ -240,52 +255,52 @@ export default function Signup() {
                 <form onSubmit={handleStep1Continue} className="space-y-4">
                   {/* Email Field */}
                   <div className="space-y-1 text-left">
-                    <label className="text-xs font-bold text-gray-600">Email Address *</label>
+                    <label className="text-[11px] font-extrabold text-brand-primary/70 uppercase tracking-wider">Email Address *</label>
                     <input
                       type="email"
                       placeholder="Enter Email Address"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-gray-800 placeholder:text-gray-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition"
+                      className="w-full px-4 py-3.5 rounded-xl border border-brand-primary/10 bg-slate-50 text-sm font-bold text-brand-primary placeholder:text-brand-primary/30 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all hover:bg-white shadow-inner"
                     />
                   </div>
 
                   {/* Password Field */}
-                  <div className="space-y-1 text-left">
-                    <label className="text-xs font-bold text-gray-600">Password (Min 6 Characters) *</label>
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[11px] font-extrabold text-brand-primary/70 uppercase tracking-wider">Password (Min 6 Characters) *</label>
                     <input
                       type="password"
                       placeholder="Enter Secure Password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-gray-800 placeholder:text-gray-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition"
+                      className="w-full px-4 py-3.5 rounded-xl border border-brand-primary/10 bg-slate-50 text-sm font-bold text-brand-primary placeholder:text-brand-primary/30 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all hover:bg-white shadow-inner"
                     />
                   </div>
 
                   {/* Business Name Field */}
-                  <div className="space-y-1 text-left">
-                    <label className="text-xs font-bold text-gray-600">Your Business Name *</label>
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[11px] font-extrabold text-brand-primary/70 uppercase tracking-wider">Your Business Name *</label>
                     <input
                       type="text"
                       placeholder="Enter Business Name"
                       value={businessName}
                       onChange={(e) => setBusinessName(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-gray-800 placeholder:text-gray-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition"
+                      className="w-full px-4 py-3.5 rounded-xl border border-brand-primary/10 bg-slate-50 text-sm font-bold text-brand-primary placeholder:text-brand-primary/30 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all hover:bg-white shadow-inner"
                     />
                   </div>
 
                   {/* City Search Field */}
-                  <div className="space-y-1 text-left">
-                    <label className="text-xs font-bold text-gray-600">Which City? *</label>
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[11px] font-extrabold text-brand-primary/70 uppercase tracking-wider">Which City? *</label>
                     <div className="relative">
                       <input
                         type="text"
                         placeholder="Search Cities"
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
-                        className="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-gray-800 placeholder:text-gray-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition"
+                        className="w-full pl-4 pr-10 py-3.5 rounded-xl border border-brand-primary/10 bg-slate-50 text-sm font-bold text-brand-primary placeholder:text-brand-primary/30 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all hover:bg-white shadow-inner"
                       />
-                      <svg className="absolute right-3.5 top-3.5 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="absolute right-4 top-3.5 w-5 h-5 text-brand-primary/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                     </div>
@@ -299,7 +314,7 @@ export default function Signup() {
                       <label 
                         onClick={() => setRequirement("android")}
                         className={`flex items-center justify-between p-3.5 border rounded-2xl cursor-pointer transition select-none ${
-                          requirement === "android" ? "border-indigo-600 bg-indigo-50/30" : "border-slate-200 hover:border-slate-300"
+                          requirement === "android" ? "border-brand-primary bg-brand-neutral/50 shadow-sm" : "border-brand-primary/10 hover:border-brand-primary/30"
                         }`}
                       >
                         <span className="text-xs font-bold text-gray-800">Basic Billing on Android App</span>
@@ -316,7 +331,7 @@ export default function Signup() {
                       <label 
                         onClick={() => setRequirement("laptop")}
                         className={`flex items-center justify-between p-3.5 border rounded-2xl cursor-pointer transition select-none ${
-                          requirement === "laptop" ? "border-indigo-600 bg-indigo-50/30" : "border-slate-200 hover:border-slate-300"
+                          requirement === "laptop" ? "border-brand-primary bg-brand-neutral/50 shadow-sm" : "border-brand-primary/10 hover:border-brand-primary/30"
                         }`}
                       >
                         <span className="text-xs font-bold text-gray-800">Billing, Stock Keeping, Collections on Laptop & App</span>
@@ -335,7 +350,7 @@ export default function Signup() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-lg hover:shadow-indigo-500/10 active:scale-[0.98] duration-150 flex items-center justify-center gap-1"
+                    className="w-full py-4 mt-4 rounded-xl text-sm font-extrabold bg-brand-primary hover:bg-brand-primary/90 text-white transition-all shadow-xl hover:shadow-brand-primary/30 hover:-translate-y-0.5 active:scale-[0.98] duration-150 flex items-center justify-center gap-2"
                   >
                     {loading ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -344,9 +359,9 @@ export default function Signup() {
                     )}
                   </button>
 
-                  <p className="text-xs text-gray-500 text-center pt-2">
+                  <p className="text-xs font-bold text-brand-primary/60 text-center pt-2">
                     Already have an account?{" "}
-                    <Link href="/login" className="text-indigo-600 font-bold hover:underline">
+                    <Link href="/login" className="text-brand-secondary hover:text-brand-secondary/80 transition ml-1">
                       Login
                     </Link>
                   </p>
@@ -362,7 +377,7 @@ export default function Signup() {
                       <label 
                         onClick={() => setCustomerType("retail")}
                         className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition select-none ${
-                          customerType === "retail" ? "border-indigo-600 bg-indigo-50/30" : "border-slate-200 hover:border-slate-300"
+                          customerType === "retail" ? "border-brand-primary bg-brand-neutral/50 shadow-sm" : "border-brand-primary/10 hover:border-brand-primary/30"
                         }`}
                       >
                         <span className="text-xs font-bold text-gray-800">Retail Customers</span>
@@ -379,7 +394,7 @@ export default function Signup() {
                       <label 
                         onClick={() => setCustomerType("wholesale")}
                         className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition select-none ${
-                          customerType === "wholesale" ? "border-indigo-600 bg-indigo-50/30" : "border-slate-200 hover:border-slate-300"
+                          customerType === "wholesale" ? "border-brand-primary bg-brand-neutral/50 shadow-sm" : "border-brand-primary/10 hover:border-brand-primary/30"
                         }`}
                       >
                         <span className="text-xs font-bold text-gray-800">Distributors / Wholesalers</span>
@@ -400,7 +415,7 @@ export default function Signup() {
                     <select
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-gray-700 bg-white outline-none focus:border-indigo-600 transition"
+                      className="w-full px-4 py-3 rounded-xl border border-brand-primary/10 bg-brand-neutral/30 text-sm font-bold text-brand-primary outline-none focus:border-brand-primary transition hover:bg-white"
                     >
                       <option value="English">English</option>
                       <option value="Hindi">Hindi</option>
@@ -415,13 +430,13 @@ export default function Signup() {
                     <button
                       type="button"
                       onClick={() => setStep(1)}
-                      className="flex-1 py-3.5 border border-slate-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-slate-50 transition active:scale-[0.98]"
+                      className="flex-1 py-4 border border-brand-primary/10 rounded-xl text-sm font-bold text-brand-primary/60 hover:bg-brand-neutral/50 transition active:scale-[0.98]"
                     >
                       Back
                     </button>
                     <button
                       type="submit"
-                      className="flex-[2] py-3.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-lg hover:shadow-indigo-500/10 active:scale-[0.98] duration-150"
+                      className="flex-[2] py-4 rounded-xl text-sm font-bold bg-brand-primary hover:bg-brand-primary/90 text-white transition shadow-lg hover:shadow-brand-primary/20 active:scale-[0.98] duration-150"
                     >
                       Finish Setup
                     </button>

@@ -239,7 +239,7 @@ export default function GSTR2ReportPage() {
           </Link>
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-bold text-gray-800">GSTR-2 (Sales)</h1>
-            <button className="flex items-center gap-1.5 text-xs text-blue-600 border border-blue-200 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 font-semibold transition-colors">
+            <button className="flex items-center gap-1.5 text-xs text-brand-primary border border-blue-200 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 font-semibold transition-colors">
               <PlayCircle size={14} /> Watch how to use JSON file
             </button>
             <button className="flex items-center gap-1 text-xs text-gray-600 border border-gray-200 bg-white px-2 py-1 rounded hover:bg-gray-50 font-semibold transition-colors">
@@ -309,7 +309,7 @@ export default function GSTR2ReportPage() {
 
         {/* Promo Banner */}
         <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-center text-sm font-semibold text-gray-800 shadow-sm print:hidden">
-          Get all your data for GST filing by downloading the <span className="text-blue-600">JSON file</span> and uploading on GST portal
+          Get all your data for GST filing by downloading the <span className="text-brand-primary">JSON file</span> and uploading on GST portal
         </div>
 
         {/* Data Workspace */}

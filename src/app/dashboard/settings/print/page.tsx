@@ -118,7 +118,7 @@ export default function PrintSettingsPage() {
             <p className="text-[10px] text-gray-500 font-medium font-sans">Choose printer paper sizes and manage barcode tag generations</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={openChat} className="flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-md font-semibold transition-colors">
+            <button onClick={openChat} className="flex items-center gap-1.5 text-xs text-brand-primary hover:bg-blue-50 px-3 py-1.5 rounded-md font-semibold transition-colors">
               <MessageSquare size={13} /> Chat Support
             </button>
             <button 
@@ -205,7 +205,7 @@ export default function PrintSettingsPage() {
                       
                       {logoUploaded ? (
                         <div className="border border-green-200 rounded-lg p-5 flex flex-col items-center justify-center bg-green-50/30 text-center relative h-36">
-                          <CheckCircle className="text-green-500 mb-2" size={24} />
+                          <CheckCircle className="text-brand-tertiary mb-2" size={24} />
                           <p className="text-xs font-bold text-green-800">Monochrome logo ready</p>
                           <button 
                             onClick={() => triggerChange(setLogoUploaded, false)}
@@ -227,7 +227,7 @@ export default function PrintSettingsPage() {
                       )}
                       
                       <p className="text-[9px] text-gray-400 leading-normal">
-                         You can only upload your logo in monochrome. *.bmp extension and 1:1 ratio (max width) x (max height) dimensions. To learn how to resize and resave your logo in monochrome <a href="#" className="text-indigo-600 hover:underline font-semibold">click here</a>.
+                         You can only upload your logo in monochrome. *.bmp extension and 1:1 ratio (max width) x (max height) dimensions.
                       </p>
                    </div>
                 </>
@@ -282,7 +282,7 @@ export default function PrintSettingsPage() {
                    
                    {/* Yellow warning alert box */}
                    <div className="bg-amber-50 border border-amber-100 text-amber-800 text-[10px] px-4 py-2.5 rounded-lg mb-6 flex items-start gap-2 max-w-2xl w-full leading-normal">
-                      <p>This is a preview of the Thermal print of your Invoice. Some columns might not appear if they don't have the required information. <a href="#" className="text-indigo-600 font-bold hover:underline">Click here to learn more</a></p>
+                      <p>This is a preview of the Thermal print of your Invoice. Some columns might not appear if they don't have the required information.</p>
                    </div>
 
                    {/* Receipt slip container sizing dynamically */}

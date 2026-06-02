@@ -4,18 +4,22 @@ import { FaFacebook, FaInstagram, FaYoutube } from "react-icons/fa";
 
 export default function Footer() {
   return (
-    <footer className="bg-[#0B1120] text-white pt-20 pb-10">
+    <footer className="bg-brand-primary text-white pt-20 pb-10 font-sans">
       <div className="max-w-7xl mx-auto px-6">
         {/* TOP GRID */}
         <div className="grid md:grid-cols-5 gap-12">
           {/* BRAND */}
           <div>
-            <h3 className="text-xl flex gap-1 font-bold mb-4">
-              <span className="bg-gradient-to-r from-purple-500 to-indigo-500 bg-clip-text text-transparent">
-                my
+            <div className="flex items-center gap-1.5 z-50 mb-4">
+              <div className="bg-brand-secondary text-white rounded-lg p-1 flex items-center justify-center shadow-md">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="rotate-45 transform">
+                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                </svg>
+              </div>
+              <span className="font-extrabold text-white text-xl tracking-tight font-sans">
+                my<span className="text-brand-secondary">BillBook</span>
               </span>
-              BillBook
-            </h3>
+            </div>
 
             <p className="text-sm text-white/60 leading-relaxed">
               Smart GST billing software built for modern businesses in India.

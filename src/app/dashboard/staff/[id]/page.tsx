@@ -370,7 +370,7 @@ export default function StaffDetailView() {
               >
                 <div>
                   <p className="text-sm font-bold text-gray-800">{s.name}</p>
-                  <p className={"text-xs font-bold mt-1 " + (s.balance >= 0 ? "text-green-600" : "text-red-500")}>
+                  <p className={"text-xs font-bold mt-1 " + (s.balance >= 0 ? "text-brand-tertiary" : "text-red-500")}>
                     {s.balance >= 0 ? "↑" : "↓"} ₹{Math.abs(s.balance).toLocaleString("en-IN")}
                   </p>
                 </div>
@@ -524,7 +524,7 @@ export default function StaffDetailView() {
                               <div className="flex items-center gap-2">
                                 <button 
                                   onClick={() => markAttendance(dateStr, "P")}
-                                  className={"w-8 h-8 rounded flex items-center justify-center text-xs font-bold border transition " + (isP ? "bg-green-100 text-green-700 border-green-200" : "bg-white text-green-500 border-gray-200 hover:bg-green-50")}
+                                  className={"w-8 h-8 rounded flex items-center justify-center text-xs font-bold border transition " + (isP ? "bg-green-100 text-green-700 border-green-200" : "bg-white text-brand-tertiary border-gray-200 hover:bg-green-50")}
                                 >
                                   P
                                 </button>
@@ -594,7 +594,7 @@ export default function StaffDetailView() {
               <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100 bg-gray-50/30">
                 <div className="px-6 py-4">
                   <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Dues</p>
-                  <p className={"text-lg font-black mt-0.5 " + ((currentStaff?.balance || 0) >= 0 ? "text-green-600" : "text-red-500")}>
+                  <p className={"text-lg font-black mt-0.5 " + ((currentStaff?.balance || 0) >= 0 ? "text-brand-tertiary" : "text-red-500")}>
                     {(currentStaff?.balance || 0) >= 0 ? "↑" : "↓"} ₹{Math.abs(currentStaff?.balance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
@@ -720,7 +720,7 @@ export default function StaffDetailView() {
                           </td>
                           <td className="px-6 py-3.5 text-xs font-semibold text-gray-600">{t.paymentType}</td>
                           <td className="px-6 py-3.5">
-                            <span className={"text-xs font-bold " + (t.paymentType === "Collection" ? "text-red-500" : "text-green-600")}>
+                            <span className={"text-xs font-bold " + (t.paymentType === "Collection" ? "text-red-500" : "text-brand-tertiary")}>
                               {t.paymentType === "Collection" ? "↓" : "↑"} ₹{t.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                             </span>
                           </td>
@@ -735,8 +735,50 @@ export default function StaffDetailView() {
           )}
 
           {activeTab === "Details" && (
-            <div className="bg-white border border-gray-200 rounded-lg p-12 text-center shadow-sm">
-              <p className="text-gray-400 font-bold text-sm uppercase tracking-wider">Details coming soon</p>
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-gray-100 flex items-center gap-4 bg-gray-50/50">
+                <div className="w-16 h-16 rounded-full bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center text-xl font-bold text-brand-primary shadow-sm shrink-0">
+                  {currentStaff?.name.charAt(0).toUpperCase() || "?"}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">{currentStaff?.name || "Employee"}</h3>
+                  <p className="text-sm text-gray-500 font-semibold">{currentStaff?.phone || "No Phone Number"}</p>
+                </div>
+              </div>
+
+              <div className="grid lg:grid-cols-2 gap-6 p-6">
+                <div className="space-y-6">
+                  <div className="bg-gray-50 rounded-lg border border-gray-100 p-5 shadow-sm">
+                    <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-4">Employment Details</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Salary Type</p>
+                        <p className="text-sm font-bold text-gray-900">{currentStaff?.salaryType || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Base Salary</p>
+                        <p className="text-sm font-bold text-gray-900">₹{currentStaff?.salaryAmount?.toLocaleString("en-IN") || "0"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</p>
+                        <span className="mt-1 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 border border-green-200 uppercase tracking-wider">Active</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-6">
+                  <div className="bg-gray-50 rounded-lg border border-gray-100 p-5 shadow-sm h-full flex flex-col justify-center items-center text-center">
+                    <div className="w-12 h-12 bg-white rounded-full border border-gray-200 flex items-center justify-center text-gray-400 mb-3 shadow-sm">
+                      <CreditCard size={20} />
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-800">Bank Details</h4>
+                    <p className="text-xs text-gray-500 mt-1">Bank details have not been added for this employee yet.</p>
+                    <button className="mt-4 text-[11px] font-bold text-brand-secondary bg-white border border-gray-200 px-4 py-2 rounded hover:bg-gray-50 transition shadow-sm">
+                      Add Bank Account
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

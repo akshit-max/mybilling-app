@@ -191,7 +191,7 @@ export default function SMSMarketingPage() {
             <div className="z-10 text-white space-y-3">
               <h3 className="font-bold text-base">Share discount Your customer will love</h3>
               <p className="text-xs text-orange-100">Share discount offers with your customers and watch your business grow</p>
-              <button onClick={() => openModal("discount")} className="mt-2 bg-white text-orange-600 font-bold px-4 py-1.5 rounded text-xs shadow-sm hover:bg-orange-50 transition-colors">
+              <button onClick={() => openModal("discount")} className="mt-2 bg-white text-orange-600 font-bold px-4 py-1.5 rounded text-xs shadow-sm hover:bg-brand-neutral transition-colors">
                 Select Template
               </button>
             </div>

@@ -154,7 +154,7 @@ export default function AccountSettingsPage() {
             <p className="text-[10px] text-gray-500 font-medium">Manage your subscription account and profile details</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={openChat} className="flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-md font-semibold transition-colors">
+            <button onClick={openChat} className="flex items-center gap-1.5 text-xs text-brand-primary hover:bg-blue-50 px-3 py-1.5 rounded-md font-semibold transition-colors">
               <MessageSquare size={13} /> Chat Support
             </button>
             <button 
@@ -172,9 +172,9 @@ export default function AccountSettingsPage() {
         </div>
 
         {/* Help us banner */}
-        <div className="bg-orange-50 border-b border-orange-100 px-6 py-2.5 flex items-center justify-between shrink-0">
+        <div className="bg-brand-neutral border-b border-orange-100 px-6 py-2.5 flex items-center justify-between shrink-0">
           <span className="text-xs text-gray-700 font-bold">Help us make myBillBook better for your business!</span>
-          <button className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold uppercase tracking-wider px-4 py-1 rounded transition-colors">
+          <button className="flex items-center gap-1.5 bg-brand-secondary hover:bg-orange-600 text-white text-[10px] font-bold uppercase tracking-wider px-4 py-1 rounded transition-colors">
             🎁 Share Suggestion
           </button>
         </div>
@@ -253,14 +253,14 @@ export default function AccountSettingsPage() {
               {/* Current Plan */}
               <div className="flex flex-col gap-4 max-w-xs w-full">
                 <div className={`border p-4 rounded-lg ${isPaid ? "bg-emerald-50 border-emerald-200" : "bg-gray-50 border-gray-150"}`}>
-                  <p className={`text-[9px] uppercase tracking-wider font-bold ${isPaid ? "text-emerald-600" : "text-gray-400"}`}>CURRENT PLAN</p>
+                  <p className={`text-[9px] uppercase tracking-wider font-bold ${isPaid ? "text-brand-tertiary" : "text-gray-400"}`}>CURRENT PLAN</p>
                   <p className={`text-3xl font-extrabold mt-1 capitalize ${isPaid ? "text-emerald-800" : "text-gray-800"}`}>
                     {isPaid ? `${planName} Plan` : "Trial Plan"}
                   </p>
                 </div>
                 
                 {!isPaid && (
-                  <button className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-2.5 rounded-lg text-xs uppercase tracking-wider transition-all shadow-xs text-center">
+                  <button className="bg-brand-secondary hover:bg-orange-600 text-white font-bold px-6 py-2.5 rounded-lg text-xs uppercase tracking-wider transition-all shadow-xs text-center">
                     Buy Premium Subscription
                   </button>
                 )}

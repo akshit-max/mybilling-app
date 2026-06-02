@@ -64,7 +64,7 @@ export default function EInvoicingPage() {
         <div>
           <button 
             onClick={openChat}
-            className="flex items-center gap-1.5 text-[11px] text-blue-600 bg-blue-50 px-4 py-1.5 rounded hover:bg-blue-100 font-bold uppercase tracking-wider transition-colors"
+            className="flex items-center gap-1.5 text-[11px] text-brand-primary bg-blue-50 px-4 py-1.5 rounded hover:bg-blue-100 font-bold uppercase tracking-wider transition-colors"
           >
             <MessageCircle size={14} />
             <span>Chat Support</span>
@@ -133,7 +133,7 @@ export default function EInvoicingPage() {
                           <td className="px-6 py-4 font-mono text-gray-600 text-xs">{inv.ackNo}</td>
                           <td className="px-6 py-4 text-right font-mono font-bold text-gray-900">₹{inv.total?.toFixed(2)}</td>
                           <td className="px-6 py-4 text-center">
-                            <Link href={`/dashboard/e-invoicing/print/${inv.id}`} className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors inline-flex items-center gap-1.5">
+                            <Link href={`/dashboard/e-invoicing/print/${inv.id}`} className="text-xs font-bold text-brand-primary bg-blue-50 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors inline-flex items-center gap-1.5">
                                <CheckSquare size={13} />
                                View e-Invoice
                             </Link>
@@ -185,7 +185,7 @@ export default function EInvoicingPage() {
                           <td className="px-6 py-4 font-mono text-gray-600 text-xs">{inv.ewayBillNo}</td>
                           <td className="px-6 py-4 text-right font-mono font-bold text-gray-900">₹{inv.total?.toFixed(2)}</td>
                           <td className="px-6 py-4 text-center">
-                            <Link href={`/dashboard/e-way-bill/print/${inv.id}`} className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors inline-flex items-center gap-1.5">
+                            <Link href={`/dashboard/e-way-bill/print/${inv.id}`} className="text-xs font-bold text-brand-primary bg-blue-50 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors inline-flex items-center gap-1.5">
                                <CheckSquare size={13} />
                                View e-Way Bill
                             </Link>

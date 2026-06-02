@@ -92,8 +92,8 @@ export default function CreditNotePage() {
   });
 
   const statusColor = (status: string) => {
-    if (status === "issued") return "bg-blue-50 text-blue-600 border-blue-100";
-    if (status === "adjusted") return "bg-green-50 text-green-600 border-green-100";
+    if (status === "issued") return "bg-blue-50 text-brand-primary border-blue-100";
+    if (status === "adjusted") return "bg-green-50 text-brand-tertiary border-green-100";
     if (status === "cancelled") return "bg-red-50 text-red-500 border-red-100";
     return "bg-gray-100 text-gray-500";
   };

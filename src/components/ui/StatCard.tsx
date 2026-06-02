@@ -15,8 +15,8 @@ export function StatCard({ title, value, trend, trendColor, icon, subtitle, clas
   const getTrendColorClass = () => {
     switch (trendColor) {
       case "red": return "text-red-500 bg-red-50 border-red-100";
-      case "green": return "text-green-600 bg-green-50 border-green-100";
-      case "blue": return "text-blue-600 bg-blue-50 border-blue-100";
+      case "green": return "text-brand-tertiary bg-green-50 border-green-100";
+      case "blue": return "text-brand-primary bg-blue-50 border-blue-100";
       default: return "text-gray-600 bg-gray-50 border-gray-100";
     }
   };

@@ -59,7 +59,7 @@ export default function ChatBot({ onClose }: ChatBotProps) {
       {/* Header */}
       <div className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-[10px] font-bold">
+          <div className="w-6 h-6 bg-brand-secondary rounded-full flex items-center justify-center text-[10px] font-bold">
             <User size={12} className="text-white" />
           </div>
           <span className="font-semibold text-sm">myBillBook AI Support</span>

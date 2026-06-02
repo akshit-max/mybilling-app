@@ -246,7 +246,7 @@ export default function PaymentInPage() {
                     <td className="p-4 text-right font-bold text-gray-700">
                       ₹{payment.totalSettled.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="p-4 text-right font-bold text-green-600">
+                    <td className="p-4 text-right font-bold text-brand-tertiary">
                       ₹{payment.amountReceived.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="p-4 text-center">

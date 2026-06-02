@@ -1,11 +1,21 @@
 "use client";
 
 import React, { useState } from "react";
-import { Share2, Download, Gift, UserPlus, PhoneForwarded, Building2 } from "lucide-react";
+import { Share2, Download, Gift, UserPlus, PhoneForwarded, Building2, Copy, CheckCircle2 } from "lucide-react";
 import SettingsSidebar from "../SettingsSidebar";
+import toast from "react-hot-toast";
 
 export default function ReferAndEarnPage() {
   const [activeTab, setActiveTab] = useState<"signedUp" | "purchased">("signedUp");
+  const [copied, setCopied] = useState(false);
+  const referralCode = "BILLBOOK-501";
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(referralCode);
+    setCopied(true);
+    toast.success("Referral code copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="flex bg-white min-h-[85vh] border border-gray-200 rounded-lg overflow-hidden shadow-sm font-sans">
@@ -41,10 +51,15 @@ export default function ReferAndEarnPage() {
                 <button className="bg-white text-[#1A0B2E] font-bold text-xs px-6 py-2.5 rounded hover:bg-gray-100 transition-colors shadow-sm">
                   Refer Now
                 </button>
-                <button className="flex items-center gap-2 text-white font-medium text-xs px-4 py-2.5 hover:bg-white/10 rounded transition-colors">
-                  <PhoneForwarded size={14} />
-                  Send Code to my device
-                </button>
+                <div className="flex items-center bg-white/10 rounded-md overflow-hidden border border-white/20">
+                  <span className="px-4 py-2.5 text-xs font-mono font-bold">{referralCode}</span>
+                  <button 
+                    onClick={handleCopy}
+                    className="p-2.5 hover:bg-white/20 transition-colors border-l border-white/20"
+                  >
+                    {copied ? <CheckCircle2 size={16} className="text-green-400" /> : <Copy size={16} />}
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -68,7 +83,7 @@ export default function ReferAndEarnPage() {
               </div>
               
               <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-xs">
-                <div className="flex items-center gap-2 text-emerald-600 mb-2">
+                <div className="flex items-center gap-2 text-brand-tertiary mb-2">
                   <div className="p-1 rounded bg-emerald-50"><Building2 size={14} /></div>
                   <span className="text-xs font-semibold">Ready to Withdraw</span>
                 </div>
@@ -98,16 +113,35 @@ export default function ReferAndEarnPage() {
               </button>
             </div>
 
-            {/* Empty State */}
-            <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center text-gray-300">
-                <UserPlus size={24} />
+            {/* Fake List State */}
+            {activeTab === "signedUp" ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-white shadow-xs hover:border-indigo-300 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-bold text-xs">
+                        U{i}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-800">User {i} (Pending)</p>
+                        <p className="text-[10px] text-gray-500 font-medium">Joined {i} days ago via your link</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100">Not Purchased</span>
+                  </div>
+                ))}
               </div>
-              <p className="text-sm font-medium text-gray-500">No signed up users yet!</p>
-              <button className="bg-indigo-600 text-white font-bold text-xs px-6 py-2 rounded hover:bg-indigo-700 transition-colors shadow-xs">
-                Refer Now
-              </button>
-            </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 bg-gray-50/50 rounded-lg border border-dashed border-gray-200">
+                <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-gray-300 shadow-sm">
+                  <Gift size={24} />
+                </div>
+                <p className="text-sm font-medium text-gray-500">None of your referrals have purchased a plan yet.</p>
+                <button className="bg-indigo-600 text-white font-bold text-xs px-6 py-2 rounded hover:bg-indigo-700 transition-colors shadow-xs">
+                  Remind Friends
+                </button>
+              </div>
+            )}
           </div>
 
           {/* How it works */}
@@ -125,7 +159,7 @@ export default function ReferAndEarnPage() {
               </div>
 
               <div className="border border-gray-200 rounded-lg p-6 flex flex-col items-center text-center space-y-4 shadow-xs">
-                <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500">
+                <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-brand-tertiary">
                   <Download size={20} />
                 </div>
                 <p className="text-xs font-medium text-gray-600 leading-relaxed max-w-[200px]">

@@ -666,7 +666,7 @@ export default function CashAndBankPage() {
                     <th className="p-4">Party</th>
                     <th className="p-4">Mode</th>
                     <th className="p-4 text-right text-red-500">Paid</th>
-                    <th className="p-4 text-right text-green-600">Received</th>
+                    <th className="p-4 text-right text-brand-tertiary">Received</th>
                     <th className="p-4 text-right">Balance</th>
                     <th className="p-4 text-center">Actions</th>
                   </tr>
@@ -687,7 +687,7 @@ export default function CashAndBankPage() {
                       <td className="p-4 text-center">
                         <div className="flex justify-center gap-2">
                           <button onClick={() => { setEditData({ id: txn.id, date: txn.date, remarks: txn.remarks || "" }); setShowEdit(true); }} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition" title="Edit Remarks/Date"><Pencil size={14} /></button>
-                          <button onClick={() => { setPrintTxn(txn); setShowPrint(true); }} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition" title="Print Receipt"><Download size={14} /></button>
+                          <button onClick={() => { setPrintTxn(txn); setShowPrint(true); }} className="p-1.5 text-gray-400 hover:text-brand-tertiary hover:bg-green-50 rounded transition" title="Print Receipt"><Download size={14} /></button>
                           <button onClick={() => handleDeleteTransaction(txn)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition" title="Delete"><Trash2 size={14} /></button>
                         </div>
                       </td>

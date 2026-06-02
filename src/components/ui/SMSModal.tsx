@@ -137,7 +137,7 @@ export default function SMSModal({
                 </span>
               )}
               {isLookedUp && !isLookingUp && (
-                <span className="text-green-600 text-[10px] font-normal">
+                <span className="text-brand-tertiary text-[10px] font-normal">
                   ✓ Auto-filled from customer records
                 </span>
               )}

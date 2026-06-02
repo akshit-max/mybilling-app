@@ -76,9 +76,9 @@ export default function EditOnlineOrderPage() {
   const getStatusColor = (s: string) => {
     switch (s) {
       case "Pending": return "text-orange-600 bg-orange-100 border-orange-200";
-      case "Confirmed": return "text-blue-600 bg-blue-100 border-blue-200";
+      case "Confirmed": return "text-brand-primary bg-blue-100 border-blue-200";
       case "Shipped": return "text-purple-600 bg-purple-100 border-purple-200";
-      case "Delivered": return "text-green-600 bg-green-100 border-green-200";
+      case "Delivered": return "text-brand-tertiary bg-green-100 border-green-200";
       case "Cancelled": return "text-red-600 bg-red-100 border-red-200";
       default: return "text-gray-600 bg-gray-100 border-gray-200";
     }
@@ -189,7 +189,7 @@ export default function EditOnlineOrderPage() {
                 </div>
                 <div className="flex justify-between text-sm text-gray-600 pb-2 border-b border-gray-200">
                   <span>Shipping</span>
-                  <span className="text-green-600 font-medium">Free</span>
+                  <span className="text-brand-tertiary font-medium">Free</span>
                 </div>
                 <div className="flex justify-between text-base font-extrabold text-gray-900 pt-1">
                   <span>Total Amount</span>

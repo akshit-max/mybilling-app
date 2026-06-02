@@ -258,7 +258,7 @@ export default function PurchasesPage() {
           }`}
         >
           <div className="flex items-center gap-1.5 text-xs font-semibold text-[#2E7D32]">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-tertiary"></span>
             <span className="uppercase tracking-wider">Paid</span>
           </div>
           <div className="text-xl font-bold text-gray-800">₹ {paidAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</div>
@@ -449,7 +449,7 @@ export default function PurchasesPage() {
                           if (diffDays < 0) {
                             return <span className="text-red-500 font-medium text-xs">Overdue by {Math.abs(diffDays)} days</span>;
                           } else if (diffDays === 0) {
-                            return <span className="text-orange-500 font-medium text-xs">Due Today</span>;
+                            return <span className="text-brand-secondary font-medium text-xs">Due Today</span>;
                           }
                           return <span className="text-gray-600 font-medium text-xs">Due in {diffDays} days</span>;
                         })()}

@@ -207,7 +207,7 @@ export default function LowStockSummaryReport() {
         ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-500 print:hidden">
             <div className="bg-green-50 p-4 rounded-full mb-3">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-500"><path d="M20 6L9 17l-5-5"/></svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-tertiary"><path d="M20 6L9 17l-5-5"/></svg>
             </div>
             <p className="text-sm font-semibold">All Stocks Optimal</p>
             <p className="text-xs mt-1">No items are running low on stock right now.</p>

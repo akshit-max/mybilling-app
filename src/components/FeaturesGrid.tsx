@@ -18,16 +18,17 @@ export default function FeaturesGrid() {
   ];
 
   return (
-    <section className="bg-white py-24 select-none relative overflow-hidden">
-      <div className="max-w-7xl mx-auto px-6 text-center">
+    <section className="bg-slate-50 py-24 select-none relative overflow-hidden font-sans">
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-[size:32px_32px] opacity-40"></div>
+      <div className="max-w-7xl mx-auto px-6 text-center relative z-10">
 
         {/* HEADING */}
         <div className="max-w-2xl mx-auto text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight">
+          <h2 className="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-gray-500 tracking-tight pb-1 drop-shadow-sm">
             A lot more than you can imagine
           </h2>
-          <p className="text-gray-500 mt-3 text-sm sm:text-base">
-            Engineered with enterprisegrade tools and modern safeguards to give your business a digital edge.
+          <p className="text-brand-primary/60 mt-4 text-sm sm:text-lg font-medium">
+            Engineered with enterprise-grade tools and modern safeguards to give your business a digital edge.
           </p>
         </div>
 
@@ -37,15 +38,15 @@ export default function FeaturesGrid() {
           {features.map((f, i) => (
             <div
               key={i}
-              className="bg-slate-50 border border-slate-100 rounded-2xl p-8 text-left transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 group"
+              className="bg-white border border-brand-primary/5 rounded-[2rem] p-8 text-left transition-all duration-300 hover:shadow-2xl hover:shadow-brand-secondary/15 hover:-translate-y-1 group ring-1 ring-black/5"
             >
-              <div className="mb-5">
-                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl w-fit transition-colors group-hover:bg-indigo-600 group-hover:text-white duration-300">
+              <div className="mb-6">
+                <div className="p-3.5 bg-brand-neutral/50 text-brand-primary rounded-xl w-fit transition-colors group-hover:bg-brand-secondary group-hover:text-white duration-300 shadow-sm">
                   {f.icon}
                 </div>
               </div>
 
-              <p className="text-sm font-bold text-gray-700 leading-relaxed transition-colors group-hover:text-gray-900 duration-300">
+              <p className="text-sm font-bold text-brand-primary leading-relaxed transition-colors group-hover:text-brand-primary/80 duration-300">
                 {f.text}
               </p>
             </div>

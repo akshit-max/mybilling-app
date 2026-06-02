@@ -210,8 +210,8 @@ export default function GenericReportPage({ params }: { params: { slug: string }
         item.date || "-",
         item.invoiceNumber || "-",
         item.customerName || "Cash Sale",
-        String((item.total || 0) * 0.82),
-        String((item.total || 0) * 0.18),
+        String(item.subtotal || 0),
+        String((item.total || 0) - (item.subtotal || 0)),
         String(item.total || 0)
       ]);
     } else if (params.slug === "gstr-2") {
@@ -220,8 +220,8 @@ export default function GenericReportPage({ params }: { params: { slug: string }
         item.date || "-",
         item.purchaseInvoiceNumber || "-",
         item.customerName || item.partyName || "Cash Purchase",
-        String((item.total || 0) * 0.82),
-        String((item.total || 0) * 0.18),
+        String(item.subtotal || 0),
+        String((item.total || 0) - (item.subtotal || 0)),
         String(item.total || 0)
       ]);
     } else if (params.slug === "daybook") {
@@ -560,8 +560,8 @@ export default function GenericReportPage({ params }: { params: { slug: string }
                           <td className="px-6 py-3 font-semibold text-gray-800 font-mono">{item.date || "-"}</td>
                           <td className="px-6 py-3 text-indigo-600 font-bold font-mono">{item.invoiceNumber || "-"}</td>
                           <td className="px-6 py-3 font-semibold text-gray-800">{item.customerName || "Cash Sale"}</td>
-                          <td className="px-6 py-3 text-right text-gray-600 font-mono">₹ {((item.total || 0) * 0.82).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                          <td className="px-6 py-3 text-right text-gray-600 font-mono">₹ {((item.total || 0) * 0.18).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td className="px-6 py-3 text-right text-gray-600 font-mono">₹ {(item.subtotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td className="px-6 py-3 text-right text-gray-600 font-mono">₹ {((item.total || 0) - (item.subtotal || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                           <td className="px-6 py-3 text-right font-bold text-gray-800 font-mono">₹ {(item.total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                         </>
                       )}
@@ -571,8 +571,8 @@ export default function GenericReportPage({ params }: { params: { slug: string }
                           <td className="px-6 py-3 font-semibold text-gray-800 font-mono">{item.date || "-"}</td>
                           <td className="px-6 py-3 text-indigo-600 font-bold font-mono">{item.purchaseInvoiceNumber || "-"}</td>
                           <td className="px-6 py-3 font-semibold text-gray-800">{item.customerName || item.partyName || "Cash Purchase"}</td>
-                          <td className="px-6 py-3 text-right text-gray-600 font-mono">₹ {((item.total || 0) * 0.82).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                          <td className="px-6 py-3 text-right text-gray-600 font-mono">₹ {((item.total || 0) * 0.18).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td className="px-6 py-3 text-right text-gray-600 font-mono">₹ {(item.subtotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td className="px-6 py-3 text-right text-gray-600 font-mono">₹ {((item.total || 0) - (item.subtotal || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                           <td className="px-6 py-3 text-right font-bold text-gray-800 font-mono">₹ {(item.total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                         </>
                       )}
