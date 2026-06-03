@@ -192,6 +192,7 @@ export default function CreateSalesInvoice() {
           const cList = csnap.docs.map((docSnap) => {
             const data = docSnap.data();
             return {
+              ...data,
               id: docSnap.id,
               name: data.name || "Unknown",
               gstin: data.gstin || "",
@@ -231,6 +232,7 @@ export default function CreateSalesInvoice() {
           const pList = psnap.docs.map((docSnap) => {
             const data = docSnap.data();
             return {
+              ...data,
               id: docSnap.id,
               name: data.name || "Unknown Product",
               price: Number(data.price || 0),

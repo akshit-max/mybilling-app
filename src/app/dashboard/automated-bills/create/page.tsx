@@ -183,6 +183,7 @@ export default function CreateAutomatedBill() {
           const cList = csnap.docs.map((docSnap) => {
             const data = docSnap.data();
             return {
+              ...data,
               id: docSnap.id,
               name: data.name || "Unknown",
               gstin: data.gstin || "",
@@ -222,6 +223,7 @@ export default function CreateAutomatedBill() {
           const pList = psnap.docs.map((docSnap) => {
             const data = docSnap.data();
             return {
+              ...data,
               id: docSnap.id,
               name: data.name || "Unknown Product",
               price: Number(data.price || 0),
@@ -555,8 +557,11 @@ export default function CreateAutomatedBill() {
       };
 
       if (isOfflineMode) {
-        toast.error("You must be online to create automated bills");
-        setSaving(false);
+        const { saveOfflineInvoice } = await import("@/lib/offlineInvoices");
+        await saveOfflineInvoice({ ...invoiceData, invoiceType: "automated-bill" } as any);
+        toast.success("Automated Bill template saved offline draft ✅");
+        router.push("/dashboard/automated-bills");
+
         return;
       }
 

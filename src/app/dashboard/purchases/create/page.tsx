@@ -186,6 +186,7 @@ export default function CreateSalesInvoice() {
           const cList = csnap.docs.map((docSnap) => {
             const data = docSnap.data();
             return {
+              ...data,
               id: docSnap.id,
               name: data.name || "Unknown",
               gstin: data.gstin || "",
@@ -225,6 +226,7 @@ export default function CreateSalesInvoice() {
           const pList = psnap.docs.map((docSnap) => {
             const data = docSnap.data();
             return {
+              ...data,
               id: docSnap.id,
               name: data.name || "Unknown Product",
               price: Number(data.price || 0),
@@ -525,6 +527,16 @@ export default function CreateSalesInvoice() {
     try {
       setSaving(true);
 
+      let isOfflineMode = !navigator.onLine;
+      if (!isOfflineMode) {
+        try {
+          const test = await fetch("/favicon.ico?cache=" + new Date().getTime(), { method: "HEAD", cache: "no-store" });
+          if (!test.ok) isOfflineMode = true;
+        } catch {
+          isOfflineMode = true;
+        }
+      }
+
       
 
       const rawTotal = calc.total + Number(additionalChargeValue || 0);
@@ -567,13 +579,41 @@ export default function CreateSalesInvoice() {
         selectedQRBankId,
         settings: invoiceSettings,
         signatureType,
+
         signatureImage
       };
+
+      if (isOfflineMode) {
+        const { saveOfflineInvoice } = await import("@/lib/offlineInvoices");
+        const { getCachedProducts, cacheProducts } = await import("@/lib/indexedDB");
+        
+        // Increase stocks from cache for purchases
+        const cachedProducts = await getCachedProducts();
+        for (const item of validItems) {
+          if (item.productId) {
+            const idx = cachedProducts.findIndex((p: any) => p.id === item.productId);
+            if (idx > -1) {
+              const stock = cachedProducts[idx].stock || 0;
+              cachedProducts[idx].stock = stock + item.qty;
+            }
+          }
+        }
+        await cacheProducts(cachedProducts);
+
+        await saveOfflineInvoice(invoiceData as any);
+        toast.success("Purchase saved offline draft ✅");
+        if (isNew) {
+          window.location.reload();
+        } else {
+          window.location.href = "/dashboard/purchases";
+        }
+        return;
+      }
 
       
 
       // --- ONLINE SAVING ---
-      if (invoiceType === "invoice") {
+      if (invoiceType === "invoice" || !invoiceType) {
         const itemsToSync = validItems.filter(i => i.productId).map(i => ({
           id: i.productId!,
           quantity: i.qty

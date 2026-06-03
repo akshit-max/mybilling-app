@@ -247,10 +247,16 @@ export default function ViewAutomatedBill() {
   const handleDelete = async () => {
     if (confirm("Are you sure you want to delete this automated bill?")) {
       try {
-        await deleteDoc(doc(db, "automatedBills", id));
+        if ((invoice as any).isOffline) {
+          const { deleteOfflineInvoice } = await import("@/lib/offlineInvoices");
+          await deleteOfflineInvoice(id);
+        } else {
+          await deleteDoc(doc(db, "automatedBills", id));
+        }
         toast.success("Automated Bill deleted successfully");
         router.push("/dashboard/automated-bills");
       } catch (err) {
+        console.error("Delete error:", err);
         toast.error("Failed to delete automated bill");
       }
     }

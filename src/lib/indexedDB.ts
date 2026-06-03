@@ -24,6 +24,20 @@ export const dbPromise = openDB(
 
       if (
         !db.objectStoreNames.contains(
+          "offlineProducts"
+        )
+      ) {
+        db.createObjectStore(
+          "offlineProducts",
+          {
+            keyPath: "id",
+            autoIncrement: true,
+          }
+        );
+      }
+
+      if (
+        !db.objectStoreNames.contains(
           "products"
         )
       ) {

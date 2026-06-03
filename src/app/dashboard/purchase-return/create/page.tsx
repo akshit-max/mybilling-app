@@ -150,6 +150,16 @@ export default function CreateCreditNote() {
 
     try {
       setSaving(true);
+
+      let isOfflineMode = !navigator.onLine;
+      if (!isOfflineMode) {
+        try {
+          const test = await fetch("/favicon.ico?cache=" + new Date().getTime(), { method: "HEAD", cache: "no-store" });
+          if (!test.ok) isOfflineMode = true;
+        } catch {
+          isOfflineMode = true;
+        }
+      }
       
       const itemsToSync = validItems.filter(i => i.productId).map(i => ({
         id: i.productId!,
@@ -193,6 +203,28 @@ export default function CreateCreditNote() {
         signatureType,
         signatureImage
       };
+
+      if (isOfflineMode) {
+        const { saveOfflineInvoice } = await import("@/lib/offlineInvoices");
+        const { getCachedProducts, cacheProducts } = await import("@/lib/indexedDB");
+        
+        const cachedProducts = await getCachedProducts();
+        for (const item of validItems) {
+          if (item.productId) {
+            const idx = cachedProducts.findIndex((p: any) => p.id === item.productId);
+            if (idx > -1) {
+              const stock = cachedProducts[idx].stock || 0;
+              cachedProducts[idx].stock = stock - item.qty;
+            }
+          }
+        }
+        await cacheProducts(cachedProducts);
+
+        await saveOfflineInvoice({ ...data, invoiceType: "purchase-return" } as any);
+        toast.success("Purchase Return saved offline draft ✅");
+        router.push("/dashboard/purchase-return");
+        return;
+      }
 
       await addDoc(collection(db, "purchaseReturns"), data);
       toast.success("Purchase Return created successfully!");

@@ -22,6 +22,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import WhatsAppModal from "@/components/ui/WhatsAppModal";
 import SMSModal from "@/components/ui/SMSModal";
+import { syncInventory } from "@/lib/inventorySync";
 
 type Item = {
   productId?: string;
@@ -204,10 +205,27 @@ export default function ViewCreditNote() {
   const handleDelete = async () => {
     if (confirm("Are you sure you want to delete this purchase return?")) {
       try {
-        await deleteDoc(doc(db, "purchaseReturns", id));
+        const user = auth.currentUser;
+        if ((purchaseReturn as any).isOffline) {
+          const { deleteOfflineInvoice } = await import("@/lib/offlineInvoices");
+          await deleteOfflineInvoice(id);
+        } else {
+          if (user && purchaseReturn?.items && purchaseReturn.items.length > 0) {
+            const itemsToSync = purchaseReturn.items.map(i => ({
+              id: i.productId,
+              quantity: i.qty
+            })).filter(i => i.id);
+            
+            if (itemsToSync.length > 0) {
+              await syncInventory(user.uid, itemsToSync as any, "INCREASE");
+            }
+          }
+          await deleteDoc(doc(db, "purchaseReturns", id));
+        }
         toast.success("Purchase Return deleted successfully");
         router.push("/dashboard/purchase-return");
       } catch (err) {
+        console.error("Delete error:", err);
         toast.error("Failed to delete purchase return");
       }
     }

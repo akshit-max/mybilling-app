@@ -152,7 +152,7 @@ export default function ViewInvoice() {
         console.warn("Falling back to offline invoices", err);
         try {
           const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
-          const offlineInvoices = await getOfflineInvoices();
+          const offlineInvoices = await getOfflineInvoices(auth.currentUser?.uid);
           const foundOffline = offlineInvoices.find(
             (inv: any) =>
               inv.id?.toString() === id || inv.salesReturnNumber === id
@@ -266,24 +266,30 @@ export default function ViewInvoice() {
   };
 
   const handleDelete = async () => {
-    if (confirm("Are you sure you want to delete this invoice?")) {
+    if (confirm("Are you sure you want to delete this sales return?")) {
       try {
         const user = auth.currentUser;
-        if (user && invoice?.items && invoice.items.length > 0) {
-          const itemsToSync = invoice.items.map(i => ({
-            id: i.productId,
-            quantity: i.qty
-          })).filter(i => i.id);
-          
-          if (itemsToSync.length > 0) {
-            await syncInventory(user.uid, itemsToSync as any, "DECREASE");
+        if ((invoice as any).isOffline) {
+          const { deleteOfflineInvoice } = await import("@/lib/offlineInvoices");
+          await deleteOfflineInvoice(id);
+        } else {
+          if (user && invoice?.items && invoice.items.length > 0) {
+            const itemsToSync = invoice.items.map(i => ({
+              id: i.productId,
+              quantity: i.qty
+            })).filter(i => i.id);
+            
+            if (itemsToSync.length > 0) {
+              await syncInventory(user.uid, itemsToSync as any, "DECREASE");
+            }
           }
+          await deleteDoc(doc(db, "salesReturns", id));
         }
-        await deleteDoc(doc(db, "salesReturns", id));
-        toast.success("Invoice deleted successfully");
+        toast.success("Sales return deleted successfully");
         router.push("/dashboard/sales-return");
       } catch (err) {
-        toast.error("Failed to delete invoice");
+        console.error("Delete error:", err);
+        toast.error("Failed to delete sales return");
       }
     }
   };

@@ -52,18 +52,13 @@ export const updateOfflineInvoice = async (invoice: OfflineInvoice & { id?: numb
   await db.put("offlineInvoices", invoice);
 };
 
-export const getOfflineInvoices =
-async (): Promise<
-  OfflineInvoice[]
-> => {
-
-  const db =
-    await dbPromise;
-
-  return await db.getAll(
-    "offlineInvoices"
-  );
-
+export const getOfflineInvoices = async (userId?: string): Promise<OfflineInvoice[]> => {
+  const db = await dbPromise;
+  const all = await db.getAll("offlineInvoices");
+  if (userId) {
+    return all.filter(inv => inv.userId === userId);
+  }
+  return all;
 };
 
 export const deleteOfflineInvoice = async (id: number | string) => {

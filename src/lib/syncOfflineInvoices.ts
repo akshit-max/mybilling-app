@@ -4,7 +4,7 @@ import {
   runTransaction,
 } from "firebase/firestore";
 
-import { db }
+import { db, auth }
 from "@/lib/firebase";
 
 import {
@@ -154,8 +154,14 @@ async () => {
 
   try {
 
+    const user = auth.currentUser;
+    if (!user) {
+      isSyncInProgress = false;
+      return;
+    }
+
     const invoices =
-      (await getOfflineInvoices()) as StoredOfflineInvoice[];
+      (await getOfflineInvoices(user.uid)) as StoredOfflineInvoice[];
 
     if (!invoices.length)
       return;

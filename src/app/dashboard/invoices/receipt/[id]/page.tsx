@@ -79,7 +79,7 @@ export default function ThermalReceipt() {
         console.warn("Falling back to offline invoices", err);
         try {
           const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
-          const offlineInvoices = await getOfflineInvoices();
+          const offlineInvoices = await getOfflineInvoices(auth.currentUser?.uid);
           const foundOffline = offlineInvoices.find(
             (inv: any) =>
               inv.id?.toString() === id || inv.invoiceNumber === id

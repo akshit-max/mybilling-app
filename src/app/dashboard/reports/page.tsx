@@ -55,7 +55,7 @@ export default function ReportsPage() {
       title: "Party",
       icon: <UsersIcon />,
       items: [
-        { name: "Party Statement (Ledger)", isFav: false, tags: ["Party"] },
+        // { name: "Party Statement (Ledger)", isFav: false, tags: ["Party"] },
         { name: "Party Wise Outstanding", isFav: false, tags: ["Party", "Payment"] },
       ],
       showMore: false

@@ -79,7 +79,7 @@ export default function QuotationsPage() {
       let offlineData: Invoice[] = [];
       try {
         const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
-        const cached = await getOfflineInvoices();
+        const cached = await getOfflineInvoices(userId);
         offlineData = cached.filter((c: any) => c.invoiceType === "estimate").map((c: any) => ({
           id: c.id?.toString() || c.invoiceNumber,
           customerName: c.customerName || "Cash Sale",

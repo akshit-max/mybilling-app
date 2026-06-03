@@ -57,7 +57,7 @@ export default function SalesReturnList() {
       let offlineData: SalesReturn[] = [];
       try {
         const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
-        const cached = await getOfflineInvoices();
+        const cached = await getOfflineInvoices(userId);
         offlineData = cached
           .filter((c: any) => c.salesReturnNumber)
           .map((c: any) => ({

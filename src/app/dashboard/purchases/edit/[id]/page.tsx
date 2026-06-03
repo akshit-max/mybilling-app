@@ -156,7 +156,7 @@ export default function EditSalesInvoice() {
           }
         } catch {
           const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
-          const offlineInvoices = await getOfflineInvoices();
+          const offlineInvoices = await getOfflineInvoices(auth.currentUser?.uid);
           const found = offlineInvoices.find(
             (inv: any) => inv.id?.toString() === id || inv.purchaseInvoiceNumber === id
           );
@@ -213,6 +213,7 @@ export default function EditSalesInvoice() {
           const cList = csnap.docs.map((docSnap) => {
             const data = docSnap.data();
             return {
+              ...data,
               id: docSnap.id,
               name: data.name || "Unknown",
               gstin: data.gstin || "",
@@ -238,6 +239,7 @@ export default function EditSalesInvoice() {
           const pList = psnap.docs.map((docSnap) => {
             const data = docSnap.data();
             return {
+              ...data,
               id: docSnap.id,
               name: data.name || "Unknown Product",
               price: Number(data.price || 0),
@@ -529,6 +531,16 @@ export default function EditSalesInvoice() {
     try {
       setSaving(true);
 
+      let isOfflineMode = !navigator.onLine;
+      if (!isOfflineMode) {
+        try {
+          const test = await fetch("/favicon.ico?cache=" + new Date().getTime(), { method: "HEAD", cache: "no-store" });
+          if (!test.ok) isOfflineMode = true;
+        } catch {
+          isOfflineMode = true;
+        }
+      }
+
       // Maps for original vs new quantities to calculate the stocks delta difference
       const oldMap = new Map<string, number>();
       const newMap = new Map<string, number>();
@@ -579,8 +591,36 @@ export default function EditSalesInvoice() {
         signatureImage
       };
 
+      if (isOfflineMode) {
+        const { updateOfflineInvoice } = await import("@/lib/offlineInvoices");
+        const { getCachedProducts, cacheProducts } = await import("@/lib/indexedDB");
+        
+        const cachedProducts = await getCachedProducts();
+        
+        for (const pid of allIds) {
+          const oldQty = oldMap.get(pid) || 0;
+          const newQty = newMap.get(pid) || 0;
+          const diff = newQty - oldQty;
+          
+          if (diff === 0) continue;
+          
+          const idx = cachedProducts.findIndex((p: any) => p.id === pid);
+          if (idx > -1) {
+            const stock = cachedProducts[idx].stock || 0;
+            cachedProducts[idx].stock = stock + diff;
+          }
+        }
+        await cacheProducts(cachedProducts);
+
+        await updateOfflineInvoice({ id, ...updateData } as any);
+        toast.success("Invoice updated offline ✅");
+        window.location.href = "/dashboard/purchases";
+        return;
+      }
+
+
       // --- ONLINE UPDATE WORKSPACE ---
-      if (invoiceType === "invoice") {
+      if (invoiceType === "invoice" || !invoiceType) {
         for (const pid of allIds) {
           const oldQty = oldMap.get(pid) || 0;
           const newQty = newMap.get(pid) || 0;

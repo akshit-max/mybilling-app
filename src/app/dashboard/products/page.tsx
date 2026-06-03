@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Search, ChevronDown, Plus, Package, FileSpreadsheet, Pencil, Trash2, MoreVertical, Share2, Tag, AlertTriangle, X, Settings, Sparkles, AlertCircle } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, deleteDoc, doc, addDoc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { collection, getDocs, getDocsFromCache, query, where, deleteDoc, doc, addDoc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
@@ -29,6 +29,7 @@ type Product = {
   taxIncluded?: boolean;
   costTaxIncluded?: boolean;
   discountOnSales?: number;
+  isOffline?: boolean;
 };
 
 type ModalTab = "basic" | "stock" | "pricing" | "party" | "custom";
@@ -101,8 +102,15 @@ export default function ItemsPage() {
         collection(db, "products"),
         where("userId", "==", user.uid)
       );
-      const snap = await getDocs(q);
-      const data = snap.docs.map((docSnap) => {
+      
+      let snap;
+      if (!navigator.onLine) {
+        snap = await getDocsFromCache(q);
+      } else {
+        snap = await getDocs(q);
+      }
+
+      let onlineData: Product[] = snap.docs.map((docSnap) => {
         const docData = docSnap.data();
         return {
           id: docSnap.id,
@@ -124,10 +132,48 @@ export default function ItemsPage() {
           taxIncluded: !!docData.taxIncluded,
           costTaxIncluded: !!docData.costTaxIncluded,
           discountOnSales: Number(docData.discountOnSales || 0),
+          isOffline: docSnap.metadata.hasPendingWrites,
         };
       });
 
-      setProducts(data);
+      let offlineData: Product[] = [];
+      try {
+        const { getOfflineProducts } = await import("@/lib/offlineProducts");
+        const cached = await getOfflineProducts();
+        offlineData = cached.map((c: any) => ({
+          id: c.id?.toString() || `offline-${Math.random()}`,
+          name: c.name || "Unknown Product",
+          price: Number(c.price || 0),
+          costPrice: Number(c.costPrice || 0),
+          discountPrice: 0,
+          gst: Number(c.gst !== undefined ? c.gst : 18),
+          stock: Number(c.stock || 0),
+          barcode: c.barcode || "",
+          itemCode: c.itemCode || "",
+          category: c.category || "-",
+          unit: c.unit || "PCS",
+          lowStockThreshold: Number(c.lowStockThreshold || 2),
+          description: c.description || "",
+          hsnCode: c.hsnCode || "",
+          type: c.type || "Product",
+          lowStockWarning: !!c.lowStockWarning,
+          taxIncluded: !!c.taxIncluded,
+          costTaxIncluded: !!c.costTaxIncluded,
+          discountOnSales: Number(c.discountOnSales || 0),
+          isOffline: true,
+        }));
+      } catch (err) {
+        console.error("IndexedDB fetch error:", err);
+      }
+
+      const combined = [...offlineData, ...onlineData];
+      
+      const uniqueMap = new Map<string, Product>();
+      combined.forEach(p => {
+        uniqueMap.set(p.id, p);
+      });
+
+      setProducts(Array.from(uniqueMap.values()));
     } catch (err) {
       console.error("Products fetch error:", err);
       toast.error("Failed to load products");
@@ -250,7 +296,7 @@ export default function ItemsPage() {
   const handleBarcodeGenerate = () => {
     const randomCode = "PRD" + Math.floor(100000 + Math.random() * 900000);
     setFormItemCode(randomCode);
-    toast.success(`Generated Barcode: ${randomCode} 🏷️`);
+    toast.success(`Generated Item Code: ${randomCode} 🏷️`);
   };
 
   const handleSaveModal = async (e?: React.FormEvent, saveAndNew = false) => {
@@ -325,16 +371,29 @@ export default function ItemsPage() {
         discountOnSales: Number(formDiscountOnSales) || 0,
       };
 
-      if (modalMode === "create") {
-        await addDoc(collection(db, "products"), {
+      if (!navigator.onLine) {
+        const { saveOfflineProduct } = await import("@/lib/offlineProducts");
+        await saveOfflineProduct({
           ...productData,
-          createdAt: serverTimestamp(),
-          createdBy: activeProfile.name
-        });
-        toast.success("Item Added Successfully ✅");
-      } else if (modalMode === "edit" && editProductId) {
-        await updateDoc(doc(db, "products", editProductId), productData);
-        toast.success("Item Updated Successfully ✅");
+          createdAt: new Date(),
+          createdBy: activeProfile?.name || "Admin",
+          isOffline: true,
+          isEdit: modalMode === "edit",
+          originalProductId: editProductId || undefined
+        } as any);
+        toast.success("Saved offline. Will sync when online! 🔄");
+      } else {
+        if (modalMode === "create") {
+          await addDoc(collection(db, "products"), {
+            ...productData,
+            createdAt: serverTimestamp(),
+            createdBy: activeProfile.name
+          });
+          toast.success("Item Added Successfully ✅");
+        } else if (modalMode === "edit" && editProductId) {
+          await updateDoc(doc(db, "products", editProductId), productData);
+          toast.success("Item Updated Successfully ✅");
+        }
       }
 
       await fetchProductsList();
@@ -927,15 +986,13 @@ export default function ItemsPage() {
 
                   return (
                     <tr key={p.id} className="hover:bg-gray-50/50 transition-colors group">
-                      <td className="px-4 py-3 font-semibold text-brand-primary hover:underline">
-                        <Link href={`/dashboard/products/${p.id}`}>
-                          <div>
-                            <p className="font-semibold text-brand-primary">{p.name}</p>
-                            {p.category && p.category !== "-" && (
-                              <span className="inline-block bg-gray-100 text-gray-600 text-[9px] px-1.5 py-0.5 rounded mt-0.5 font-normal">{p.category}</span>
-                            )}
-                          </div>
-                        </Link>
+                      <td className="px-4 py-3 font-semibold text-brand-primary">
+                        <div>
+                          <p className="font-semibold text-brand-primary">{p.name}</p>
+                          {p.category && p.category !== "-" && (
+                            <span className="inline-block bg-gray-100 text-gray-600 text-[9px] px-1.5 py-0.5 rounded mt-0.5 font-normal">{p.category}</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-gray-500 font-mono">{p.itemCode || p.barcode || "-"}</td>
                       <td className="px-4 py-3">
@@ -973,6 +1030,13 @@ export default function ItemsPage() {
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setOpenDropdownId(null)}></div>
                             <div className="absolute right-4 top-8 w-28 bg-white border border-gray-200 rounded shadow-lg z-20 py-1 text-left">
+                              <Link 
+                                href={`/dashboard/products/${p.id}`}
+                                className="w-full text-left px-3 py-1.5 hover:bg-gray-50 flex items-center gap-1.5 text-[11px] text-gray-700 block"
+                              >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <span>View</span>
+                              </Link>
                               <button 
                                 onClick={() => {
                                   setOpenDropdownId(null);
@@ -1277,9 +1341,10 @@ export default function ItemsPage() {
                             onClick={handleBarcodeGenerate}
                             className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[10px] font-bold border border-indigo-200 px-2 rounded transition-colors shrink-0"
                           >
-                            Generate Barcode
+                            Auto-Generate Code
                           </button>
                         </div>
+                        <p className="text-[9px] text-gray-400 mt-1 leading-tight">Barcode labels can be printed from the Product Details page.</p>
                       </div>
 
                       <div>

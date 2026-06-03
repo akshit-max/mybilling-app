@@ -23,8 +23,14 @@ export default function OfflineWatcher({
       const { syncOfflineInvoices } = await import(
         "@/lib/syncOfflineInvoices"
       );
-      toast.success("Syncing offline invoices...");
-      await syncOfflineInvoices();
+      const { syncOfflineProducts } = await import(
+        "@/lib/syncOfflineProducts"
+      );
+      toast.success("Syncing offline data...");
+      await Promise.all([
+        syncOfflineInvoices(),
+        syncOfflineProducts()
+      ]);
     };
 
     const handleOnline = () => {

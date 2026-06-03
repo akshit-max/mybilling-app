@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { syncInventory } from "@/lib/inventorySync";
 import WhatsAppModal from "@/components/ui/WhatsAppModal";
 import SMSModal from "@/components/ui/SMSModal";
 
@@ -150,7 +151,7 @@ export default function ViewInvoice() {
         console.warn("Falling back to offline invoices", err);
         try {
           const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
-          const offlineInvoices = await getOfflineInvoices();
+          const offlineInvoices = await getOfflineInvoices(auth.currentUser?.uid);
           const foundOffline = offlineInvoices.find(
             (inv: any) =>
               inv.id?.toString() === id || inv.invoiceNumber === id
@@ -266,10 +267,26 @@ export default function ViewInvoice() {
   const handleDelete = async () => {
     if (confirm("Are you sure you want to delete this invoice?")) {
       try {
-        await deleteDoc(doc(db, "purchases", id));
+        const user = auth.currentUser;
+        if ((invoice as any).isOffline) {
+          const { deleteOfflineInvoice } = await import("@/lib/offlineInvoices");
+          await deleteOfflineInvoice(id);
+        } else {
+          if (invoice.items && invoice.items.length > 0 && user) {
+            const itemsToSync = invoice.items.map((i: any) => ({
+              id: i.productId,
+              quantity: i.qty
+            })).filter((i: any) => i.id);
+            if (itemsToSync.length > 0) {
+              await syncInventory(user.uid, itemsToSync, "DECREASE");
+            }
+          }
+          await deleteDoc(doc(db, "purchases", id));
+        }
         toast.success("Invoice deleted successfully");
         router.push("/dashboard/purchases");
       } catch (err) {
+        console.error("Delete error:", err);
         toast.error("Failed to delete invoice");
       }
     }

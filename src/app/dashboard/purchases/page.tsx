@@ -95,17 +95,21 @@ export default function PurchasesPage() {
     if (!confirm(`Are you sure you want to delete purchase invoice ${row.purchaseInvoiceNumber}?`)) return;
     try {
       const user = auth.currentUser;
-      if (user && row.items && row.items.length > 0) {
-        const itemsToSync = row.items.map((i: any) => ({
-          id: i.productId,
-          quantity: i.qty
-        })).filter((i: any) => i.id);
-        if (itemsToSync.length > 0) {
-          await syncInventory(user.uid, itemsToSync, "DECREASE");
+      if (row.isOffline) {
+        const { deleteOfflineInvoice } = await import("@/lib/offlineInvoices");
+        await deleteOfflineInvoice(row.id);
+      } else {
+        if (user && row.items && row.items.length > 0) {
+          const itemsToSync = row.items.map((i: any) => ({
+            id: i.productId,
+            quantity: i.qty
+          })).filter((i: any) => i.id);
+          if (itemsToSync.length > 0) {
+            await syncInventory(user.uid, itemsToSync, "DECREASE");
+          }
         }
+        await deleteDoc(doc(db, "purchases", row.id));
       }
-      
-      await deleteDoc(doc(db, "purchases", row.id));
       toast.success("Purchase invoice deleted successfully");
       fetchPurchases();
     } catch (err) {

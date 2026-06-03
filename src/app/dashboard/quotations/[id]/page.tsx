@@ -149,7 +149,7 @@ export default function ViewQuotation() {
         console.warn("Falling back to offline invoices", err);
         try {
           const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
-          const offlineInvoices = await getOfflineInvoices();
+          const offlineInvoices = await getOfflineInvoices(auth.currentUser?.uid);
           const foundOffline = offlineInvoices.find(
             (inv: any) =>
               inv.id?.toString() === id || inv.invoiceNumber === id
@@ -263,13 +263,19 @@ export default function ViewQuotation() {
   };
 
   const handleDelete = async () => {
-    if (confirm("Are you sure you want to delete this invoice?")) {
+    if (confirm("Are you sure you want to delete this quotation?")) {
       try {
-        await deleteDoc(doc(db, "invoices", id));
-        toast.success("Invoice deleted successfully");
-        router.push("/dashboard/invoices");
+        if ((invoice as any).isOffline) {
+          const { deleteOfflineInvoice } = await import("@/lib/offlineInvoices");
+          await deleteOfflineInvoice(id);
+        } else {
+          await deleteDoc(doc(db, "invoices", id));
+        }
+        toast.success("Quotation deleted successfully");
+        router.push("/dashboard/quotations");
       } catch (err) {
-        toast.error("Failed to delete invoice");
+        console.error("Delete error:", err);
+        toast.error("Failed to delete quotation");
       }
     }
   };

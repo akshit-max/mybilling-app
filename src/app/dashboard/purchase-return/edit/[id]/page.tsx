@@ -171,6 +171,16 @@ export default function EditCreditNote() {
 
     try {
       setSaving(true);
+
+      let isOfflineMode = !navigator.onLine;
+      if (!isOfflineMode) {
+        try {
+          const test = await fetch("/favicon.ico?cache=" + new Date().getTime(), { method: "HEAD", cache: "no-store" });
+          if (!test.ok) isOfflineMode = true;
+        } catch {
+          isOfflineMode = true;
+        }
+      }
       const data = {
         total: finalTotal,
         customerName,
@@ -198,6 +208,15 @@ export default function EditCreditNote() {
         signatureType,
         signatureImage
       };
+
+      if (isOfflineMode) {
+        const { updateOfflineInvoice } = await import("@/lib/offlineInvoices");
+        // No stock adjustment for returns edit as per existing codebase logic (skipped for safety)
+        await updateOfflineInvoice({ id, ...data, invoiceType: "purchase-return" } as any);
+        toast.success("Purchase Return updated offline ✅");
+        router.push("/dashboard/purchase-return");
+        return;
+      }
 
       await updateDoc(doc(db, "purchaseReturns", id), data);
       toast.success("Purchase Return updated successfully!");

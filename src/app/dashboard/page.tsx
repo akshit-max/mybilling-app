@@ -75,6 +75,28 @@ export default function Dashboard() {
         return { id: doc.id, ...d } as Invoice;
       });
 
+      // Include Offline Drafts
+      try {
+        const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
+        const offlineDrafts = await getOfflineInvoices(userUid);
+        offlineDrafts.forEach((draft: any) => {
+          if (draft.invoiceType !== "estimate" && draft.invoiceType !== "purchase" && !draft.purchaseReturnNumber && !draft.salesReturnNumber) {
+            allInvoices.push({
+               id: draft.id?.toString() || draft.invoiceNumber,
+               customerName: draft.customerName || "Cash Sale",
+               total: draft.total || 0,
+               status: draft.status || "pending",
+               invoiceNumber: draft.invoiceNumber,
+               createdAt: draft.createdAt,
+               invoiceType: draft.invoiceType || "invoice",
+               isOffline: true
+            } as any);
+          }
+        });
+      } catch (err) {
+        console.warn("Offline drafts fetch failed on dashboard:", err);
+      }
+
       allInvoices.forEach(inv => {
         totalSales += inv.total || 0;
         const received = typeof inv.amountReceived === "number"
@@ -100,25 +122,13 @@ export default function Dashboard() {
       setStats({ toCollect, toPay, totalSales });
 
       // 2. Fetch last 5 transactions
-      const recentQ = query(
-        collection(db, "invoices"),
-        where("userId", "==", userUid),
-        orderBy("createdAt", "desc"),
-        limit(5)
-      );
-      const recentSnap = await getDocs(recentQ);
+      const sortedInvoices = [...allInvoices].sort((a, b) => {
+         const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
+         const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
+         return tB - tA;
+      });
       
-      const recentData = recentSnap.docs.map(doc => ({
-         id: doc.id,
-         customerName: doc.data().customerName || doc.data().partyName || "Cash Sale",
-         total: doc.data().total || 0,
-         status: doc.data().status || "paid",
-         invoiceNumber: doc.data().invoiceNumber || "1",
-         createdAt: doc.data().createdAt,
-         invoiceType: doc.data().invoiceType || "invoice"
-      })) as Invoice[];
-
-      setRecentTransactions(recentData);
+      setRecentTransactions(sortedInvoices.slice(0, 5));
 
       // 3. Compute dynamic 7-day trend coordinates for SVG curve
       const today = new Date();
@@ -403,20 +413,28 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
             <AlertCircle size={14} /> Dev Mode
           </div>
-          <button 
-            onClick={async () => {
-              if (!auth.currentUser) return;
-              try {
-                await updateDoc(doc(db, "users", auth.currentUser.uid), { isPaid: false, plan: "Free" });
-                toast.success("Reverted to Free Plan!");
-              } catch (e) {
-                toast.error("Failed to revert");
-              }
-            }}
-            className="px-3 py-1.5 text-[10px] uppercase tracking-wider bg-gray-800 hover:bg-gray-700 rounded font-bold text-gray-300 transition-colors border border-gray-700"
-          >
-            Revert to Free Plan (Test Popups)
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowTestExpiredModal(true)}
+              className="px-3 py-1.5 text-[10px] uppercase tracking-wider bg-red-900/50 hover:bg-red-800/80 rounded font-bold text-red-300 transition-colors border border-red-900/50"
+            >
+              Test Expiry
+            </button>
+            <button 
+              onClick={async () => {
+                if (!auth.currentUser) return;
+                try {
+                  await updateDoc(doc(db, "users", auth.currentUser.uid), { isPaid: false, plan: "Free" });
+                  toast.success("Reverted to Free Plan!");
+                } catch (e) {
+                  toast.error("Failed to revert");
+                }
+              }}
+              className="px-3 py-1.5 text-[10px] uppercase tracking-wider bg-gray-800 hover:bg-gray-700 rounded font-bold text-gray-300 transition-colors border border-gray-700"
+            >
+              Revert to Free Plan (Test Popups)
+            </button>
+          </div>
         </div>
       )}
 

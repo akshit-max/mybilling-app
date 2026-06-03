@@ -254,13 +254,55 @@ export default function PartiesPage() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      toast.success("Excel uploaded successfully! Processing parties... 📊");
-      // Simulated processing delay
-      setTimeout(() => {
-        toast.success("Parties imported successfully!");
-      }, 1500);
-    }
+    if (!file) return;
+    const user = auth.currentUser;
+    if (!user) return toast.error("Not logged in");
+
+    toast.loading("Processing parties... 📊", { id: "excel-upload" });
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        let addedCount = 0;
+        for (const row of json) {
+          if (!row.Name && !row["Party Name"]) continue;
+
+          const customerData = {
+            userId: user.uid,
+            name: String(row.Name || row["Party Name"] || "").trim(),
+            phone: String(row.Phone || row["Mobile Number"] || row.Contact || "").trim(),
+            email: String(row.Email || "").trim(),
+            address: String(row.Address || row["Billing Address"] || "").trim(),
+            gstin: String(row.GSTIN || row.GST || "").trim(),
+            state: String(row.State || "").trim(),
+            category: String(row.Category || "-").trim(),
+            type: String(row["Party Type"] || "Customer").trim(),
+            openingBalance: Number(row["Initial Balance"] || row["Opening Balance"] || row.Balance || 0),
+            openingBalanceType: String(row["Opening Balance Type (collect/pay)"] || "collect").trim().toLowerCase() as "collect" | "pay",
+            createdAt: new Date(),
+          };
+
+          const docRef = await addDoc(collection(db, "customers"), customerData);
+          setCustomers((prev) => [...prev, { id: docRef.id, ...customerData }]);
+          addedCount++;
+        }
+
+        toast.success(`Successfully imported ${addedCount} parties!`, { id: "excel-upload" });
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to parse Excel file", { id: "excel-upload" });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   // Filter categories in list

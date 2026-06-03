@@ -9,7 +9,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { syncInventory } from "@/lib/inventorySync";
-import TrialExpiredModal from "@/components/ui/TrialExpiredModal";
 
 type InvoiceItem = {
   name: string;
@@ -44,7 +43,6 @@ export default function SalesInvoicesPage() {
   const [typeFilter, setTypeFilter] = useState<"all" | "invoice" | "estimate">("all");
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   const [showReportsDropdown, setShowReportsDropdown] = useState(false);
-  const [showTrialModal, setShowTrialModal] = useState(false);
 
   const fetchInvoicesList = async (userId: string) => {
     try {
@@ -88,7 +86,7 @@ export default function SalesInvoicesPage() {
       let offlineData: Invoice[] = [];
       try {
         const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
-        const cached = await getOfflineInvoices();
+        const cached = await getOfflineInvoices(userId);
         offlineData = cached.map((c: any) => ({
           id: c.id?.toString() || c.invoiceNumber,
           customerName: c.customerName || "Cash Sale",
@@ -365,13 +363,6 @@ export default function SalesInvoicesPage() {
 
           {/* Right Create Button */}
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setShowTrialModal(true)}
-              className="bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 text-xs px-3 py-1.5 rounded font-semibold transition-colors flex items-center shadow-sm"
-              title="Test Trial Expiry"
-            >
-              Test Expiry
-            </button>
             <Link href="/dashboard/invoices/create" className="bg-indigo-600 text-white hover:bg-indigo-700 text-xs px-4 py-1.5 rounded font-semibold transition-colors flex items-center gap-1 shadow-sm">
               <Plus size={13} />
               <span>Create Sales Invoice</span>
@@ -528,8 +519,6 @@ export default function SalesInvoicesPage() {
         </div>
 
       </div>
-
-      <TrialExpiredModal isOpen={showTrialModal} onClose={() => setShowTrialModal(false)} />
     </div>
   );
 }

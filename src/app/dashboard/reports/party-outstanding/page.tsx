@@ -46,15 +46,64 @@ export default function PartywiseOutstandingReport() {
         const snap = await getDocs(
           query(collection(db, "customers"), where("userId", "==", user.uid))
         );
+        // Fetch all invoices to calculate real-time balance
+        const invSnap = await getDocs(
+          query(collection(db, "invoices"), where("userId", "==", user.uid))
+        );
+        const invData = invSnap.docs.map(docSnap => docSnap.data());
+
+        // Fetch all purchases to subtract from balance (To Pay)
+        let purchData: any[] = [];
+        try {
+          const purchSnap = await getDocs(
+            query(collection(db, "purchases"), where("userId", "==", user.uid))
+          );
+          purchData = purchSnap.docs.map(docSnap => docSnap.data());
+        } catch(e) { console.warn("Purchases fetch error:", e); }
+
         const custData: Customer[] = snap.docs.map((d) => {
           const docData = d.data();
-          const balance = docData.balance !== undefined ? docData.balance : (docData.pendingAmount !== undefined ? docData.pendingAmount : 0);
+          const openingBalance = Number(docData.openingBalance || 0);
+          const openingBalanceType = docData.openingBalanceType || "collect";
+          let initialBalance = openingBalanceType === "collect" ? openingBalance : -openingBalance;
+
+          const custNameLower = (docData.name || docData.partyName || "").toLowerCase().trim();
+
+          // Find all active sales invoices for this customer
+          const custInvoices = invData.filter(inv => 
+            inv.customerName?.toLowerCase().trim() === custNameLower &&
+            inv.invoiceType !== "estimate" &&
+            inv.status !== "cancelled"
+          );
+
+          // Find all active purchases for this customer (handling customerName as well)
+          const custPurchases = purchData.filter(purch =>
+            (purch.supplierName?.toLowerCase().trim() === custNameLower || purch.partyName?.toLowerCase().trim() === custNameLower || purch.customerName?.toLowerCase().trim() === custNameLower) &&
+            purch.status !== "cancelled"
+          );
+
+          // Sum unpaid sales
+          const unpaidSalesSum = custInvoices.reduce((sum, inv) => {
+            const total = Number(inv.total || 0);
+            const received = Number(inv.amountReceived) || Number(inv.amountPaid) || (inv.status === "paid" ? total : 0);
+            return sum + Math.max(0, total - received);
+          }, 0);
+
+          // Sum unpaid purchases
+          const unpaidPurchasesSum = custPurchases.reduce((sum, purch) => {
+            const total = Number(purch.total || 0);
+            const paid = Number(purch.amountPaid) || Number(purch.amountReceived) || (purch.status === "paid" ? total : 0);
+            return sum + Math.max(0, total - paid);
+          }, 0);
+
+          const finalBalance = initialBalance + unpaidSalesSum - unpaidPurchasesSum;
+
           return {
             id: d.id,
             name: docData.name || docData.partyName || "Unknown",
             phone: docData.phone || docData.mobile || docData.mobileNumber || "",
             category: docData.category || "-",
-            balance: Number(balance),
+            balance: Number(finalBalance),
             type: docData.type || "Customer",
           };
         });
@@ -166,22 +215,23 @@ export default function PartywiseOutstandingReport() {
     toast.success("Excel report exported successfully! 📊");
   };
 
-  const handleEmailExcel = () => {
+  const handleEmailExcel = async () => {
     if (!emailData.to) {
       toast.error("Please enter your Email ID");
       return;
     }
-    toast.promise(
-      new Promise((resolve) => setTimeout(resolve, 1500)),
-      {
-        loading: 'Generating and emailing Excel report...',
-        success: `Excel Report sent successfully to ${emailData.to}! 📧`,
-        error: 'Failed to send email.',
-      }
-    ).then(() => {
-      setShowEmailModal(false);
-      setEmailData({ to: "", cc: "" });
-    });
+
+    // Trigger download so they have the file to attach
+    handleExportExcel();
+
+    const subject = encodeURIComponent("Party Wise Outstanding Report");
+    const body = encodeURIComponent("Please find the Party Wise Outstanding Report attached.\n\n(Note: Please attach the downloaded Excel file manually as web browsers block automatic file attachments via mailto links).");
+    
+    window.location.href = `mailto:${emailData.to}?cc=${emailData.cc || ""}&subject=${subject}&body=${body}`;
+
+    toast.success("Opening your email client... 📧");
+    setShowEmailModal(false);
+    setEmailData({ to: "", cc: "" });
   };
 
   return (

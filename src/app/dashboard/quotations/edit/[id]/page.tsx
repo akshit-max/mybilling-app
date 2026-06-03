@@ -156,7 +156,7 @@ export default function EditQuotation() {
           }
         } catch {
           const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
-          const offlineInvoices = await getOfflineInvoices();
+          const offlineInvoices = await getOfflineInvoices(auth.currentUser?.uid);
           const found = offlineInvoices.find(
             (inv: any) => inv.id?.toString() === id || inv.invoiceNumber === id
           );
@@ -212,6 +212,7 @@ export default function EditQuotation() {
           const cList = csnap.docs.map((docSnap) => {
             const data = docSnap.data();
             return {
+              ...data,
               id: docSnap.id,
               name: data.name || "Unknown",
               gstin: data.gstin || "",
@@ -237,6 +238,7 @@ export default function EditQuotation() {
           const pList = psnap.docs.map((docSnap) => {
             const data = docSnap.data();
             return {
+              ...data,
               id: docSnap.id,
               name: data.name || "Unknown Product",
               price: Number(data.price || 0),
@@ -620,7 +622,7 @@ export default function EditQuotation() {
         const { getOfflineInvoices, updateOfflineInvoice } = await import("@/lib/offlineInvoices");
         const { getCachedProducts, cacheProducts } = await import("@/lib/indexedDB");
 
-        const offlineInvoices = await getOfflineInvoices();
+        const offlineInvoices = await getOfflineInvoices(auth.currentUser?.uid);
         const existing = offlineInvoices.find(
           (inv: any) => inv.id?.toString() === id || inv.invoiceNumber === id
         );
