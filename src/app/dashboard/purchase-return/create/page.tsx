@@ -64,6 +64,7 @@ export default function CreateCreditNote() {
   const [linkedInvoiceNumber, setLinkedInvoiceNumber] = useState("");
   
   const [amountReceived, setAmountReceived] = useState<number | string>(0);
+  const [paymentMode, setPaymentMode] = useState("Cash");
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -104,6 +105,11 @@ export default function CreateCreditNote() {
         const cnsnap = await getDocs(cnq);
         setCreditNoteNumber((cnsnap.size + 1).toString());
 
+        const settingsSnap = await getDoc(doc(db, "settings", user.uid));
+        if (settingsSnap.exists()) {
+          setCompanyState((settingsSnap.data().state || "").trim());
+        }
+
       } catch (err) {
         toast.error("Failed to load data");
       } finally {
@@ -143,6 +149,7 @@ export default function CreateCreditNote() {
   const handleSave = async () => {
     if (!customerName) return toast.error("Please select a party first");
     if (!validItems.length) return toast.error("Please add at least one valid item");
+    if (!purchaseReturnNumber.trim()) return toast.error("Purchase Return Number is required");
     if (calc.discountAmount > calc.subtotal) return toast.error("Discount cannot exceed subtotal");
 
     const user = auth.currentUser;
@@ -166,14 +173,6 @@ export default function CreateCreditNote() {
         quantity: i.qty
       }));
       
-      if (itemsToSync.length > 0) {
-        try {
-          await syncInventory(user.uid, itemsToSync, "DECREASE");
-        } catch (err: any) {
-          return toast.error(err.message || "Failed to sync inventory stock.");
-        }
-      }
-
       const data = {
         userId: user.uid,
         total: finalTotal,
@@ -194,6 +193,7 @@ export default function CreateCreditNote() {
         igst: calc.igst,
         status: Number(amountReceived) >= finalTotal ? "adjusted" : "issued",
         amountReceived: Number(amountReceived),
+        paymentMode,
         createdAt: new Date(),
         notes,
         additionalChargeName,
@@ -208,7 +208,7 @@ export default function CreateCreditNote() {
         const { saveOfflineInvoice } = await import("@/lib/offlineInvoices");
         const { getCachedProducts, cacheProducts } = await import("@/lib/indexedDB");
         
-        const cachedProducts = await getCachedProducts();
+        const cachedProducts = await getCachedProducts(user.uid);
         for (const item of validItems) {
           if (item.productId) {
             const idx = cachedProducts.findIndex((p: any) => p.id === item.productId);
@@ -226,7 +226,54 @@ export default function CreateCreditNote() {
         return;
       }
 
+      if (itemsToSync.length > 0) {
+        try {
+          await syncInventory(user.uid, itemsToSync, "DECREASE");
+        } catch (err: any) {
+          return toast.error(err.message || "Failed to sync inventory stock.");
+        }
+      }
+
       await addDoc(collection(db, "purchaseReturns"), data);
+
+      // Update Cash & Bank ledger for Purchase Return (money coming IN as refund)
+      const amountReceivedNum = Number(amountReceived);
+      if (amountReceivedNum > 0) {
+        try {
+          const isCash = paymentMode === "Cash";
+          let newBalance = 0;
+          if (isCash) {
+            const sRef = doc(db, "settings", user.uid);
+            const sSnap = await getDoc(sRef);
+            const currentCash = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+            newBalance = currentCash + amountReceivedNum;
+            await updateDoc(sRef, { cashInHand: newBalance });
+          } else {
+            const bRef = doc(db, "bankAccounts", paymentMode);
+            const bSnap = await getDoc(bRef);
+            const currentBank = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+            newBalance = currentBank + amountReceivedNum;
+            await updateDoc(bRef, { balance: newBalance });
+          }
+          await addDoc(collection(db, "cashBankTransactions"), {
+            userId: user.uid,
+            accountId: isCash ? "cash" : paymentMode,
+            type: "Purchase Return",
+            txnNo: purchaseReturnNumber,
+            date: purchaseReturnDate,
+            party: customerName,
+            mode: isCash ? "Cash" : "Bank",
+            paid: 0,
+            received: amountReceivedNum,
+            balanceAfter: newBalance,
+            remarks: `Refund against Purchase Return #${purchaseReturnNumber}`,
+            createdAt: new Date()
+          });
+        } catch (cashErr) {
+          console.error("Cash/Bank ledger update failed:", cashErr);
+        }
+      }
+
       toast.success("Purchase Return created successfully!");
       router.push("/dashboard/purchase-return");
     } catch (err) {

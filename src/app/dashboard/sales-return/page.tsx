@@ -78,9 +78,7 @@ export default function SalesReturnList() {
       
       const uniqueMap = new Map<string, SalesReturn>();
       combined.forEach(inv => {
-        if (uniqueMap.has(inv.id)) {
-          uniqueMap.set(inv.id, inv);
-        } else {
+        if (!uniqueMap.has(inv.id) || !inv.isOffline) {
           uniqueMap.set(inv.id, inv);
         }
       });
@@ -118,11 +116,22 @@ export default function SalesReturnList() {
       item.salesReturnNumber.toLowerCase().includes(term) ||
       item.linkedInvoiceNumber.toLowerCase().includes(term);
 
-    // Simple date filtering (if needed)
+    // Simple date filtering
     let matchDate = true;
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    const itemDate = new Date(item.date);
+
     if (dateFilter === "Today") {
-      const today = new Date().toISOString().split("T")[0];
-      matchDate = item.date === today;
+      matchDate = item.date === todayStr;
+    } else if (dateFilter === "Last 7 Days") {
+      const past = new Date();
+      past.setDate(now.getDate() - 7);
+      matchDate = itemDate >= past && itemDate <= now;
+    } else if (dateFilter === "Last 30 Days") {
+      const past = new Date();
+      past.setDate(now.getDate() - 30);
+      matchDate = itemDate >= past && itemDate <= now;
     }
     
     return matchSearch && matchDate;

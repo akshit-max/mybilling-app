@@ -321,7 +321,7 @@ export default function POSBillingPage() {
         const { saveOfflineInvoice } = await import("@/lib/offlineInvoices");
         const { getCachedProducts, cacheProducts } = await import("@/lib/indexedDB");
 
-        const cachedProducts = await getCachedProducts();
+        const cachedProducts = await getCachedProducts(user.uid);
         for (const item of activeBill.items) {
           if (item.productId) {
              const idx = cachedProducts.findIndex(p => p.id === item.productId);

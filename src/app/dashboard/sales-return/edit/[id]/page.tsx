@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Settings2, Share2, ScanBarcode, Plus, ChevronDown, Check, Trash2, Eye, FileText, Landmark, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, addDoc, doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
@@ -250,7 +250,7 @@ export default function EditSalesReturn() {
           await cacheCustomers(cList);
         } catch (err) {
           const { getCachedCustomers } = await import("@/lib/indexedDB");
-          const cached = await getCachedCustomers();
+          const cached = await getCachedCustomers(user.uid);
           setCustomers(cached as any || []);
         }
 
@@ -292,7 +292,7 @@ export default function EditSalesReturn() {
           await cacheProducts(pList);
         } catch (err) {
           const { getCachedProducts } = await import("@/lib/indexedDB");
-          const cached = await getCachedProducts();
+          const cached = await getCachedProducts(user.uid);
           setProducts(cached as any || []);
         }
 
@@ -611,7 +611,10 @@ export default function EditSalesReturn() {
         cgst: calc.cgst,
         sgst: calc.sgst,
         igst: calc.igst,
-        status: Number(amountReceived) >= finalTotal ? "paid" : "pending",
+        status: (() => {
+          if (status === "credit") return "credit";
+          return Number(amountReceived) >= finalTotal ? "paid" : "pending";
+        })(),
         invoiceType,
         amountReceived: Number(amountReceived),
         paymentMode,
@@ -641,7 +644,7 @@ export default function EditSalesReturn() {
 
         // Deduct stocks from cache if it's a tax invoice
         if (invoiceType === "invoice") {
-          const cachedProducts = await getCachedProducts();
+          const cachedProducts = await getCachedProducts(user.uid);
           for (const item of validItems) {
             if (item.productId) {
               const idx = cachedProducts.findIndex(p => p.id === item.productId);
@@ -684,6 +687,75 @@ export default function EditSalesReturn() {
       }
 
       await updateDoc(doc(db, "salesReturns", id), invoiceData);
+
+      // Sync Cash & Bank Ledger for Sales Return Edit
+      if (invoiceType === "invoice" || !invoiceType) {
+        try {
+          // Find existing transaction
+          const tq = query(collection(db, "cashBankTransactions"), where("userId", "==", user.uid), where("txnNo", "==", salesReturnNumber), where("type", "==", "Sales Return"));
+          const tSnap = await getDocs(tq);
+          
+          // Reverse old transaction
+          if (!tSnap.empty) {
+             const oldTxnDoc = tSnap.docs[0];
+             const oldTxn = oldTxnDoc.data();
+             
+             // Reverse balance (for Sales Return, money was paid out, so add it back)
+             if (oldTxn.paid > 0) {
+               if (oldTxn.accountId === "cash") {
+                  const sRef = doc(db, "settings", user.uid);
+                  const sSnap = await getDoc(sRef);
+                  const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+                  await updateDoc(sRef, { cashInHand: current + oldTxn.paid });
+               } else {
+                  const bRef = doc(db, "bankAccounts", oldTxn.accountId);
+                  const bSnap = await getDoc(bRef);
+                  const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+                  await updateDoc(bRef, { balance: current + oldTxn.paid });
+               }
+             }
+             
+             await deleteDoc(doc(db, "cashBankTransactions", oldTxnDoc.id));
+          }
+  
+          // Apply new transaction
+          const amountPaidNum = Number(amountReceived); // refund amount
+          if (amountPaidNum > 0) {
+             const isCash = paymentMode === "Cash";
+             let newBalance = 0;
+             if (isCash) {
+                const sRef = doc(db, "settings", user.uid);
+                const sSnap = await getDoc(sRef);
+                const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+                newBalance = Math.max(0, current - amountPaidNum);
+                await updateDoc(sRef, { cashInHand: newBalance });
+             } else {
+                const bRef = doc(db, "bankAccounts", paymentMode);
+                const bSnap = await getDoc(bRef);
+                const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+                newBalance = Math.max(0, current - amountPaidNum);
+                await updateDoc(bRef, { balance: newBalance });
+             }
+  
+             await addDoc(collection(db, "cashBankTransactions"), {
+               userId: user.uid,
+               accountId: isCash ? "cash" : paymentMode,
+               type: "Sales Return",
+               txnNo: salesReturnNumber,
+               date: salesReturnDate,
+               party: customerName,
+               mode: isCash ? "Cash" : "Bank",
+               paid: amountPaidNum,
+               received: 0,
+               balanceAfter: newBalance,
+               remarks: `Refund against Sales Return #${salesReturnNumber}`,
+               createdAt: new Date()
+             });
+          }
+        } catch (syncErr) {
+          console.error("Cash & Bank sync failed:", syncErr);
+        }
+      }
       toast.success("Sales Return updated successfully! ✅");
       router.push("/dashboard/sales-return");
 
@@ -1387,6 +1459,10 @@ export default function EditSalesReturn() {
 
               {/* Fully Paid toggle + Received Cash */}
               <div className="border-t border-gray-100 pt-3 space-y-3">
+                <div className="bg-blue-50 border border-blue-100 p-2 rounded text-[10px] text-blue-700 font-semibold mb-2 flex items-start gap-1.5">
+                  <span className="mt-0.5">ℹ️</span>
+                  <span>Updating this return will automatically reconcile and adjust your Cash & Bank ledger balances.</span>
+                </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-gray-500">Amount Received</span>
                   <div className="flex items-center gap-2">

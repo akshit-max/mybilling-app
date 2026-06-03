@@ -605,7 +605,7 @@ export default function CreateSalesInvoice() {
 
         // Deduct stocks from cache if it's a tax invoice
         if (invoiceType === "invoice") {
-          const cachedProducts = await getCachedProducts();
+          const cachedProducts = await getCachedProducts(user.uid);
           for (const item of validItems) {
             if (item.productId) {
               const idx = cachedProducts.findIndex(p => p.id === item.productId);
@@ -620,7 +620,6 @@ export default function CreateSalesInvoice() {
           }
           await cacheProducts(cachedProducts);
         }
-
         await saveOfflineInvoice(invoiceData as any);
         toast.success("Sales Invoice saved offline draft ✅");
         router.push("/dashboard/invoices");
@@ -628,8 +627,9 @@ export default function CreateSalesInvoice() {
       }
 
       // --- ONLINE SAVING ---
+      const { doc, updateDoc, increment, addDoc, collection, getDoc } = await import("firebase/firestore");
+      
       if (invoiceType === "invoice") {
-        // Handle Stock deduction safely offline without blocking getDoc calls
         for (const item of validItems) {
           if (item.productId) {
             const ref = doc(db, "products", item.productId);
@@ -638,37 +638,46 @@ export default function CreateSalesInvoice() {
         }
       }
 
-      const invRef = await addDoc(collection(db, "invoices"), invoiceData);
+      await addDoc(collection(db, "invoices"), invoiceData);
 
-      // Update Cash & Bank Balance
+      // Update Cash & Bank Balance (read-then-write to get accurate new balance)
       const amountRec = Number(amountReceived);
       if (amountRec > 0 && invoiceType === "invoice") {
-        const isCash = paymentMode === "Cash";
-        let newBalance = amountRec;
-        if (isCash) {
-           const sRef = doc(db, "settings", user.uid);
-           await updateDoc(sRef, { cashInHand: increment(amountRec) }).catch(() => {});
-        } else {
-           const bRef = doc(db, "bankAccounts", paymentMode);
-           await updateDoc(bRef, { balance: increment(amountRec) }).catch(() => {});
-           const b = bankAccounts.find(x => x.id === paymentMode);
-           newBalance = (b ? Number(b.balance || 0) : 0) + amountRec;
-        }
+        try {
+          const isCash = paymentMode === "Cash";
+          let newBalance = 0;
+          if (isCash) {
+            const sRef = doc(db, "settings", user.uid);
+            const sSnap = await getDoc(sRef);
+            const currentCash = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+            newBalance = currentCash + amountRec;
+            await updateDoc(sRef, { cashInHand: newBalance });
+          } else {
+            // paymentMode holds the bank account document ID
+            const bRef = doc(db, "bankAccounts", paymentMode);
+            const bSnap = await getDoc(bRef);
+            const currentBank = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+            newBalance = currentBank + amountRec;
+            await updateDoc(bRef, { balance: newBalance });
+          }
 
-        await addDoc(collection(db, "cashBankTransactions"), {
-          userId: user.uid,
-          accountId: isCash ? "cash" : paymentMode,
-          type: "Sales Invoice",
-          txnNo: invoiceNumber,
-          date: invoiceDate,
-          party: customerName,
-          mode: isCash ? "Cash" : "Bank",
-          paid: 0,
-          received: amountRec,
-          balanceAfter: newBalance,
-          remarks: `Received against Invoice #${invoiceNumber}`,
-          createdAt: new Date()
-        });
+          await addDoc(collection(db, "cashBankTransactions"), {
+            userId: user.uid,
+            accountId: isCash ? "cash" : paymentMode,
+            type: "Sales Invoice",
+            txnNo: invoiceNumber,
+            date: invoiceDate,
+            party: customerName,
+            mode: isCash ? "Cash" : "Bank",
+            paid: 0,
+            received: amountRec,
+            balanceAfter: newBalance,
+            remarks: `Received against Invoice #${invoiceNumber}`,
+            createdAt: new Date()
+          });
+        } catch (cashErr) {
+          console.error("Cash/Bank ledger update failed:", cashErr);
+        }
       }
 
       toast.success("Sales Invoice created successfully! ✅");

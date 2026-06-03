@@ -165,7 +165,7 @@ export default function CreateQuotation() {
           await cacheCustomers(cList);
         } catch (err) {
           const { getCachedCustomers } = await import("@/lib/indexedDB");
-          const cached = await getCachedCustomers();
+          const cached = await getCachedCustomers(user.uid);
           setCustomers(cached as any || []);
         }
 
@@ -207,7 +207,7 @@ export default function CreateQuotation() {
           await cacheProducts(pList);
         } catch (err) {
           const { getCachedProducts } = await import("@/lib/indexedDB");
-          const cached = await getCachedProducts();
+          const cached = await getCachedProducts(user.uid);
           setProducts(cached as any || []);
         }
 
@@ -564,7 +564,7 @@ export default function CreateQuotation() {
 
         // Deduct stocks from cache if it's a tax invoice
         if (invoiceType === "invoice") {
-          const cachedProducts = await getCachedProducts();
+          const cachedProducts = await getCachedProducts(user.uid);
           for (const item of validItems) {
             if (item.productId) {
               const idx = cachedProducts.findIndex(p => p.id === item.productId);

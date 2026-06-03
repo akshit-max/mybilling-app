@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Settings2, Share2, ScanBarcode, Plus, ChevronDown, Check, Trash2, Eye, FileText, Landmark, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, updateDoc, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, updateDoc, doc, getDoc, addDoc, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
@@ -61,7 +61,7 @@ export default function EditSalesInvoice() {
   const [discountType, setDiscountType] = useState<DiscountType>("flat");
   const [discountValue, setDiscountValue] = useState<number | string>(0);
   const [gstEnabled, setGstEnabled] = useState(true);
-  const [status, setStatus] = useState<"paid" | "pending" | "cancelled">("pending");
+  const [status, setStatus] = useState<"paid" | "pending" | "cancelled" | "credit">("pending");
   const [dueDate, setDueDate] = useState("");
   const [invoiceType, setInvoiceType] = useState<"invoice" | "estimate">("invoice");
   const [originalInvoiceNumber, setOriginalInvNo] = useState("");
@@ -227,7 +227,7 @@ export default function EditSalesInvoice() {
           await cacheCustomers(cList);
         } catch {
           const { getCachedCustomers } = await import("@/lib/indexedDB");
-          const cached = await getCachedCustomers();
+          const cached = await getCachedCustomers(user.uid);
           setCustomers(cached as any || []);
         }
 
@@ -255,14 +255,14 @@ export default function EditSalesInvoice() {
           await cacheProducts(pList);
         } catch {
           const { getCachedProducts } = await import("@/lib/indexedDB");
-          const cached = await getCachedProducts();
+          const cached = await getCachedProducts(user.uid);
           setProducts(cached as any || []);
         }
 
         // Fetch Bank Accounts
         try {
           if (!navigator.onLine) throw new Error("Offline");
-          const bq = query(collection(db, "banks"), where("userId", "==", user.uid));
+          const bq = query(collection(db, "bankAccounts"), where("userId", "==", user.uid));
           const bsnap = await getDocs(bq);
           const bList = bsnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
           setBankAccounts(bList);
@@ -270,9 +270,9 @@ export default function EditSalesInvoice() {
           // Silent catch for bank accounts load
         }
 
-        // Fetch Categories
+        // Fetch Categories (scoped to userId to prevent cross-user data leak)
         try {
-          const catSnap = await getDocs(collection(db, "categories"));
+          const catSnap = await getDocs(query(collection(db, "customerCategories"), where("userId", "==", user.uid)));
           const catList = catSnap.docs.map(d => ({ id: d.id, name: d.data().name }));
           setCategories(catList);
         } catch {
@@ -489,7 +489,7 @@ export default function EditSalesInvoice() {
       };
 
       const { setDoc, doc } = await import("firebase/firestore");
-      await setDoc(doc(db, "banks", bankId), bankData);
+      await setDoc(doc(db, "bankAccounts", bankId), bankData);
 
       const added = { id: bankId, ...bankData };
       const updated = [...bankAccounts, added];
@@ -573,7 +573,13 @@ export default function EditSalesInvoice() {
         cgst: calc.cgst,
         sgst: calc.sgst,
         igst: calc.igst,
-        status: Number(amountPaid) >= finalTotal ? "paid" : "pending",
+        // Preserve cancelled/credit status; only recompute paid/pending otherwise
+        status: (() => {
+          if (status === "cancelled") return "cancelled";
+          if (Number(amountPaid) >= finalTotal) return "paid";
+          if (status === "credit") return "credit";
+          return "pending";
+        })(),
         invoiceType,
         amountPaid: Number(amountPaid),
         paymentMode,
@@ -595,7 +601,7 @@ export default function EditSalesInvoice() {
         const { updateOfflineInvoice } = await import("@/lib/offlineInvoices");
         const { getCachedProducts, cacheProducts } = await import("@/lib/indexedDB");
         
-        const cachedProducts = await getCachedProducts();
+        const cachedProducts = await getCachedProducts(user.uid);
         
         for (const pid of allIds) {
           const oldQty = oldMap.get(pid) || 0;
@@ -644,6 +650,76 @@ export default function EditSalesInvoice() {
       }
 
       await updateDoc(doc(db, "purchases", id), updateData);
+
+      // Sync Cash & Bank
+      if (invoiceType === "invoice" || !invoiceType) {
+        try {
+          // Find existing transaction for this purchase
+          const tq = query(collection(db, "cashBankTransactions"), where("userId", "==", user.uid), where("txnNo", "==", purchaseInvoiceNumber), where("type", "==", "Purchase Invoice"));
+          const tSnap = await getDocs(tq);
+          
+          // Reverse old transaction
+          if (!tSnap.empty) {
+             const oldTxnDoc = tSnap.docs[0];
+             const oldTxn = oldTxnDoc.data();
+             
+             // Reverse balance (for purchase, paid means money went out, so add it back)
+             if (oldTxn.paid > 0) {
+               if (oldTxn.accountId === "cash") {
+                  const sRef = doc(db, "settings", user.uid);
+                  const sSnap = await getDoc(sRef);
+                  const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+                  await updateDoc(sRef, { cashInHand: current + oldTxn.paid });
+               } else {
+                  const bRef = doc(db, "bankAccounts", oldTxn.accountId);
+                  const bSnap = await getDoc(bRef);
+                  const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+                  await updateDoc(bRef, { balance: current + oldTxn.paid });
+               }
+             }
+             
+             await deleteDoc(doc(db, "cashBankTransactions", oldTxnDoc.id));
+          }
+  
+          // Apply new transaction
+          const amountPaidNum = Number(amountPaid);
+          if (amountPaidNum > 0) {
+             const isCash = paymentMode === "Cash";
+             let newBalance = 0;
+             if (isCash) {
+                const sRef = doc(db, "settings", user.uid);
+                const sSnap = await getDoc(sRef);
+                const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+                newBalance = Math.max(0, current - amountPaidNum);
+                await updateDoc(sRef, { cashInHand: newBalance });
+             } else {
+                const bRef = doc(db, "bankAccounts", paymentMode);
+                const bSnap = await getDoc(bRef);
+                const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+                newBalance = Math.max(0, current - amountPaidNum);
+                await updateDoc(bRef, { balance: newBalance });
+             }
+  
+             await addDoc(collection(db, "cashBankTransactions"), {
+               userId: user.uid,
+               accountId: isCash ? "cash" : paymentMode,
+               type: "Purchase Invoice",
+               txnNo: purchaseInvoiceNumber,
+               date: invoiceDate,
+               party: customerName,
+               mode: isCash ? "Cash" : "Bank",
+               paid: amountPaidNum,
+               received: 0,
+               balanceAfter: newBalance,
+               remarks: `Paid against Purchase #${purchaseInvoiceNumber}`,
+               createdAt: new Date()
+             });
+          }
+        } catch (syncErr) {
+          console.error("Cash & Bank sync failed:", syncErr);
+        }
+      }
+
       toast.success("Invoice updated successfully! ✅");
       window.location.href = "/dashboard/purchases";
 

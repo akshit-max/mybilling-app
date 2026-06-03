@@ -203,7 +203,7 @@ export default function CreateSalesReturn() {
           await cacheCustomers(cList);
         } catch (err) {
           const { getCachedCustomers } = await import("@/lib/indexedDB");
-          const cached = await getCachedCustomers();
+          const cached = await getCachedCustomers(user.uid);
           setCustomers(cached as any || []);
         }
 
@@ -244,7 +244,7 @@ export default function CreateSalesReturn() {
           await cacheProducts(pList);
         } catch (err) {
           const { getCachedProducts } = await import("@/lib/indexedDB");
-          const cached = await getCachedProducts();
+          const cached = await getCachedProducts(user.uid);
           setProducts(cached as any || []);
         }
 
@@ -593,7 +593,7 @@ export default function CreateSalesReturn() {
 
         // Deduct stocks from cache if it's a tax invoice
         if (invoiceType === "invoice") {
-          const cachedProducts = await getCachedProducts();
+          const cachedProducts = await getCachedProducts(user.uid);
           for (const item of validItems) {
             if (item.productId) {
               const idx = cachedProducts.findIndex(p => p.id === item.productId);
@@ -631,6 +631,44 @@ export default function CreateSalesReturn() {
       }
 
       await addDoc(collection(db, "salesReturns"), invoiceData);
+
+      // Update Cash & Bank ledger for Sales Return (money going OUT as refund)
+      const amountPaidNum = Number(amountReceived);
+      if (amountPaidNum > 0) {
+        try {
+          const isCash = paymentMode === "Cash";
+          let newBalance = 0;
+          if (isCash) {
+            const sRef = doc(db, "settings", user.uid);
+            const sSnap = await getDoc(sRef);
+            const currentCash = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+            newBalance = Math.max(0, currentCash - amountPaidNum);
+            await updateDoc(sRef, { cashInHand: newBalance });
+          } else {
+            const bRef = doc(db, "bankAccounts", paymentMode);
+            const bSnap = await getDoc(bRef);
+            const currentBank = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+            newBalance = Math.max(0, currentBank - amountPaidNum);
+            await updateDoc(bRef, { balance: newBalance });
+          }
+          await addDoc(collection(db, "cashBankTransactions"), {
+            userId: user.uid,
+            accountId: isCash ? "cash" : paymentMode,
+            type: "Sales Return",
+            txnNo: salesReturnNumber,
+            date: salesReturnDate,
+            party: customerName,
+            mode: isCash ? "Cash" : "Bank",
+            paid: amountPaidNum,
+            received: 0,
+            balanceAfter: newBalance,
+            remarks: `Refund against Sales Return #${salesReturnNumber}`,
+            createdAt: new Date()
+          });
+        } catch (cashErr) {
+          console.error("Cash/Bank ledger update failed:", cashErr);
+        }
+      }
       toast.success("Sales Return created successfully! ✅");
       router.push("/dashboard/sales-return");
 
@@ -657,7 +695,7 @@ export default function CreateSalesReturn() {
       {/* ENTERPRISE ACTION HEADER */}
       <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/invoices" className="text-gray-400 hover:text-gray-700 transition-colors">
+          <Link href="/dashboard/sales-return" className="text-gray-400 hover:text-gray-700 transition-colors">
             <ArrowLeft size={18} />
           </Link>
           <div className="space-y-0.5">
@@ -679,7 +717,7 @@ export default function CreateSalesReturn() {
             disabled={saving}
             className="text-xs text-white bg-indigo-600 border border-indigo-600 px-5 py-1.5 rounded hover:bg-indigo-700 font-bold shadow-sm transition-all disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save Invoice"}
+            {saving ? "Saving..." : "Save Sales Return"}
           </button>
         </div>
       </header>

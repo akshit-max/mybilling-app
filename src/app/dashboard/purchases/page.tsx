@@ -48,7 +48,7 @@ export default function PurchasesPage() {
       let tPaid = 0;
       let tUnpaid = 0;
 
-      let data = snap.docs.map(doc => {
+      let onlineData = snap.docs.map(doc => {
         const d = doc.data();
         const total = Number(d.total) || 0;
         const paid = Number(d.amountPaid) || Number(d.amountReceived) || 0;
@@ -62,9 +62,48 @@ export default function PurchasesPage() {
           id: doc.id,
           ...d,
           unpaidAmount: unpaid,
+          isOffline: false,
           createdAtTime: d.createdAt ? (d.createdAt.toMillis ? d.createdAt.toMillis() : new Date(d.createdAt).getTime()) : 0
         };
       });
+
+      let offlineData: any[] = [];
+      try {
+        const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
+        const cached = await getOfflineInvoices(user.uid);
+        offlineData = cached
+          .filter((c: any) => c.purchaseInvoiceNumber || c.invoiceType === "purchase")
+          .map((c: any) => {
+            const total = Number(c.total) || 0;
+            const paid = Number(c.amountPaid) || Number(c.amountReceived) || 0;
+            const unpaid = total - paid;
+
+            tPurchases += total;
+            tPaid += paid;
+            if (unpaid > 0) tUnpaid += unpaid;
+
+            return {
+              ...c,
+              id: c.id?.toString() || c.purchaseInvoiceNumber,
+              unpaidAmount: unpaid,
+              isOffline: true,
+              createdAtTime: c.createdAt ? new Date(c.createdAt).getTime() : Date.now()
+            };
+          });
+      } catch (err) {
+        console.error("IndexedDB fetch error:", err);
+      }
+
+      const combined = [...onlineData, ...offlineData];
+
+      // Dedup by id
+      const uniqueMap = new Map<string, any>();
+      combined.forEach(inv => {
+        if (!uniqueMap.has(inv.id) || !inv.isOffline) {
+          uniqueMap.set(inv.id, inv);
+        }
+      });
+      const data = Array.from(uniqueMap.values());
 
       // Sort by createdAt descending client-side
       data.sort((a, b) => b.createdAtTime - a.createdAtTime);
@@ -436,6 +475,9 @@ export default function PurchasesPage() {
                         {row.date ? new Date(row.date).toLocaleDateString("en-GB", { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}
                       </td>
                       <td className="px-4 py-3 font-semibold text-gray-800">
+                        {row.isOffline ? (
+                          <span className="text-gray-500 bg-gray-50 border border-gray-200 rounded-sm text-[9px] px-1 py-0.5 mr-1 font-bold">DRAFT</span>
+                        ) : null}
                         {row.purchaseInvoiceNumber || "-"}
                       </td>
                       <td className="px-4 py-3 font-semibold text-gray-800">

@@ -197,7 +197,7 @@ export default function CreateAutomatedBill() {
           await cacheCustomers(cList);
         } catch (err) {
           const { getCachedCustomers } = await import("@/lib/indexedDB");
-          const cached = await getCachedCustomers();
+          const cached = await getCachedCustomers(user.uid);
           setCustomers(cached as any || []);
         }
 
@@ -239,7 +239,7 @@ export default function CreateAutomatedBill() {
           await cacheProducts(pList);
         } catch (err) {
           const { getCachedProducts } = await import("@/lib/indexedDB");
-          const cached = await getCachedProducts();
+          const cached = await getCachedProducts(user.uid);
           setProducts(cached as any || []);
         }
 

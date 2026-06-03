@@ -72,17 +72,24 @@ export const dbPromise = openDB(
 
 type CachedCustomer = {
   id: string;
+  userId?: string;
   name: string;
   gstin?: string;
   phone?: string;
+  address?: string;
+  state?: string;
 };
 
 type CachedProduct = {
   id: string;
+  userId?: string;
   name: string;
   price: number;
   barcode?: string;
   stock?: number;
+  unit?: string;
+  gst?: number;
+  hsnCode?: string;
 };
 
 export const cacheCustomers = async (
@@ -110,13 +117,17 @@ export const cacheProducts = async (
 };
 
 export const getCachedCustomers =
-  async (): Promise<CachedCustomer[]> => {
+  async (userId?: string): Promise<CachedCustomer[]> => {
     const db = await dbPromise;
-    return db.getAll("customers");
+    const all = await db.getAll("customers");
+    if (userId) return all.filter((c) => c.userId === userId);
+    return all;
   };
 
 export const getCachedProducts =
-  async (): Promise<CachedProduct[]> => {
+  async (userId?: string): Promise<CachedProduct[]> => {
     const db = await dbPromise;
-    return db.getAll("products");
+    const all = await db.getAll("products");
+    if (userId) return all.filter((p) => p.userId === userId);
+    return all;
   };

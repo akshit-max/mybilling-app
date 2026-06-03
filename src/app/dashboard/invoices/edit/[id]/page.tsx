@@ -61,7 +61,7 @@ export default function EditSalesInvoice() {
   const [discountType, setDiscountType] = useState<DiscountType>("flat");
   const [discountValue, setDiscountValue] = useState<number | string>(0);
   const [gstEnabled, setGstEnabled] = useState(true);
-  const [status, setStatus] = useState<"paid" | "pending" | "cancelled">("pending");
+  const [status, setStatus] = useState<"paid" | "pending" | "cancelled" | "credit">("pending");
   const [dueDate, setDueDate] = useState("");
   const [invoiceType, setInvoiceType] = useState<"invoice" | "estimate">("invoice");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -268,9 +268,9 @@ export default function EditSalesInvoice() {
           // Silent catch for bank accounts load
         }
 
-        // Fetch Categories
+        // Fetch Categories (scoped to userId to prevent cross-user data leak)
         try {
-          const catSnap = await getDocs(collection(db, "categories"));
+          const catSnap = await getDocs(query(collection(db, "customerCategories"), where("userId", "==", user.uid)));
           const catList = catSnap.docs.map(d => ({ id: d.id, name: d.data().name }));
           setCategories(catList);
         } catch {
@@ -583,7 +583,13 @@ export default function EditSalesInvoice() {
         cgst: calc.cgst,
         sgst: calc.sgst,
         igst: calc.igst,
-        status: Number(amountReceived) >= finalTotal ? "paid" : "pending",
+        // Preserve cancelled/credit status; only recompute paid/pending otherwise
+        status: (() => {
+          if (status === "cancelled") return "cancelled";
+          if (Number(amountReceived) >= finalTotal) return "paid";
+          if (status === "credit") return "credit";
+          return "pending";
+        })(),
         invoiceType,
         amountReceived: Number(amountReceived),
         paymentMode,

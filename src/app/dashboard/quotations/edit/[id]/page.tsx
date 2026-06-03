@@ -226,7 +226,7 @@ export default function EditQuotation() {
           await cacheCustomers(cList);
         } catch {
           const { getCachedCustomers } = await import("@/lib/indexedDB");
-          const cached = await getCachedCustomers();
+          const cached = await getCachedCustomers(user.uid);
           setCustomers(cached as any || []);
         }
 
@@ -254,7 +254,7 @@ export default function EditQuotation() {
           await cacheProducts(pList);
         } catch {
           const { getCachedProducts } = await import("@/lib/indexedDB");
-          const cached = await getCachedProducts();
+          const cached = await getCachedProducts(user.uid);
           setProducts(cached as any || []);
         }
 
@@ -633,7 +633,7 @@ export default function EditQuotation() {
         }
 
         if (invoiceType === "invoice") {
-          const cachedProducts = await getCachedProducts();
+          const cachedProducts = await getCachedProducts(user.uid);
           for (const pid of allIds) {
             const oldQty = oldMap.get(pid) || 0;
             const newQty = newMap.get(pid) || 0;

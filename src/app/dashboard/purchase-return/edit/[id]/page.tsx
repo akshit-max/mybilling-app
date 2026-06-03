@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Settings2, Plus, Trash2 } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, updateDoc, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, updateDoc, doc, getDoc, addDoc, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
@@ -60,6 +60,7 @@ export default function EditCreditNote() {
   const [linkedInvoiceNumber, setLinkedInvoiceNumber] = useState("");
   
   const [amountReceived, setAmountReceived] = useState<number | string>(0);
+  const [paymentMode, setPaymentMode] = useState("Cash");
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -102,6 +103,7 @@ export default function EditCreditNote() {
           setAutoRoundOff(loaded.autoRoundOff ?? true);
           setSignatureType(loaded.signatureType || "");
           setSignatureImage(loaded.signatureImage || "");
+          setPaymentMode(loaded.paymentMode || "Cash");
           if (loaded.discountValue > 0) setShowDiscountInput(true);
         } else {
           toast.error("purchase return not found");
@@ -200,6 +202,7 @@ export default function EditCreditNote() {
         igst: calc.igst,
         status: Number(amountReceived) >= finalTotal ? "adjusted" : "issued",
         amountReceived: Number(amountReceived),
+        paymentMode,
         notes,
         additionalChargeName,
         additionalChargeValue: Number(additionalChargeValue),
@@ -219,6 +222,74 @@ export default function EditCreditNote() {
       }
 
       await updateDoc(doc(db, "purchaseReturns", id), data);
+
+      // Sync Cash & Bank Ledger for Purchase Return Edit
+      try {
+        // Find existing transaction
+        const tq = query(collection(db, "cashBankTransactions"), where("userId", "==", user.uid), where("txnNo", "==", purchaseReturnNumber), where("type", "==", "Purchase Return"));
+        const tSnap = await getDocs(tq);
+        
+        // Reverse old transaction
+        if (!tSnap.empty) {
+           const oldTxnDoc = tSnap.docs[0];
+           const oldTxn = oldTxnDoc.data();
+           
+           // Reverse balance (for Purchase Return, money was received, so subtract it)
+           if (oldTxn.received > 0) {
+             if (oldTxn.accountId === "cash") {
+                const sRef = doc(db, "settings", user.uid);
+                const sSnap = await getDoc(sRef);
+                const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+                await updateDoc(sRef, { cashInHand: Math.max(0, current - oldTxn.received) });
+             } else {
+                const bRef = doc(db, "bankAccounts", oldTxn.accountId);
+                const bSnap = await getDoc(bRef);
+                const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+                await updateDoc(bRef, { balance: Math.max(0, current - oldTxn.received) });
+             }
+           }
+           
+           await deleteDoc(doc(db, "cashBankTransactions", oldTxnDoc.id));
+        }
+
+        // Apply new transaction
+        const amountReceivedNum = Number(amountReceived); // refund amount
+        if (amountReceivedNum > 0) {
+           const isCash = paymentMode === "Cash";
+           let newBalance = 0;
+           if (isCash) {
+              const sRef = doc(db, "settings", user.uid);
+              const sSnap = await getDoc(sRef);
+              const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+              newBalance = current + amountReceivedNum;
+              await updateDoc(sRef, { cashInHand: newBalance });
+           } else {
+              const bRef = doc(db, "bankAccounts", paymentMode);
+              const bSnap = await getDoc(bRef);
+              const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+              newBalance = current + amountReceivedNum;
+              await updateDoc(bRef, { balance: newBalance });
+           }
+
+           await addDoc(collection(db, "cashBankTransactions"), {
+             userId: user.uid,
+             accountId: isCash ? "cash" : paymentMode,
+             type: "Purchase Return",
+             txnNo: purchaseReturnNumber,
+             date: purchaseReturnDate,
+             party: customerName,
+             mode: isCash ? "Cash" : "Bank",
+             paid: 0,
+             received: amountReceivedNum,
+             balanceAfter: newBalance,
+             remarks: `Refund against Purchase Return #${purchaseReturnNumber}`,
+             createdAt: new Date()
+           });
+        }
+      } catch (syncErr) {
+        console.error("Cash & Bank sync failed:", syncErr);
+      }
+
       toast.success("Purchase Return updated successfully!");
       router.push("/dashboard/purchase-return");
     } catch (err) {
@@ -461,6 +532,10 @@ export default function EditCreditNote() {
             </div>
 
             <div className="space-y-2 pt-2 border-t border-gray-100">
+              <div className="bg-blue-50 border border-blue-100 p-2 rounded text-[10px] text-blue-700 font-semibold mb-2 flex items-start gap-1.5">
+                <span className="mt-0.5">ℹ️</span>
+                <span>Updating this return will automatically reconcile and adjust your Cash & Bank ledger balances.</span>
+              </div>
               <div className="flex justify-between items-center">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Amount Received / Adjusted</span>
                 <label className="flex items-center gap-1 text-[10px] font-bold text-gray-500"><input type="checkbox" checked={Number(amountReceived) >= finalTotal} onChange={(e) => handleMarkFullyPaid(e.target.checked)} /> Mark as fully paid</label>
