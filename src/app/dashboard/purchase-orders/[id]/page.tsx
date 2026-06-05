@@ -49,7 +49,8 @@ type CreditNote = {
   date?: string;
   signatureType?: "upload" | "empty" | "";
   signatureImage?: string;
-  amountReceived?: number;
+  expectedDeliveryDate?: string;
+  paymentTerms?: string;
 };
 
 type Company = {
@@ -193,8 +194,6 @@ export default function ViewCreditNote() {
       }, 0)
     : 0;
 
-  const receivedAmount = typeof purchaseOrder.amountReceived === "number" ? purchaseOrder.amountReceived : 0;
-  const balanceAmount = Math.max(0, purchaseOrder.total - receivedAmount);
 
   const handleWhatsAppShare = () => {
     setShowWhatsAppModal(true);
@@ -249,9 +248,9 @@ export default function ViewCreditNote() {
             <h1 className="text-base font-bold text-gray-800 flex items-center gap-2">
               <span>Purchase Order #{purchaseOrder.purchaseOrderNumber}</span>
               <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                purchaseOrder.status === "adjusted" 
+                purchaseOrder.status === "Completed" 
                   ? "bg-green-50 text-brand-tertiary border border-green-200/50" 
-                  : "bg-blue-50 text-brand-primary border border-blue-200/50"
+                  : purchaseOrder.status === "Draft" ? "bg-gray-50 text-gray-600 border border-gray-200/50" : "bg-blue-50 text-brand-primary border border-blue-200/50"
               }`}>
                 {purchaseOrder.status}
               </span>
@@ -354,7 +353,7 @@ export default function ViewCreditNote() {
                 <div className="flex justify-between items-center mb-4">
                    <div className="flex items-center gap-2">
                      <span style={{ color: accentColor }} className="text-[12px] font-extrabold uppercase tracking-widest">
-                       purchase order
+                       PURCHASE ORDER
                      </span>
                      <span className="text-[9px] border border-gray-400 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase">
                        {activeLabel}
@@ -372,13 +371,19 @@ export default function ViewCreditNote() {
 
                 <div style={{ borderColor: accentColor }} className="border-b-2 mb-4"></div>
 
-                <div className="grid grid-cols-2 border-y border-gray-300 bg-gray-50/60 px-4 py-2 mb-4 text-[10px] font-bold text-gray-700">
+                <div className="grid grid-cols-2 border-y border-gray-300 bg-gray-50/60 px-4 py-2 mb-4 text-[10px] font-bold text-gray-700 gap-y-1">
                    <div>
                      <p>Purchase Order No.: <span className="font-mono text-gray-950 font-extrabold">{purchaseOrder.purchaseOrderNumber}</span></p>
                      {purchaseOrder.linkedInvoiceNumber && <p>Linked Invoice No.: <span className="font-mono text-gray-950 font-extrabold">{purchaseOrder.linkedInvoiceNumber}</span></p>}
                    </div>
                    <div className="text-right">
                      <p>Date: <span className="font-mono text-gray-950 font-extrabold">{formattedDate}</span></p>
+                   </div>
+                   <div>
+                     {purchaseOrder.expectedDeliveryDate && <p>Expected Delivery Date: <span className="font-mono text-gray-950 font-extrabold">{new Date(purchaseOrder.expectedDeliveryDate).toLocaleDateString()}</span></p>}
+                   </div>
+                   <div className="text-right">
+                     {purchaseOrder.paymentTerms && <p>Payment Terms: <span className="text-gray-950 font-extrabold">{purchaseOrder.paymentTerms}</span></p>}
                    </div>
                 </div>
 
@@ -468,16 +473,6 @@ export default function ViewCreditNote() {
                       <div className="flex justify-between text-xs font-black text-gray-900 border-y border-gray-350 py-1 mt-1 bg-gray-50 px-1">
                          <span>Total Amount</span>
                          <span className="font-extrabold text-black">₹{purchaseOrder.total.toFixed(2)}</span>
-                      </div>
-
-                      <div className="flex justify-between text-gray-500">
-                         <span>Received/Adjusted Amount</span>
-                         <span>₹{receivedAmount.toFixed(2)}</span>
-                      </div>
-
-                      <div className="flex justify-between font-bold text-red-500">
-                         <span>Balance</span>
-                         <span>₹{balanceAmount.toFixed(2)}</span>
                       </div>
                    </div>
                 </div>

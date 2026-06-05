@@ -59,7 +59,9 @@ export default function EditCreditNote() {
   const [deliveryChallanDate, setCreditNoteDate] = useState(new Date().toISOString().split("T")[0]);
   const [linkedInvoiceNumber, setLinkedInvoiceNumber] = useState("");
   
-  const [amountReceived, setAmountReceived] = useState<number | string>(0);
+  const [reasonForMovement, setReasonForMovement] = useState("");
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [documentStatus, setDocumentStatus] = useState<"Draft" | "Issued" | "Closed">("Issued");
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -104,7 +106,9 @@ export default function EditCreditNote() {
           setCreditNoteNumber(loaded.deliveryChallanNumber || "");
           setCreditNoteDate(loaded.date || new Date().toISOString().split("T")[0]);
           setLinkedInvoiceNumber(loaded.linkedInvoiceNumber || "");
-          setAmountReceived(loaded.amountReceived || 0);
+          setReasonForMovement(loaded.reasonForMovement || "");
+          setVehicleNumber(loaded.vehicleNumber || "");
+          setDocumentStatus(loaded.status || "Issued");
           setNotes(loaded.notes || "");
           setShowNotes(!!loaded.notes);
           setAdditionalChargeName(loaded.additionalChargeName || "Transport Charges");
@@ -179,10 +183,6 @@ export default function EditCreditNote() {
   const roundOffAmount = roundedTotal - rawTotal;
   const finalTotal = autoRoundOff ? roundedTotal : rawTotal;
 
-  const handleMarkFullyPaid = (checked: boolean) => {
-    setAmountReceived(checked ? finalTotal.toFixed(2) : 0);
-  };
-
   const updateItem = (index: number, field: keyof Item, value: string | number) => {
     const updated = [...items];
     updated[index] = { ...updated[index], [field]: field === "name" || field === "hsn" || field === "description" ? value : sanitizeNumericInput(String(value)) };
@@ -221,8 +221,9 @@ export default function EditCreditNote() {
         cgst: calc.cgst,
         sgst: calc.sgst,
         igst: calc.igst,
-        status: Number(amountReceived) >= finalTotal ? "adjusted" : "issued",
-        amountReceived: Number(amountReceived),
+        status: documentStatus,
+        reasonForMovement,
+        vehicleNumber,
         notes,
         additionalChargeName,
         additionalChargeValue: Number(additionalChargeValue),
@@ -328,6 +329,22 @@ export default function EditCreditNote() {
                     </div>
                   )}
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Reason for Movement:</label>
+                <input type="text" value={reasonForMovement} onChange={(e) => setReasonForMovement(e.target.value)} placeholder="e.g. For Exhibition" className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-700 bg-white" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vehicle Number:</label>
+                <input type="text" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="e.g. MH 01 AB 1234" className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-700 bg-white uppercase" />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Document Status:</label>
+                <select value={documentStatus} onChange={(e) => setDocumentStatus(e.target.value as any)} className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-700 bg-white">
+                  <option value="Draft">Draft</option>
+                  <option value="Issued">Issued</option>
+                  <option value="Closed">Closed</option>
+                </select>
               </div>
             </div>
           </div>
@@ -479,19 +496,8 @@ export default function EditCreditNote() {
             </div>
 
             <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 flex justify-between items-center">
-              <span className="font-bold text-indigo-900 text-sm">Total Amount</span>
+              <span className="font-bold text-indigo-900 text-sm">Estimated Value</span>
               <span className="font-extrabold text-indigo-700 text-xl font-mono">₹{finalTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-            </div>
-
-            <div className="space-y-2 pt-2 border-t border-gray-100">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Amount Received / Adjusted</span>
-                <label className="flex items-center gap-1 text-[10px] font-bold text-gray-500"><input type="checkbox" checked={Number(amountReceived) >= finalTotal} onChange={(e) => handleMarkFullyPaid(e.target.checked)} /> Mark as fully paid</label>
-              </div>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
-                <input type="text" value={amountReceived} onChange={(e) => setAmountReceived(sanitizeNumericInput(e.target.value))} className="w-full border border-gray-200 rounded px-8 py-2 text-sm focus:outline-none focus:border-indigo-500 font-bold font-mono text-gray-800" />
-              </div>
             </div>
           </div>
         </div>

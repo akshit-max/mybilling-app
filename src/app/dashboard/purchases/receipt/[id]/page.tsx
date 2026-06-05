@@ -625,13 +625,13 @@ export default function ViewInvoice() {
                   {/* Customer details bill to block */}
                   <div className="flex justify-between">
                   <div className="mb-4 space-y-0.5 text-[10px]">
-                     <p className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider">BILL FROM</p>
+                     <p className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider">BILL FROM (Supplier)</p>
                      <p className="text-xs font-extrabold text-gray-900">{invoice.customerName}</p>
                      {showPhone && invoice.customerPhone && <p className="text-gray-650 font-semibold">Mobile: {invoice.customerPhone}</p>}
                      {invoice.customerGSTIN && <p className="text-gray-650 font-mono">GSTIN: {invoice.customerGSTIN}</p>}
                   </div>
                   <div className="mb-4 space-y-0.5 text-[10px] text-right">
-                     <p className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider">SHIP FROM</p>
+                     <p className="text-[9px] font-extrabold text-gray-400 uppercase tracking-wider">BILL TO (Our Company)</p>
                      <p className="text-xs font-extrabold text-gray-900">{company?.name || "self"}</p>
                      <p className="text-gray-650 font-semibold mt-2">Original Invoice No: {invoice.originalInvoiceNumber || "-"}</p>
                   </div>
@@ -1119,7 +1119,8 @@ export default function ViewInvoice() {
              <div className="border-t border-dashed border-gray-300 pt-2 space-y-0.5">
                <p className="flex justify-between"><span>Invoice Number:</span><span className="font-bold">#{invoice.purchaseInvoiceNumber || "1"}</span></p>
                <p className="flex justify-between"><span>Purchase Date:</span><span>{formattedDate}</span></p>
-               <p className="flex justify-between"><span>Bill To:</span><span className="font-bold">{invoice.customerName}</span></p>
+               <p className="flex justify-between"><span>Bill From:</span><span className="font-bold truncate max-w-[100px] text-right">{invoice.customerName}</span></p>
+               <p className="flex justify-between"><span>Bill To:</span><span className="font-bold truncate max-w-[100px] text-right">{company?.name || "self"}</span></p>
              </div>
 
              <div className="border-t border-dashed border-gray-300 pt-2">

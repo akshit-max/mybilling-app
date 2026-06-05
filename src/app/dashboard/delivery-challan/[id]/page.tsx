@@ -38,6 +38,8 @@ type CreditNote = {
   customerGSTIN?: string;
   deliveryChallanNumber: string;
   linkedInvoiceNumber?: string;
+  reasonForMovement?: string;
+  vehicleNumber?: string;
   items: Item[];
   subtotal: number;
   discountAmount: number;
@@ -252,7 +254,7 @@ export default function ViewCreditNote() {
             <h1 className="text-base font-bold text-gray-800 flex items-center gap-2">
               <span>Delivery Challan #{deliveryChallan.deliveryChallanNumber}</span>
               <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                deliveryChallan.status === "adjusted" 
+                deliveryChallan.status === "Closed" 
                   ? "bg-green-50 text-brand-tertiary border border-green-200/50" 
                   : "bg-blue-50 text-brand-primary border border-blue-200/50"
               }`}>
@@ -357,7 +359,7 @@ export default function ViewCreditNote() {
                 <div className="flex justify-between items-center mb-4">
                    <div className="flex items-center gap-2">
                      <span style={{ color: accentColor }} className="text-[12px] font-extrabold uppercase tracking-widest">
-                       CREDIT NOTE
+                       DELIVERY CHALLAN
                      </span>
                      <span className="text-[9px] border border-gray-400 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase">
                        {activeLabel}
@@ -393,35 +395,25 @@ export default function ViewCreditNote() {
                 </div>
 
                 <div className="border border-gray-300 rounded overflow-hidden mb-4">
-                   <table className="w-full text-[10px] text-left border-collapse">
+                    <table className="w-full text-[10px] text-left border-collapse">
                       <thead>
                          <tr style={{ backgroundColor: `${accentColor}12`, color: accentColor }} className="font-extrabold border-b border-gray-300 uppercase tracking-wider text-[9px]">
                             <th className="py-2 px-3">ITEMS</th>
-                            <th className="py-2 px-3 text-center">QTY.</th>
-                            <th className="py-2 px-3 text-right">RATE</th>
-                            <th className="py-2 px-3 text-center">TAX</th>
-                            <th className="py-2 px-3 text-right">AMOUNT</th>
+                            <th className="py-2 px-3 text-right">QTY.</th>
                          </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-250 text-gray-700 font-semibold">
                          {deliveryChallan.items && deliveryChallan.items.map((item, idx) => {
-                           const taxRate = item.tax || (deliveryChallan.gstEnabled ? 18 : 0);
                            return (
                              <tr key={idx} className="hover:bg-gray-50/30">
                                 <td className="py-2 px-3"><p className="font-bold text-gray-900 uppercase">{item.name}</p></td>
-                                <td className="py-2 px-3 text-center font-mono text-gray-900">{item.qty} PCS</td>
-                                <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
-                                <td className="py-2 px-3 text-center font-mono text-gray-500">{taxRate}%</td>
-                                <td className="py-2 px-3 text-right font-bold font-mono text-gray-900">₹{(item.qty * item.price).toFixed(2)}</td>
+                                <td className="py-2 px-3 text-right font-mono text-gray-900">{item.qty} PCS</td>
                              </tr>
                            );
                          })}
                          <tr className="bg-gray-50/50 font-bold border-y-2 border-gray-300 text-gray-900 text-[10px]">
-                            <td className="py-2 px-3 text-left uppercase">SUBTOTAL</td>
-                            <td className="py-2 px-3 text-center font-mono">{totalQty} PCS</td>
-                            <td className="py-2 px-3 text-right">-</td>
-                            <td className="py-2 px-3 text-center font-mono">₹{totalTaxAmount.toFixed(2)}</td>
-                            <td className="py-2 px-3 text-right font-mono">₹{deliveryChallan.subtotal.toFixed(2)}</td>
+                            <td className="py-2 px-3 text-left uppercase">TOTAL QUANTITY</td>
+                            <td className="py-2 px-3 text-right font-mono">{totalQty} PCS</td>
                          </tr>
                       </tbody>
                    </table>
@@ -435,52 +427,22 @@ export default function ViewCreditNote() {
                       </div>
                    </div>
 
-                   <div className="w-64 space-y-1 font-mono text-right text-gray-500 font-bold border-t border-dashed border-gray-350 pt-2">
-                      <div className="flex justify-between text-gray-600">
-                         <span>Taxable Amount</span>
-                         <span className="text-gray-900">₹{deliveryChallan.subtotal.toFixed(2)}</span>
+                   <div className="w-64 space-y-2 font-mono text-gray-600 font-bold border-t border-dashed border-gray-350 pt-2 text-[10px]">
+                      <div className="flex justify-between">
+                         <span className="uppercase text-gray-500 tracking-wider">Reason for Movement</span>
+                         <span className="text-gray-900 text-right">{deliveryChallan.reasonForMovement || "N/A"}</span>
                       </div>
-
-                      {deliveryChallan.gstEnabled && (
-                        deliveryChallan.isInterstate ? (
-                          <div className="flex justify-between text-gray-500">
-                            <span>IGST</span>
-                            <span>₹{(deliveryChallan.igst || 0).toFixed(2)}</span>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex justify-between text-gray-500">
-                              <span>CGST</span>
-                              <span>₹{deliveryChallan.cgst.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between text-gray-500">
-                              <span>SGST</span>
-                              <span>₹{deliveryChallan.sgst.toFixed(2)}</span>
-                            </div>
-                          </>
-                        )
-                      )}
-
-                      {deliveryChallan.discountAmount > 0 && (
-                        <div className="flex justify-between text-brand-tertiary">
-                           <span>Discount</span>
-                           <span>-₹{deliveryChallan.discountAmount.toFixed(2)}</span>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between text-xs font-black text-gray-900 border-y border-gray-350 py-1 mt-1 bg-gray-50 px-1">
-                         <span>Total Amount</span>
-                         <span className="font-extrabold text-black">₹{deliveryChallan.total.toFixed(2)}</span>
+                      <div className="flex justify-between">
+                         <span className="uppercase text-gray-500 tracking-wider">Vehicle Number</span>
+                         <span className="text-gray-900 text-right">{deliveryChallan.vehicleNumber || "N/A"}</span>
                       </div>
-
-                      <div className="flex justify-between text-gray-500">
-                         <span>Received/Adjusted Amount</span>
-                         <span>₹{receivedAmount.toFixed(2)}</span>
+                      <div className="flex justify-between">
+                         <span className="uppercase text-gray-500 tracking-wider">Total Items</span>
+                         <span className="text-gray-900 text-right">{deliveryChallan.items?.length || 0}</span>
                       </div>
-
-                      <div className="flex justify-between font-bold text-red-500">
-                         <span>Balance</span>
-                         <span>₹{balanceAmount.toFixed(2)}</span>
+                      <div className="flex justify-between">
+                         <span className="uppercase text-gray-500 tracking-wider">Total Quantity</span>
+                         <span className="text-gray-900 text-right">{totalQty} PCS</span>
                       </div>
                    </div>
                 </div>
@@ -488,24 +450,29 @@ export default function ViewCreditNote() {
 
              <div className="mt-8 pt-2 flex flex-col justify-between">
                 <div className="flex justify-between items-end text-[9px] text-gray-400">
-                  <div>
-                    <span className="font-bold text-gray-500 uppercase tracking-wider">Total Amount (in words):</span>
-                    <p className="italic font-bold text-gray-800 mt-0.5">{numberToWords(deliveryChallan.total)} Rupees Only</p>
-                  </div>
-                  {(deliveryChallan.signatureType === "empty" || deliveryChallan.signatureType === "upload") && (
-                    <div className="text-right space-y-1 w-44">
-                      <p className="text-[8px] text-gray-500 uppercase tracking-wider font-extrabold">Authorized Signatory</p>
-                      {deliveryChallan.signatureType === "empty" ? (
-                        <div className="h-12 border border-dashed border-red-400 rounded flex flex-col items-center justify-center text-[8px] text-red-500 font-bold bg-red-50/10">
-                          <span>Authorized Signature</span>
-                        </div>
-                      ) : (
-                        <div className="h-12 border border-gray-200 rounded flex items-center justify-center p-1 bg-white overflow-hidden">
-                          <img src={deliveryChallan.signatureImage} alt="Signature" className="max-h-full max-w-full object-contain" />
-                        </div>
-                      )}
+                  <div></div>
+                  <div className="flex gap-16">
+                    <div className="text-center space-y-1 w-44">
+                      <p className="text-[8px] text-gray-500 uppercase tracking-wider font-extrabold">Receiver's Signature</p>
+                      <div className="h-12 border border-dashed border-gray-400 rounded flex flex-col items-center justify-center text-[8px] text-gray-500 font-bold bg-gray-50/10">
+                         <span>Receiver's Signature</span>
+                      </div>
                     </div>
-                  )}
+                    {(deliveryChallan.signatureType === "empty" || deliveryChallan.signatureType === "upload") && (
+                      <div className="text-center space-y-1 w-44">
+                        <p className="text-[8px] text-gray-500 uppercase tracking-wider font-extrabold">Authorized Signatory</p>
+                        {deliveryChallan.signatureType === "empty" ? (
+                          <div className="h-12 border border-dashed border-red-400 rounded flex flex-col items-center justify-center text-[8px] text-red-500 font-bold bg-red-50/10">
+                            <span>Authorized Signature</span>
+                          </div>
+                        ) : (
+                          <div className="h-12 border border-gray-200 rounded flex items-center justify-center p-1 bg-white overflow-hidden">
+                            <img src={deliveryChallan.signatureImage} alt="Signature" className="max-h-full max-w-full object-contain" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
              </div>
           </div>
@@ -518,7 +485,7 @@ export default function ViewCreditNote() {
                 <div className="flex justify-between items-center mb-4">
                    <div className="flex items-center gap-2">
                      <span style={{ color: accentColor }} className="text-[12px] font-extrabold uppercase tracking-widest">
-                       CREDIT NOTE
+                       DELIVERY CHALLAN
                      </span>
                      <span className="text-[9px] border border-gray-400 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase">
                        {activeLabel}
@@ -554,35 +521,25 @@ export default function ViewCreditNote() {
                 </div>
 
                 <div className="border border-gray-300 rounded overflow-hidden mb-4">
-                   <table className="w-full text-[10px] text-left border-collapse">
+                    <table className="w-full text-[10px] text-left border-collapse">
                       <thead>
                          <tr style={{ backgroundColor: `${accentColor}12`, color: accentColor }} className="font-extrabold border-b border-gray-300 uppercase tracking-wider text-[9px]">
                             <th className="py-2 px-3">ITEMS</th>
-                            <th className="py-2 px-3 text-center">QTY.</th>
-                            <th className="py-2 px-3 text-right">RATE</th>
-                            <th className="py-2 px-3 text-center">TAX</th>
-                            <th className="py-2 px-3 text-right">AMOUNT</th>
+                            <th className="py-2 px-3 text-right">QTY.</th>
                          </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-250 text-gray-700 font-semibold">
                          {deliveryChallan.items && deliveryChallan.items.map((item, idx) => {
-                           const taxRate = item.tax || (deliveryChallan.gstEnabled ? 18 : 0);
                            return (
                              <tr key={idx} className="hover:bg-gray-50/30">
                                 <td className="py-2 px-3"><p className="font-bold text-gray-900 uppercase">{item.name}</p></td>
-                                <td className="py-2 px-3 text-center font-mono text-gray-900">{item.qty} PCS</td>
-                                <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
-                                <td className="py-2 px-3 text-center font-mono text-gray-500">{taxRate}%</td>
-                                <td className="py-2 px-3 text-right font-bold font-mono text-gray-900">₹{(item.qty * item.price).toFixed(2)}</td>
+                                <td className="py-2 px-3 text-right font-mono text-gray-900">{item.qty} PCS</td>
                              </tr>
                            );
                          })}
                          <tr className="bg-gray-50/50 font-bold border-y-2 border-gray-300 text-gray-900 text-[10px]">
-                            <td className="py-2 px-3 text-left uppercase">SUBTOTAL</td>
-                            <td className="py-2 px-3 text-center font-mono">{totalQty} PCS</td>
-                            <td className="py-2 px-3 text-right">-</td>
-                            <td className="py-2 px-3 text-center font-mono">₹{totalTaxAmount.toFixed(2)}</td>
-                            <td className="py-2 px-3 text-right font-mono">₹{deliveryChallan.subtotal.toFixed(2)}</td>
+                            <td className="py-2 px-3 text-left uppercase">TOTAL QUANTITY</td>
+                            <td className="py-2 px-3 text-right font-mono">{totalQty} PCS</td>
                          </tr>
                       </tbody>
                    </table>
@@ -596,42 +553,22 @@ export default function ViewCreditNote() {
                       </div>
                    </div>
 
-                   <div className="w-64 space-y-1 font-mono text-right text-gray-500 font-bold border-t border-dashed border-gray-350 pt-2">
-                      <div className="flex justify-between text-gray-600">
-                         <span>Taxable Amount</span>
-                         <span className="text-gray-900">₹{deliveryChallan.subtotal.toFixed(2)}</span>
+                   <div className="w-64 space-y-2 font-mono text-gray-600 font-bold border-t border-dashed border-gray-350 pt-2 text-[10px]">
+                      <div className="flex justify-between">
+                         <span className="uppercase text-gray-500 tracking-wider">Reason for Movement</span>
+                         <span className="text-gray-900 text-right">{deliveryChallan.reasonForMovement || "N/A"}</span>
                       </div>
-
-                      {deliveryChallan.gstEnabled && (
-                        deliveryChallan.isInterstate ? (
-                          <div className="flex justify-between text-gray-500">
-                            <span>IGST</span>
-                            <span>₹{(deliveryChallan.igst || 0).toFixed(2)}</span>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex justify-between text-gray-500">
-                              <span>CGST</span>
-                              <span>₹{deliveryChallan.cgst.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between text-gray-500">
-                              <span>SGST</span>
-                              <span>₹{deliveryChallan.sgst.toFixed(2)}</span>
-                            </div>
-                          </>
-                        )
-                      )}
-
-                      {deliveryChallan.discountAmount > 0 && (
-                        <div className="flex justify-between text-brand-tertiary">
-                           <span>Discount</span>
-                           <span>-₹{deliveryChallan.discountAmount.toFixed(2)}</span>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between text-xs font-black text-gray-900 border-y border-gray-350 py-1 mt-1 bg-gray-50 px-1">
-                         <span>Total Amount</span>
-                         <span className="font-extrabold text-black">₹{deliveryChallan.total.toFixed(2)}</span>
+                      <div className="flex justify-between">
+                         <span className="uppercase text-gray-500 tracking-wider">Vehicle Number</span>
+                         <span className="text-gray-900 text-right">{deliveryChallan.vehicleNumber || "N/A"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                         <span className="uppercase text-gray-500 tracking-wider">Total Items</span>
+                         <span className="text-gray-900 text-right">{deliveryChallan.items?.length || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                         <span className="uppercase text-gray-500 tracking-wider">Total Quantity</span>
+                         <span className="text-gray-900 text-right">{totalQty} PCS</span>
                       </div>
                    </div>
                 </div>
@@ -639,24 +576,29 @@ export default function ViewCreditNote() {
 
              <div className="mt-8 pt-2 flex flex-col justify-between">
                 <div className="flex justify-between items-end text-[9px] text-gray-400">
-                  <div>
-                    <span className="font-bold text-gray-500 uppercase tracking-wider">Total Amount (in words):</span>
-                    <p className="italic font-bold text-gray-800 mt-0.5">{numberToWords(deliveryChallan.total)} Rupees Only</p>
-                  </div>
-                  {(deliveryChallan.signatureType === "empty" || deliveryChallan.signatureType === "upload") && (
-                    <div className="text-right space-y-1 w-44">
-                      <p className="text-[8px] text-gray-500 uppercase tracking-wider font-extrabold">Authorized Signatory</p>
-                      {deliveryChallan.signatureType === "empty" ? (
-                        <div className="h-12 border border-dashed border-red-400 rounded flex flex-col items-center justify-center text-[8px] text-red-500 font-bold bg-red-50/10">
-                          <span>Authorized Signature</span>
-                        </div>
-                      ) : (
-                        <div className="h-12 border border-gray-200 rounded flex items-center justify-center p-1 bg-white overflow-hidden">
-                          <img src={deliveryChallan.signatureImage} alt="Signature" className="max-h-full max-w-full object-contain" />
-                        </div>
-                      )}
+                  <div></div>
+                  <div className="flex gap-16">
+                    <div className="text-center space-y-1 w-44">
+                      <p className="text-[8px] text-gray-500 uppercase tracking-wider font-extrabold">Receiver's Signature</p>
+                      <div className="h-12 border border-dashed border-gray-400 rounded flex flex-col items-center justify-center text-[8px] text-gray-500 font-bold bg-gray-50/10">
+                         <span>Receiver's Signature</span>
+                      </div>
                     </div>
-                  )}
+                    {(deliveryChallan.signatureType === "empty" || deliveryChallan.signatureType === "upload") && (
+                      <div className="text-center space-y-1 w-44">
+                        <p className="text-[8px] text-gray-500 uppercase tracking-wider font-extrabold">Authorized Signatory</p>
+                        {deliveryChallan.signatureType === "empty" ? (
+                          <div className="h-12 border border-dashed border-red-400 rounded flex flex-col items-center justify-center text-[8px] text-red-500 font-bold bg-red-50/10">
+                            <span>Authorized Signature</span>
+                          </div>
+                        ) : (
+                          <div className="h-12 border border-gray-200 rounded flex items-center justify-center p-1 bg-white overflow-hidden">
+                            <img src={deliveryChallan.signatureImage} alt="Signature" className="max-h-full max-w-full object-contain" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
              </div>
         </div>
