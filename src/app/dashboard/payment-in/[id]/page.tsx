@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Printer, Download, Share2, Edit, Trash2, ChevronDown } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc, query, collection, where, getDocs } from "firebase/firestore";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -20,6 +20,7 @@ type PaymentIn = {
   partyName: string;
   paymentDate: string;
   paymentMode: string;
+  selectedBankId?: string;
   amountReceived: number;
   paymentDiscount: number;
   notes: string;
@@ -56,6 +57,75 @@ export default function PaymentInReceipt() {
     
     fetchPayment();
   }, [id]);
+
+  const handleDelete = async () => {
+    if (!payment) return;
+    if (confirm("Are you sure you want to delete this payment record? This will revert the settled amounts on associated invoices and adjust Cash/Bank balances.")) {
+      try {
+        const user = auth.currentUser;
+        if (!user) return toast.error("Authentication required");
+
+        // 1. Revert Invoice balances
+        const settledInvoices = payment.settledInvoices || [];
+        for (const item of settledInvoices) {
+          const invRef = doc(db, "invoices", item.invoiceId);
+          const invSnap = await getDoc(invRef);
+          if (invSnap.exists()) {
+            const invData = invSnap.data();
+            const originalAmountReceived = Number(invData.amountReceived || 0);
+            const newAmountReceived = Math.max(0, originalAmountReceived - item.amountSettled);
+            const isFullyPaid = newAmountReceived >= Number(invData.total || 0);
+            
+            await updateDoc(invRef, {
+              amountReceived: newAmountReceived,
+              status: isFullyPaid ? "paid" : "credit"
+            });
+          }
+        }
+
+        // 2. Revert Cash/Bank balance
+        const rcv = Number(payment.amountReceived || 0);
+        if (rcv > 0) {
+          const isCash = payment.paymentMode === "Cash";
+          const accountId = payment.selectedBankId || (isCash ? "cash" : "bank");
+          
+          if (accountId === "cash") {
+            const sRef = doc(db, "settings", user.uid);
+            const sSnap = await getDoc(sRef);
+            const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+            await updateDoc(sRef, { cashInHand: current - rcv });
+          } else {
+            const bRef = doc(db, "bankAccounts", accountId);
+            const bSnap = await getDoc(bRef);
+            if (bSnap.exists()) {
+              const current = Number(bSnap.data().balance || 0);
+              await updateDoc(bRef, { balance: current - rcv });
+            }
+          }
+        }
+
+        // 3. Delete cashBankTransactions entry
+        const tq = query(
+          collection(db, "cashBankTransactions"),
+          where("userId", "==", user.uid),
+          where("txnNo", "==", payment.paymentNumber),
+          where("type", "==", "Payment In")
+        );
+        const tSnap = await getDocs(tq);
+        if (!tSnap.empty) {
+          await deleteDoc(doc(db, "cashBankTransactions", tSnap.docs[0].id));
+        }
+
+        // 4. Delete the payment record itself
+        await deleteDoc(doc(db, "paymentIn", id));
+        toast.success("Payment deleted successfully!");
+        router.push("/dashboard/payment-in");
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to delete payment record");
+      }
+    }
+  };
 
   if (loading) return <div className="p-8 text-gray-500">Loading...</div>;
   if (!payment) return <div className="p-8 text-red-500">Payment record could not be found.</div>;
@@ -110,8 +180,8 @@ export default function PaymentInReceipt() {
             <Edit size={16} />
             Edit
           </Link>
-          <button className="flex items-center gap-2 bg-white border border-red-200 text-red-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-50 transition shadow-sm">
-            <Trash2 size={16} />
+          <button onClick={handleDelete} className="flex items-center gap-2 bg-white border border-red-200 text-red-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-50 transition shadow-sm">
+            <Trash2 size={16} /> Delete
           </button>
         </div>
       </div>

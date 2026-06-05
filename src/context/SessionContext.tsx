@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc, onSnapshot } from "firebase/firestore";
 
 export type UserRole = "Admin" | "Salesman" | "Stock Manager" | "Partner" | "Delivery Boy" | "CA";
 
@@ -51,7 +51,14 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
   const [baseAdmin, setBaseAdmin] = useState<SessionProfile>(defaultAdminProfile);
 
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged(async (user) => {
+    let unsubSubusers: (() => void) | null = null;
+
+    const unsubAuth = auth.onAuthStateChanged(async (user) => {
+      if (unsubSubusers) {
+        unsubSubusers();
+        unsubSubusers = null;
+      }
+
       if (user) {
         let fetchedAdminPin = null;
         try {
@@ -75,10 +82,9 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
         };
         setBaseAdmin(adminProfile);
 
-        try {
-          // Fetch sub-users linked to this admin
-          const q = query(collection(db, "subusers"), where("adminId", "==", user.uid));
-          const snap = await getDocs(q);
+        // Fetch sub-users linked to this admin in real-time
+        const q = query(collection(db, "subusers"), where("adminId", "==", user.uid));
+        unsubSubusers = onSnapshot(q, (snap) => {
           const users: SessionProfile[] = snap.docs.map(docData => ({
             id: docData.id,
             name: docData.data().name || "Unknown",
@@ -101,10 +107,11 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
           } else {
             setActiveProfile(adminProfile);
           }
-        } catch (err) {
+        }, (err) => {
           console.error("Failed to fetch subusers for session context", err);
           setActiveProfile(adminProfile);
-        }
+        });
+
       } else {
         // User signed out
         setActiveProfile(defaultAdminProfile);
@@ -115,7 +122,10 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
       setLoading(false);
     });
 
-    return () => unsub();
+    return () => {
+      unsubAuth();
+      if (unsubSubusers) unsubSubusers();
+    };
   }, []);
 
   const switchProfile = (profile: SessionProfile) => {

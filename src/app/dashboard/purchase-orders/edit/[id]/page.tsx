@@ -323,7 +323,7 @@ export default function EditCreditNote() {
                               name: found.name,
                               price: found.price,
                               qty: 1,
-                              gstRate: found.gst || 18,
+                              gstRate: found.gst ?? 18,
                               hsn: found.hsnCode || "",
                               description: ""
                             };

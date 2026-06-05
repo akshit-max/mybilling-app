@@ -21,6 +21,7 @@ import {
 import Link from "next/link";
 import toast from "react-hot-toast";
 import WhatsAppModal from "@/components/ui/WhatsAppModal";
+import EmailModal from "@/components/ui/EmailModal";
 import SMSModal from "@/components/ui/SMSModal";
 
 type Item = {
@@ -98,6 +99,7 @@ export default function ViewCreditNote() {
   const [debitNote, setCreditNote] = useState<CreditNote | null>(null);
   const [loading, setLoading] = useState(true);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const [showSMSModal, setShowSMSModal] = useState(false);
 
   const [accentColor, setAccentColor] = useState("#4F46E5");
@@ -667,6 +669,18 @@ export default function ViewCreditNote() {
           existingPhone={debitNote?.customerPhone}
           message={`Dear ${debitNote?.customerName},\n\nYour Debit Note has been generated.\n\nTotal Amount: *₹${debitNote?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
           onClose={() => setShowWhatsAppModal(false)}
+        />
+      )}
+
+      {showEmailModal && (
+        <EmailModal
+          onClose={() => setShowEmailModal(false)}
+          customerName={debitNote?.customerName || "Customer"}
+          documentType={"Debit Note"}
+          documentNumber={debitNote?.debitNoteNumber || "1"}
+          totalAmount={debitNote?.total || 0}
+          companyName={company?.name || "us"}
+          defaultEmail=""
         />
       )}
     </div>

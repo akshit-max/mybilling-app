@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Save, Search, Calculator, Receipt } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, doc, writeBatch, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, writeBatch, serverTimestamp, getDoc, updateDoc, addDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,6 +28,10 @@ export default function CreatePaymentIn() {
   const [saving, setSaving] = useState(false);
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
+  
+  // Banking State
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState("");
   
   // Form State
   const [partyName, setPartyName] = useState("");
@@ -54,6 +58,15 @@ export default function CreatePaymentIn() {
           console.error("Failed to fetch customers", e);
         }
         
+        // Fetch Bank Accounts
+        try {
+          const bq = query(collection(db, "bankAccounts"), where("userId", "==", user.uid));
+          const bsnap = await getDocs(bq);
+          setBankAccounts(bsnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        } catch (e) {
+          console.error("Failed to fetch bank accounts", e);
+        }
+        
         // Generate Next Payment Number
         try {
           const pq = query(collection(db, "paymentIn"), where("userId", "==", user.uid));
@@ -67,6 +80,13 @@ export default function CreatePaymentIn() {
     });
     return () => init();
   }, []);
+
+  // Sync selectedBankId when payment mode is changed to a bank option
+  useEffect(() => {
+    if (paymentMode !== "Cash" && !selectedBankId && bankAccounts.length > 0) {
+      setSelectedBankId(bankAccounts[0].id);
+    }
+  }, [paymentMode, bankAccounts, selectedBankId]);
 
   // Fetch Invoices when Party changes
   useEffect(() => {
@@ -183,6 +203,46 @@ export default function CreatePaymentIn() {
 
     try {
       setSaving(true);
+
+      if (paymentMode !== "Cash" && !selectedBankId) {
+        setSaving(false);
+        return toast.error("Please select a bank account");
+      }
+
+      const isCash = paymentMode === "Cash";
+      let newBalance = 0;
+
+      // Update cash/bank balance
+      if (isCash) {
+        const sRef = doc(db, "settings", user.uid);
+        const sSnap = await getDoc(sRef);
+        const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+        newBalance = current + rcv;
+        await updateDoc(sRef, { cashInHand: newBalance });
+      } else if (selectedBankId) {
+        const bRef = doc(db, "bankAccounts", selectedBankId);
+        const bSnap = await getDoc(bRef);
+        const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+        newBalance = current + rcv;
+        await updateDoc(bRef, { balance: newBalance });
+      }
+
+      // Add entry to transaction ledger
+      await addDoc(collection(db, "cashBankTransactions"), {
+        userId: user.uid,
+        accountId: isCash ? "cash" : (selectedBankId || "bank"),
+        type: "Payment In",
+        txnNo: paymentNumber,
+        date: paymentDate,
+        party: partyName,
+        mode: paymentMode,
+        paid: 0,
+        received: rcv,
+        balanceAfter: newBalance,
+        remarks: notes || `Received Payment In #${paymentNumber}`,
+        createdAt: new Date()
+      });
+
       const batch = writeBatch(db);
       
       // 1. Create Payment In Document
@@ -193,6 +253,7 @@ export default function CreatePaymentIn() {
         partyName,
         paymentDate,
         paymentMode,
+        selectedBankId: isCash ? "" : selectedBankId,
         amountReceived: rcv,
         paymentDiscount: disc,
         totalSettled: totalAllocated,
@@ -364,6 +425,23 @@ export default function CreatePaymentIn() {
                />
              </div>
           </div>
+          {paymentMode !== "Cash" && (
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Select Bank Account</label>
+              <select
+                value={selectedBankId}
+                onChange={(e) => setSelectedBankId(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 focus:outline-none focus:border-indigo-500 bg-white"
+              >
+                <option value="">Select Bank Account...</option>
+                {bankAccounts.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} (Balance: ₹{Number(b.balance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Notes</label>
              <textarea

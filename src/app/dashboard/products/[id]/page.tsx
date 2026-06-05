@@ -30,6 +30,8 @@ type Product = {
   taxIncluded?: boolean;
   costTaxIncluded?: boolean;
   asOfDate?: string;
+  partyPrices?: { partyName: string; price: string }[];
+  customFields?: { key: string; value: string }[];
 };
 
 type InvoiceItem = {
@@ -124,6 +126,8 @@ export default function ItemDetailsPage() {
         taxIncluded: !!data.taxIncluded,
         costTaxIncluded: !!data.costTaxIncluded,
         asOfDate: data.asOfDate || "",
+        partyPrices: data.partyPrices || [],
+        customFields: data.customFields || [],
       };
 
       setProduct(mainProduct);
@@ -549,6 +553,25 @@ export default function ItemDetailsPage() {
               </div>
             </div>
 
+            {/* Custom Specifications card */}
+            {product.customFields && product.customFields.length > 0 && (
+              <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm space-y-4 md:col-span-2">
+                <div className="flex items-center gap-2 border-b border-gray-100 pb-2.5">
+                  <Landmark size={14} className="text-indigo-500" />
+                  <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Custom Specifications</h3>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3.5 text-xs">
+                  {product.customFields.map((cf, idx) => (
+                    <div key={idx}>
+                      <p className="text-gray-400 font-medium">{cf.key}</p>
+                      <p className="font-semibold text-gray-700 mt-0.5">{cf.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
@@ -626,18 +649,42 @@ export default function ItemDetailsPage() {
           </div>
         )}
 
-        {/* View Tab: Party Wise Prices Placeholder */}
+        {/* View Tab: Party Wise Prices */}
         {activeSubTab === "prices" && (
-          <div className="bg-white border border-gray-200 rounded-lg p-10 text-center shadow-sm max-w-lg mx-auto space-y-3 mt-4">
-            <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center text-2xl mx-auto shadow-sm">
-              📋
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+              <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Party-Specific Selling Prices</h3>
+              <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded font-bold uppercase">
+                Default: ₹ {product.price.toLocaleString("en-IN")}
+              </span>
             </div>
-            <div className="space-y-1">
-              <p className="text-xs font-bold text-gray-700">Party Wise Custom Prices</p>
-              <p className="text-[10px] text-gray-400 leading-normal">
-                To specify custom selling margins, party discounts or pre-negotiated wholesale prices for specific customers, unlock our Business Plan.
-              </p>
-            </div>
+            
+            {!product.partyPrices || product.partyPrices.length === 0 ? (
+              <div className="text-center py-10 text-gray-400 space-y-2">
+                <div className="w-12 h-12 bg-gray-50 text-gray-400 rounded-full flex items-center justify-center text-xl mx-auto border border-gray-100">
+                  📋
+                </div>
+                <p className="text-xs font-medium text-gray-500">No party-specific prices added for this item yet</p>
+                <p className="text-[10px] text-gray-400">Click the "Edit" button above to add custom customer pricing.</p>
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs text-gray-600 border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-400 uppercase tracking-wider text-[10px]">
+                    <th className="px-4 py-2 font-semibold">Party / Customer Name</th>
+                    <th className="px-4 py-2 font-semibold text-right">Custom Selling Price</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {product.partyPrices.map((pp, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50/50">
+                      <td className="px-4 py-2.5 font-semibold text-gray-800">{pp.partyName}</td>
+                      <td className="px-4 py-2.5 font-bold font-mono text-indigo-600 text-right">₹ {Number(pp.price).toLocaleString("en-IN")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 

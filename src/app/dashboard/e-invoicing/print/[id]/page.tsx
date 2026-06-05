@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { db, auth } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import { ArrowLeft, Printer } from "lucide-react";
 import toast from "react-hot-toast";
 import { QRCodeSVG } from "qrcode.react";
@@ -15,13 +16,12 @@ export default function EInvoicePrint() {
   const [loading, setLoading] = useState(true);
   const [invoice, setInvoice] = useState<any>(null);
   const [company, setCompany] = useState<any>(null);
+  const [bankDetails, setBankDetails] = useState<any>(null);
+  const [qrBankDetails, setQrBankDetails] = useState<any>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchData = async (user: any) => {
       try {
-        const user = auth.currentUser;
-        if (!user) return;
-
         const sRef = doc(db, "settings", user.uid);
         const sSnap = await getDoc(sRef);
         if (sSnap.exists()) {
@@ -31,7 +31,18 @@ export default function EInvoicePrint() {
         const ref = doc(db, "invoices", id);
         const snap = await getDoc(ref);
         if (snap.exists()) {
-          setInvoice(snap.data());
+          const invData = snap.data();
+          setInvoice(invData);
+          if (invData.selectedBankId) {
+            getDoc(doc(db, "bankAccounts", invData.selectedBankId))
+              .then(bSnap => bSnap.exists() && setBankDetails(bSnap.data()))
+              .catch(err => console.error("Error loading bank:", err));
+          }
+          if (invData.selectedQRBankId) {
+            getDoc(doc(db, "bankAccounts", invData.selectedQRBankId))
+              .then(qSnap => qSnap.exists() && setQrBankDetails(qSnap.data()))
+              .catch(err => console.error("Error loading QR bank:", err));
+          }
         } else {
           toast.error("Invoice not found");
         }
@@ -41,7 +52,15 @@ export default function EInvoicePrint() {
         setLoading(false);
       }
     };
-    fetchData();
+
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        fetchData(user);
+      } else {
+        setLoading(false);
+      }
+    });
+    return () => unsub();
   }, [id]);
 
   if (loading) return <div className="p-12 text-center text-gray-500">Loading e-Invoice Document...</div>;
@@ -196,27 +215,59 @@ export default function EInvoicePrint() {
               </thead>
               <tbody>
                 {invoice.items && invoice.items.map((item: any, idx: number) => {
-                  const taxRate = item.tax || (invoice.gstEnabled ? 18 : 0);
-                  const baseAmt = item.qty * item.price;
-                  const totalAmt = baseAmt + (baseAmt * (taxRate/100));
+                  const qty = Number(item.qty) || 0;
+                  const price = Number(item.price) || 0;
+                  const baseAmt = qty * price;
+                  
+                  // Compute discount
+                  let discountAmt = 0;
+                  let discountDisplay = "-";
+                  if (item.discountType === "flat") {
+                    discountAmt = Number(item.discountValue) || 0;
+                    if (discountAmt > 0) discountDisplay = `₹${discountAmt.toFixed(2)}`;
+                  } else if (item.discountType === "percent" || item.discountPct !== undefined) {
+                    const pct = Number(item.discountValue ?? item.discountPct ?? 0);
+                    discountAmt = baseAmt * (pct / 100);
+                    if (pct > 0) discountDisplay = `${pct}%`;
+                  }
+                  
+                  const taxableAmt = Math.max(0, baseAmt - discountAmt);
+                  const taxRate = item.gstRate !== undefined && item.gstRate !== null ? Number(item.gstRate) : (invoice.gstEnabled ? 18 : 0);
+                  const taxAmt = taxableAmt * (taxRate/100);
+                  const totalAmt = taxableAmt + taxAmt;
+                  const hsn = item.hsn || item.hsnCode || "-";
+                  
                   return (
                     <tr key={idx} className="border-b border-gray-200 last:border-b-black">
                       <td className="p-1 border-r border-black">{idx + 1}</td>
                       <td className="p-1 border-r border-black text-left font-bold">{item.name}</td>
-                      <td className="p-1 border-r border-black">{"-"}</td>
-                      <td className="p-1 border-r border-black">{item.qty}</td>
+                      <td className="p-1 border-r border-black font-mono">{hsn}</td>
+                      <td className="p-1 border-r border-black">{qty}</td>
                       <td className="p-1 border-r border-black">PCS</td>
-                      <td className="p-1 border-r border-black">{item.price.toFixed(2)}</td>
-                      <td className="p-1 border-r border-black">-</td>
-                      <td className="p-1 border-r border-black">{baseAmt.toFixed(2)}</td>
+                      <td className="p-1 border-r border-black">{price.toFixed(2)}</td>
+                      <td className="p-1 border-r border-black font-mono">{discountDisplay}</td>
+                      <td className="p-1 border-r border-black">{taxableAmt.toFixed(2)}</td>
                       <td className="p-1 border-r border-black">{taxRate}%</td>
                       <td className="p-1 border-r border-black">-</td>
-                      <td className="p-1">{totalAmt.toFixed(2)}</td>
+                      <td className="p-1 font-bold">{totalAmt.toFixed(2)}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+            {/* 5. Bank Details */}
+            {bankDetails && (
+              <div className="border-t border-black p-2 bg-gray-50/50">
+                <div className="font-bold mb-1 uppercase tracking-wider text-[9px] text-gray-800">5. Bank Details</div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-[9px] font-semibold text-gray-700 leading-normal text-left">
+                  {bankDetails.bankName && <p><strong>Bank Name:</strong> {bankDetails.bankName}</p>}
+                  {bankDetails.accountNumber && <p><strong>Account No:</strong> {bankDetails.accountNumber}</p>}
+                  {bankDetails.ifsc && <p><strong>IFSC Code:</strong> {bankDetails.ifsc}</p>}
+                  {bankDetails.holderName && <p><strong>Account Holder:</strong> {bankDetails.holderName}</p>}
+                  {qrBankDetails?.upiId && <p className="col-span-2"><strong>UPI ID:</strong> {qrBankDetails.upiId}</p>}
+                </div>
+              </div>
+            )}
           </div>
 
         </div>

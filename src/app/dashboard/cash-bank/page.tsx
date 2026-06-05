@@ -403,11 +403,25 @@ export default function CashAndBankPage() {
     const accountName = selectedAccount === "cash" ? "Cash" : (selectedAccount === "unlinked" ? "Unlinked Transactions" : bankAccounts.find(b => b.id === selectedAccount)?.name || "Unknown");
     
     const headers = ["Date", "Type", "Transaction No", "Party", "Mode", "Paid (Debit)", "Received (Credit)", "Balance"];
-    const rows = accTxns.map(t => {
+    // Compute running balance ascending for export
+    const sortedAsc = [...accTxns].sort((a, b) => {
+      const da = new Date(a.date).getTime();
+      const db = new Date(b.date).getTime();
+      if (da !== db) return da - db;
+      const ca = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+      const cb = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+      return ca - cb;
+    });
+    let runningBal = 0;
+    const txnsWithBal = sortedAsc.map(t => {
+      runningBal += (Number(t.received) || 0) - (Number(t.paid) || 0);
+      return { ...t, computedBalance: runningBal };
+    });
+    const rows = txnsWithBal.map(t => {
       const dateStr = new Date(t.date).toLocaleDateString("en-IN");
       const typeStr = t.type === "add" ? "Add Money" : t.type === "reduce" ? "Reduce Money" : t.type === "transfer" ? "Transfer" : t.type;
       return [
-        dateStr, typeStr, t.txnNo, t.party, t.mode, t.paid.toString(), t.received.toString(), t.balanceAfter.toString()
+        dateStr, typeStr, t.txnNo, t.party, t.mode, t.paid.toString(), t.received.toString(), t.computedBalance.toFixed(2)
       ];
     });
 
@@ -455,8 +469,43 @@ export default function CashAndBankPage() {
   };
 
   // Filtering transactions for the selected pane
-  const filteredTxns = transactions.filter(t => t.accountId === selectedAccount);
+  const rawFilteredTxns = transactions.filter(t => t.accountId === selectedAccount);
   const selectedAccountName = selectedAccount === "cash" ? "Cash" : (selectedAccount === "unlinked" ? "Unlinked Transactions" : bankAccounts.find(b => b.id === selectedAccount)?.name || "Unknown");
+
+  // Compute running balance dynamically, working BACKWARDS from the current
+  // actual balance. This gives correct absolute balances at every row,
+  // regardless of opening balances or transactions outside the date filter.
+  const filteredTxnsWithBalance = (() => {
+    // Sort descending by date, then by createdAt (newest first)
+    const descending = [...rawFilteredTxns].sort((a, b) => {
+      const da = new Date(a.date).getTime();
+      const db = new Date(b.date).getTime();
+      if (da !== db) return db - da;
+      const ca = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+      const cb = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+      return cb - ca;
+    });
+    // Start from the real current account balance
+    const currentBalance = selectedAccount === "cash"
+      ? cashInHand
+      : (bankAccounts.find(b => b.id === selectedAccount)?.balance || 0);
+    let running = currentBalance;
+    // Newest transaction's balanceAfter = currentBalance, then step backwards
+    const withBal = descending.map(txn => {
+      const balAfter = running;
+      running = running - (Number(txn.received) || 0) + (Number(txn.paid) || 0);
+      return { ...txn, computedBalance: balAfter };
+    });
+    return withBal; // already descending for display
+  })();
+
+  // Apply date filter on the display list
+  const filteredTxns = (() => {
+    if (dateFilter === "all") return filteredTxnsWithBalance;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - Number(dateFilter));
+    return filteredTxnsWithBalance.filter(t => new Date(t.date) >= cutoff);
+  })();
 
   return (
     <div className="min-h-screen bg-[#f4f5f7] flex flex-col font-sans">
@@ -683,7 +732,7 @@ export default function CashAndBankPage() {
                       <td className="p-4 text-gray-500">{txn.mode}</td>
                       <td className="p-4 text-right font-mono font-bold text-gray-700">{txn.paid > 0 ? `₹${txn.paid}` : "-"}</td>
                       <td className="p-4 text-right font-mono font-bold text-gray-700">{txn.received > 0 ? `₹${txn.received}` : "-"}</td>
-                      <td className="p-4 text-right font-mono font-bold text-gray-800">₹{txn.balanceAfter}</td>
+                      <td className="p-4 text-right font-mono font-bold text-gray-800">₹{Number((txn as any).computedBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                       <td className="p-4 text-center">
                         <div className="flex justify-center gap-2">
                           <button onClick={() => { setEditData({ id: txn.id, date: txn.date, remarks: txn.remarks || "" }); setShowEdit(true); }} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition" title="Edit Remarks/Date"><Pencil size={14} /></button>

@@ -26,6 +26,7 @@ import {
 import Link from "next/link";
 import toast from "react-hot-toast";
 import WhatsAppModal from "@/components/ui/WhatsAppModal";
+import EmailModal from "@/components/ui/EmailModal";
 import SMSModal from "@/components/ui/SMSModal";
 
 /* TYPES */
@@ -105,6 +106,7 @@ export default function ViewQuotation() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const [showSMSModal, setShowSMSModal] = useState(false);
 
   // Sync settings states
@@ -507,7 +509,7 @@ export default function ViewQuotation() {
                 <ChevronDown size={12} className="text-gray-400" />
               </button>
               {isShareOpen && (
-                <div className="absolute left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-md py-1 w-36 z-50 text-xs font-semibold">
+                <div className="absolute left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-md py-1 w-40 z-50 text-xs font-semibold">
                   <button onClick={handleWhatsAppShare} className="w-full flex items-center gap-2 px-4 py-2 text-brand-tertiary hover:bg-green-50">
                     <FaWhatsapp size={14} />
                     <span>WhatsApp</span>
@@ -1209,6 +1211,18 @@ export default function ViewQuotation() {
           existingPhone={invoice?.customerPhone}
           message={`Dear ${invoice?.customerName},\n\nYour Quotation has been generated.\n\nTotal Amount: *₹${invoice?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
           onClose={() => setShowWhatsAppModal(false)}
+        />
+      )}
+
+      {showEmailModal && (
+        <EmailModal
+          onClose={() => setShowEmailModal(false)}
+          customerName={invoice?.customerName || "Customer"}
+          documentType={invoiceTypeTitle}
+          documentNumber={invoice.invoiceNumber || "1"}
+          totalAmount={invoice?.total || 0}
+          companyName={company?.name || "us"}
+          defaultEmail=""
         />
       )}
     </div>

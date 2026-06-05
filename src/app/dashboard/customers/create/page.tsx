@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import Link from "next/link";
 import { ArrowLeft, Settings, Landmark } from "lucide-react";
 import { useSession } from "@/context/SessionContext";
+import { INDIAN_STATES } from "@/lib/constants";
 
 export default function CreatePartyPage() {
   const router = useRouter();
@@ -49,6 +50,7 @@ export default function CreatePartyPage() {
   
   const [billingAddress, setBillingAddress] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
+  const [state, setState] = useState("");
   const [sameAsBilling, setSameAsBilling] = useState(true);
 
   const [creditPeriod, setCreditPeriod] = useState("30");
@@ -131,6 +133,7 @@ export default function CreatePartyPage() {
         createdBy: activeProfile.name,
         // Keep these fields for backward compatibility with old logic
         address: billingAddress.trim(),
+        state: state.trim(),
       };
 
       // Add bank details if provided
@@ -162,6 +165,7 @@ export default function CreatePartyPage() {
         setCategory("");
         setBillingAddress("");
         setShippingAddress("");
+        setState("");
         setSameAsBilling(true);
         setCreditPeriod("30");
         setCreditLimit("0");
@@ -426,6 +430,23 @@ export default function CreatePartyPage() {
                   onChange={(e) => setShippingAddress(e.target.value)}
                   className="w-full border border-gray-200 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
                 ></textarea>
+              </div>
+
+              {/* State */}
+              <div className="md:col-span-2">
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1">
+                  STATE
+                </label>
+                <select 
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  className="w-full border border-gray-200 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 bg-white text-gray-700 font-semibold"
+                >
+                  <option value="">Select State</option>
+                  {INDIAN_STATES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
               </div>
 
             </div>

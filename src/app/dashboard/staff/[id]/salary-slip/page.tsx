@@ -62,6 +62,11 @@ export default function SalarySlipPrintView() {
       
       if (!currentStaff) return;
 
+      let dailyWage = 0;
+      if (currentStaff.salaryType === "Monthly") dailyWage = currentStaff.salaryAmount / 30;
+      else if (currentStaff.salaryType === "Per Day") dailyWage = currentStaff.salaryAmount;
+      else dailyWage = currentStaff.salaryAmount * 8; // Assuming 8hr day
+
       // 2. Fetch Attendance for the month
       const aq = query(
         collection(db, "attendanceRecords"),
@@ -71,13 +76,20 @@ export default function SalarySlipPrintView() {
       const aSnap = await getDocs(aq);
       
       const counts = { P: 0, HD: 0, PL: 0, WO: 0 };
+      let prevCumulativeEarnings = 0;
       aSnap.docs.forEach(d => {
         const data = d.data();
-        if (data.date && data.date.startsWith(monthPrefix)) {
-          if (data.status === "P") counts.P++;
-          if (data.status === "HD") counts.HD++;
-          if (data.status === "PL") counts.PL++;
-          if (data.status === "WO") counts.WO++;
+        if (data.date) {
+          if (data.date.startsWith(monthPrefix)) {
+            if (data.status === "P") counts.P++;
+            if (data.status === "HD") counts.HD++;
+            if (data.status === "PL") counts.PL++;
+            if (data.status === "WO") counts.WO++;
+          } else if (data.date < monthPrefix + "-01") {
+            if (data.status === "P" || data.status === "PL" || data.status === "WO") {
+              prevCumulativeEarnings += dailyWage;
+            }
+          }
         }
       });
       setSummary(counts);
@@ -91,17 +103,34 @@ export default function SalarySlipPrintView() {
       const tSnap = await getDocs(tq);
       
       let totalPaid = 0;
+      let totalCollected = 0;
+      const [yearStr, monthStr] = monthPrefix.split("-");
+      const nextMonthStart = new Date(parseInt(yearStr), parseInt(monthStr), 1);
+      
+      let balanceAtMonthEnd = currentStaff.balance;
       tSnap.docs.forEach(d => {
         const data = d.data();
-        if (data.date && data.date.startsWith(monthPrefix) && data.paymentType !== "Collection") {
-          totalPaid += data.amount;
+        if (data.date) {
+          const tDate = new Date(data.date);
+          if (tDate >= nextMonthStart) {
+            if (data.paymentType === "Collection") {
+              balanceAtMonthEnd -= data.amount;
+            } else {
+              balanceAtMonthEnd += data.amount;
+            }
+          } else if (data.date.startsWith(monthPrefix)) {
+            if (data.paymentType === "Collection") {
+              totalCollected += data.amount;
+            } else {
+              totalPaid += data.amount;
+            }
+          }
         }
       });
       setPayments(totalPaid);
 
-      // We approximate previous balance as current balance minus net payable of current month.
-      // A more robust system would calculate full ledger historically. For now:
-      setPreviousBalance(currentStaff.balance); // Taking current balance as snapshot 
+      const prevBal = balanceAtMonthEnd + totalPaid - totalCollected + prevCumulativeEarnings;
+      setPreviousBalance(prevBal);
 
     } catch (err) {
       console.error(err);

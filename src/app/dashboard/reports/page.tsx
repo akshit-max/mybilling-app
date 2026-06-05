@@ -18,12 +18,14 @@ export default function ReportsPage() {
       items: [
         { name: "GSTR-1 (Sales)", isFav: true, tags: ["Summary"] },
         { name: "Sales Summary", isFav: true, tags: ["Summary"] },
+        { name: "Item Report By Party", isFav: true, tags: ["Item", "Party"] },
       ]
     },
     {
       title: "GST",
       icon: <span className="text-xs font-bold bg-gray-200 px-1 rounded text-gray-600">GST</span>,
       items: [
+        { name: "GSTR-1 (Sales)", isFav: false, tags: ["Summary"] },
         { name: "GSTR-2 (Purchase)", isFav: false, tags: ["Summary"] },
       ],
       showMore: false
@@ -32,19 +34,20 @@ export default function ReportsPage() {
       title: "Transaction",
       icon: <FileText size={16} className="text-gray-400" />,
       items: [
+        { name: "Sales Summary", isFav: false, tags: ["Summary"] },
         { name: "Bill Wise Profit", isFav: false, tags: ["Summary"] },
         { name: "Daybook", isFav: false, tags: ["Summary"] },
-        // { name: "Purchase Daybook", isFav: false, tags: ["Summary"] },
         { name: "Expense Transaction Report", isFav: false, tags: ["Summary", "Expense"] },
         { name: "Expense Category Report", isFav: false, tags: ["Category", "Expense"] },
       ],
       showMore: false
     },
     {
-      title: "Item",
+      title: "Item / Inventory",
       icon: <div className="w-4 h-4 border border-gray-400 rounded-sm" />,
       items: [
         { name: "Item Sales Summary", isFav: false, tags: ["Item", "Summary"] },
+        { name: "Item Report By Party", isFav: false, tags: ["Item", "Party"] },
         { name: "Low Stock Summary", isFav: false, tags: ["Item", "Summary"] },
         { name: "Rate List", isFav: false, tags: ["Item"] },
         { name: "Stock Summary", isFav: false, tags: ["Item", "Summary"] },
@@ -55,8 +58,8 @@ export default function ReportsPage() {
       title: "Party",
       icon: <UsersIcon />,
       items: [
-        // { name: "Party Statement (Ledger)", isFav: false, tags: ["Party"] },
         { name: "Party Wise Outstanding", isFav: false, tags: ["Party", "Payment"] },
+        { name: "Ageing Report", isFav: false, tags: ["Party", "Payment"] },
       ],
       showMore: false
     },
@@ -144,7 +147,18 @@ export default function ReportsPage() {
                       "GSTR-1 (Sales)": "gstr-1",
                       "GSTR-2 (Purchase)": "gstr-2",
                       "Party Wise Outstanding": "party-outstanding",
-                      "Receivable Ageing Report": "ageing-report"
+                      "Receivable Ageing Report": "ageing-report",
+                      "Ageing Report": "ageing-report",
+                      "Item Report By Party": "item-report-by-party",
+                      "Sales Summary": "sales-summary",
+                      "Bill Wise Profit": "bill-wise-profit",
+                      "Daybook": "daybook",
+                      "Expense Transaction Report": "expense-transaction-report",
+                      "Expense Category Report": "expense-category-report",
+                      "Item Sales Summary": "item-sales-summary",
+                      "Low Stock Summary": "low-stock-summary",
+                      "Rate List": "rate-list",
+                      "Stock Summary": "stock-summary",
                     };
                     const slug = slugMap[item.name] || item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
                     const href = `/dashboard/reports/${slug}`;
@@ -184,7 +198,18 @@ export default function ReportsPage() {
                           "GSTR-1 (Sales)": "gstr-1",
                           "GSTR-2 (Purchase)": "gstr-2",
                           "Party Wise Outstanding": "party-outstanding",
-                          "Receivable Ageing Report": "ageing-report"
+                          "Receivable Ageing Report": "ageing-report",
+                          "Ageing Report": "ageing-report",
+                          "Item Report By Party": "item-report-by-party",
+                          "Sales Summary": "sales-summary",
+                          "Bill Wise Profit": "bill-wise-profit",
+                          "Daybook": "daybook",
+                          "Expense Transaction Report": "expense-transaction-report",
+                          "Expense Category Report": "expense-category-report",
+                          "Item Sales Summary": "item-sales-summary",
+                          "Low Stock Summary": "low-stock-summary",
+                          "Rate List": "rate-list",
+                          "Stock Summary": "stock-summary",
                         };
                         const slug = slugMap[item.name] || item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
                         const href = `/dashboard/reports/${slug}`;

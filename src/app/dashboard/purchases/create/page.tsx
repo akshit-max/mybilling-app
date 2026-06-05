@@ -156,7 +156,7 @@ export default function CreateSalesInvoice() {
               if (qData.customerName) setCustomerName(qData.customerName);
               if (qData.items && qData.items.length) {
                 // Ensure gstRate fallback is there
-                const mappedItems = qData.items.map((i: any) => ({...i, gstRate: i.gstRate || 18}));
+                const mappedItems = qData.items.map((i: any) => ({...i, gstRate: i.gstRate ?? 18}));
                 setItems(mappedItems);
               }
               if (qData.shippingAddress) setShippingAddress(qData.shippingAddress);
@@ -307,6 +307,14 @@ export default function CreateSalesInvoice() {
       setShippingAddress("");
     }
   }, [customerName, customers]);
+
+  // Sync selectedBankId when payment mode is changed to a bank option
+  useEffect(() => {
+    if (paymentMode !== "Cash" && !selectedBankId && bankAccounts.length > 0) {
+      const activeBank = bankAccounts.find(b => b.status !== "inactive") || bankAccounts[0];
+      setSelectedBankId(activeBank.id);
+    }
+  }, [paymentMode, bankAccounts, selectedBankId]);
 
   // Update payment terms or dates
   useEffect(() => {
@@ -577,7 +585,7 @@ export default function CreateSalesInvoice() {
         additionalChargeValue: Number(additionalChargeValue),
         autoRoundOff,
         roundOffAmount,
-        selectedBankId,
+        selectedBankId: paymentMode === "Cash" ? "" : selectedBankId,
         selectedQRBankId,
         settings: invoiceSettings,
         signatureType,
@@ -642,8 +650,8 @@ export default function CreateSalesInvoice() {
             const currentCash = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
             newBalance = Math.max(0, currentCash - amountPaidNum);
             await updateDoc(sRef, { cashInHand: newBalance });
-          } else {
-            const bRef = doc(db, "bankAccounts", paymentMode);
+          } else if (selectedBankId) {
+            const bRef = doc(db, "bankAccounts", selectedBankId);
             const bSnap = await getDoc(bRef);
             const currentBank = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
             newBalance = Math.max(0, currentBank - amountPaidNum);
@@ -651,7 +659,7 @@ export default function CreateSalesInvoice() {
           }
           await addDoc(collection(db, "cashBankTransactions"), {
             userId: user.uid,
-            accountId: isCash ? "cash" : paymentMode,
+            accountId: isCash ? "cash" : (selectedBankId || "bank"),
             type: "Purchase Invoice",
             txnNo: purchaseInvoiceNumber,
             date: invoiceDate,
@@ -931,36 +939,48 @@ export default function CreateSalesInvoice() {
                   <tr key={idx} className="hover:bg-gray-50/30 border-b border-gray-100">
                     <td className="px-4 py-4 text-center text-gray-400 font-mono align-top">{idx + 1}</td>
                     
-                    {/* Item Name Lookup Dropdown */}
-                    <td className="px-4 py-4 max-w-[320px] whitespace-normal">
+                    {/* Item Name Lookup Autocomplete */}
+                    <td className="px-4 py-4 max-w-[320px] whitespace-normal relative">
                       <div className="flex flex-col gap-1.5">
-                        <select
-                          value={item.productId || ""}
-                          onChange={(e) => {
-                            const found = products.find(p => p.id === e.target.value);
-                            if (found) {
-                              const updated = [...items];
-                              updated[idx] = {
-                                productId: found.id,
-                                name: found.name,
-                                price: found.price,
-                                qty: 1,
-                                gstRate: found.gst || 18,
-                                hsn: found.hsnCode || "",
-                                description: ""
-                              };
-                              setItems(updated);
+                        <input
+                          type="text"
+                          placeholder="Search or enter item name..."
+                          value={item.name || ""}
+                          onChange={(e) => updateItem(idx, "name", e.target.value)}
+                          className="w-full border border-gray-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-700 bg-white"
+                        />
+
+                        {/* Optional Autocomplete match */}
+                        {item.name && !products.find(p => p.name === item.name) && (
+                          <div className="absolute left-4 right-4 mt-8 bg-white border border-gray-200 rounded shadow-lg max-h-32 overflow-y-auto z-50">
+                            {products
+                              .filter(p => p.name.toLowerCase().includes(item.name.toLowerCase()))
+                              .map(p => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = [...items];
+                                    updated[idx] = {
+                                      productId: p.id,
+                                      name: p.name,
+                                      qty: 1,
+                                      price: p.price,
+                                      gstRate: p.gst !== undefined && p.gst !== null ? Number(p.gst) : 18,
+                                      hsn: p.hsnCode || "",
+                                      description: ""
+                                    };
+                                    setItems(updated);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 text-gray-600 font-semibold"
+                                >
+                                  {p.name} (Stock: {p.stock} {p.unit})
+                                </button>
+                              ))
                             }
-                          }}
-                          className="w-full border border-gray-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white font-medium text-gray-700"
-                        >
-                          <option value="">Select Item / Product...</option>
-                          {products.map(p => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} (Stock: {p.stock} {p.unit})
-                            </option>
-                          ))}
-                        </select>
+                          </div>
+                        )}
+
                         <input 
                           type="text"
                           value={item.description || ""}
@@ -971,9 +991,15 @@ export default function CreateSalesInvoice() {
                       </div>
                     </td>
 
-                    {/* HSN Code */}
+                    {/* HSN Code - editable input */}
                     <td className="px-4 py-4 align-top">
-                      <span className="text-gray-600 font-mono font-medium block mt-1">{item.hsn || "-"}</span>
+                      <input
+                        type="text"
+                        value={item.hsn || ""}
+                        onChange={(e) => updateItem(idx, "hsn", e.target.value)}
+                        placeholder="HSN/SAC"
+                        className="w-20 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 font-mono bg-white block mt-0.5"
+                      />
                     </td>
 
                     {/* Quantity */}
@@ -1003,13 +1029,23 @@ export default function CreateSalesInvoice() {
                       <span className="text-gray-400 block mt-1">-</span>
                     </td>
 
-                    {/* Tax rate displaying absolute calculations */}
+                    {/* Tax rate displaying absolute calculations - editable select */}
                     <td className="px-4 py-4 align-top">
-                      <div className="space-y-0.5 mt-0.5">
-                        <span className="text-xs font-semibold text-gray-700 font-mono">{item.gstRate || 18}%</span>
+                      <div className="space-y-1 mt-0.5">
+                        <select
+                          value={item.gstRate ?? 18}
+                          onChange={(e) => updateItem(idx, "gstRate", Number(e.target.value))}
+                          className="border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-600 bg-white"
+                        >
+                          <option value={0}>0%</option>
+                          <option value={5}>5%</option>
+                          <option value={12}>12%</option>
+                          <option value={18}>18%</option>
+                          <option value={28}>28%</option>
+                        </select>
                         {gstEnabled && (
                           <span className="text-[10px] text-gray-400 block font-mono">
-                            (₹ {(((Number(item.qty) || 0) * (Number(item.price) || 0)) * ((item.gstRate || 18) / 100)).toFixed(2)})
+                            (₹ {(((Number(item.qty) || 0) * (Number(item.price) || 0)) * ((item.gstRate ?? 18) / 100)).toFixed(2)})
                           </span>
                         )}
                       </div>
@@ -1101,7 +1137,7 @@ export default function CreateSalesInvoice() {
                               name: found.name,
                               qty: 1,
                               price: found.price,
-                              gstRate: found.gst || 18,
+                              gstRate: found.gst ?? 18,
                               hsn: found.hsnCode || "",
                             }
                           ]);
@@ -1153,23 +1189,37 @@ export default function CreateSalesInvoice() {
               </div>
 
               <div className="pt-4 border-t border-gray-150 space-y-3">
-                <div className="flex items-center justify-between">
-                  <button 
-                    onClick={() => setShowBankModal(true)} 
-                    className="text-indigo-600 text-xs font-semibold flex items-center gap-1.5 hover:underline"
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider">Bank Account Profile</label>
+                    <button 
+                      onClick={() => setShowBankModal(true)} 
+                      className="text-indigo-600 text-[10px] font-bold uppercase hover:underline"
+                    >
+                      + Add Bank Account Settings
+                    </button>
+                  </div>
+                  <select
+                    value={selectedBankId}
+                    onChange={(e) => setSelectedBankId(e.target.value)}
+                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white font-semibold text-gray-655"
                   >
-                    <Landmark size={13} className="text-indigo-500" />
-                    <span>{selectedBankId ? "Change Bank Account" : "+ Add Bank Account Settings"}</span>
-                  </button>
-                  {selectedBankId && (
+                    <option value="">No Active Account Selected</option>
+                    {bankAccounts.filter((b: any) => b.status !== "inactive").map(bank => (
+                      <option key={bank.id} value={bank.id}>{bank.name} (A/C: {bank.accountNumber || "UPI Profile"})</option>
+                    ))}
+                  </select>
+                </div>
+                {selectedBankId && (
+                  <div className="flex justify-end">
                     <button 
                       onClick={() => setSelectedBankId("")} 
                       className="text-red-500 text-[10px] hover:underline uppercase font-bold"
                     >
                       Remove Bank
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {selectedBankId && (
                   (() => {

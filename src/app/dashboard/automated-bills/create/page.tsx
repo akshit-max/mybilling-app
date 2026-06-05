@@ -153,7 +153,7 @@ export default function CreateAutomatedBill() {
               if (qData.customerName) setCustomerName(qData.customerName);
               if (qData.items && qData.items.length) {
                 // Ensure gstRate fallback is there
-                const mappedItems = qData.items.map((i: any) => ({...i, gstRate: i.gstRate || 18}));
+                const mappedItems = qData.items.map((i: any) => ({...i, gstRate: i.gstRate ?? 18}));
                 setItems(mappedItems);
               }
               if (qData.shippingAddress) setShippingAddress(qData.shippingAddress);
@@ -298,6 +298,31 @@ export default function CreateAutomatedBill() {
       setShippingAddress("");
     }
   }, [customerName, customers]);
+
+  // Resolve custom party-wise prices when customer changes
+  useEffect(() => {
+    if (!customerName) return;
+    setItems(prevItems =>
+      prevItems.map(item => {
+        if (!item.productId) return item;
+        const prod = products.find(p => p.id === item.productId);
+        if (!prod) return item;
+        let resolvedPrice = prod.price;
+        if (customerName && Array.isArray((prod as any).partyPrices)) {
+          const customPriceObj = (prod as any).partyPrices.find(
+            (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+          );
+          if (customPriceObj) {
+            resolvedPrice = Number(customPriceObj.price) || prod.price;
+          }
+        }
+        return {
+          ...item,
+          price: resolvedPrice
+        };
+      })
+    );
+  }, [customerName, products]);
 
   // Due date logic removed as automated bills use repeat frequencies
 
@@ -839,13 +864,22 @@ export default function CreateAutomatedBill() {
                           onChange={(e) => {
                             const found = products.find(p => p.id === e.target.value);
                             if (found) {
+                              let resolvedPrice = found.price;
+                              if (customerName && Array.isArray((found as any).partyPrices)) {
+                                const customPriceObj = (found as any).partyPrices.find(
+                                  (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+                                );
+                                if (customPriceObj) {
+                                  resolvedPrice = Number(customPriceObj.price) || found.price;
+                                }
+                              }
                               const updated = [...items];
                               updated[idx] = {
                                 productId: found.id,
                                 name: found.name,
-                                price: found.price,
+                                price: resolvedPrice,
                                 qty: 1,
-                                gstRate: found.gst || 18,
+                                gstRate: found.gst ?? 18,
                                 hsn: found.hsnCode || "",
                                 description: ""
                               };
@@ -906,10 +940,10 @@ export default function CreateAutomatedBill() {
                     {/* Tax rate displaying absolute calculations */}
                     <td className="px-4 py-4 align-top">
                       <div className="space-y-0.5 mt-0.5">
-                        <span className="text-xs font-semibold text-gray-700 font-mono">{item.gstRate || 18}%</span>
+                        <span className="text-xs font-semibold text-gray-700 font-mono">{item.gstRate ?? 18}%</span>
                         {gstEnabled && (
                           <span className="text-[10px] text-gray-400 block font-mono">
-                            (₹ {(((Number(item.qty) || 0) * (Number(item.price) || 0)) * ((item.gstRate || 18) / 100)).toFixed(2)})
+                            (₹ {(((Number(item.qty) || 0) * (Number(item.price) || 0)) * ((item.gstRate ?? 18) / 100)).toFixed(2)})
                           </span>
                         )}
                       </div>
@@ -1001,7 +1035,7 @@ export default function CreateAutomatedBill() {
                               name: found.name,
                               qty: 1,
                               price: found.price,
-                              gstRate: found.gst || 18,
+                              gstRate: found.gst ?? 18,
                               hsn: found.hsnCode || "",
                             }
                           ]);

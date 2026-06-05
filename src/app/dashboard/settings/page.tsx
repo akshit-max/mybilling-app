@@ -23,6 +23,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import toast from "react-hot-toast";
 import { hashPin } from "@/lib/crypto";
+import { INDIAN_STATES } from "@/lib/constants";
 
 import SettingsSidebar from "./SettingsSidebar";
 import { useChat } from "@/context/ChatContext";
@@ -287,13 +288,16 @@ export default function SettingsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">State</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter State" 
+                    <select 
                       value={stateName}
                       onChange={(e) => handleChange(setStateName, e.target.value)}
-                      className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-gray-600" 
-                    />
+                      className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-gray-600 bg-white font-semibold"
+                    >
+                      <option value="">Select State</option>
+                      {INDIAN_STATES.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Pincode</label>

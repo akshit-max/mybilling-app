@@ -33,11 +33,12 @@ type PosBill = {
   title: string;
   items: PosItem[];
   discountType: DiscountType;
-  discountValue: number | "";
+  discountValue: number | string;
   additionalChargeName: string;
-  additionalChargeValue: number | "";
-  amountReceived: number | "";
+  additionalChargeValue: number | string;
+  amountReceived: number | string;
   paymentMode: string;
+  selectedBankId?: string;
   customerName: string;
   customerPhone: string;
   isFullyPaid: boolean;
@@ -66,6 +67,7 @@ export default function POSBillingPage() {
       additionalChargeValue: "",
       amountReceived: "",
       paymentMode: "Cash",
+      selectedBankId: "",
       customerName: "",
       customerPhone: "",
       isFullyPaid: false,
@@ -216,10 +218,22 @@ export default function POSBillingPage() {
 
   // Sync Received Amount
   useEffect(() => {
-    if (autoFullyPaid && activeBill.amountReceived === "") {
-       updateActiveBill({ amountReceived: finalTotal });
+    if (autoFullyPaid && (activeBill.amountReceived === "" || activeBill.amountReceived === 0)) {
+       if (document.activeElement?.id !== "receivedAmt") {
+         updateActiveBill({ amountReceived: finalTotal });
+       }
     }
   }, [finalTotal, autoFullyPaid, activeBill.amountReceived]);
+
+  // Sync selectedBankId when activeBill's paymentMode is changed to a bank option
+  useEffect(() => {
+    if (activeBill && activeBill.paymentMode !== "Cash" && !activeBill.selectedBankId && bankAccounts.length > 0) {
+      const activeBank = bankAccounts.find((b: any) => b.status !== "inactive");
+      if (activeBank) {
+        updateActiveBill({ selectedBankId: activeBank.id });
+      }
+    }
+  }, [activeBillId, activeBill?.paymentMode, activeBill?.selectedBankId, bankAccounts]);
 
   const handleCreateNewBill = () => {
     const newId = uuidv4();
@@ -233,6 +247,7 @@ export default function POSBillingPage() {
       additionalChargeValue: "",
       amountReceived: "",
       paymentMode: "Cash",
+      selectedBankId: "",
       customerName: "",
       customerPhone: "",
       isFullyPaid: autoFullyPaid,
@@ -269,6 +284,10 @@ export default function POSBillingPage() {
           }
         }
       }
+    }
+
+    if (activeBill.paymentMode !== "Cash" && !activeBill.selectedBankId) {
+      return toast.error("Please select a bank account for non-cash payment");
     }
 
     setSaving(true);
@@ -309,6 +328,7 @@ export default function POSBillingPage() {
         status: amtReceivedNum >= finalTotal ? "paid" : "pending",
         amountReceived: amtReceivedNum,
         paymentMode: activeBill.paymentMode,
+        selectedBankId: activeBill.paymentMode === "Cash" ? "" : (activeBill.selectedBankId || ""),
         additionalChargeName: activeBill.additionalChargeName,
         additionalChargeValue: Number(activeBill.additionalChargeValue) || 0,
         autoRoundOff,
@@ -361,16 +381,16 @@ export default function POSBillingPage() {
              const sRef = doc(db, "settings", user.uid);
              await updateDoc(sRef, { cashInHand: increment(amtReceivedNum) }).catch(() => {});
              // For offline transactions, balanceAfter is approximate without a blocking fetch
-          } else {
-             const bRef = doc(db, "bankAccounts", activeBill.paymentMode);
+          } else if (activeBill.selectedBankId) {
+             const bRef = doc(db, "bankAccounts", activeBill.selectedBankId);
              await updateDoc(bRef, { balance: increment(amtReceivedNum) }).catch(() => {});
-             const b = bankAccounts.find(x => x.id === activeBill.paymentMode);
+             const b = bankAccounts.find(x => x.id === activeBill.selectedBankId);
              newBalance = (b ? Number(b.balance || 0) : 0) + amtReceivedNum;
           }
 
           await addDoc(collection(db, "cashBankTransactions"), {
             userId: user.uid,
-            accountId: isCash ? "cash" : activeBill.paymentMode,
+            accountId: isCash ? "cash" : (activeBill.selectedBankId || "bank"),
             type: "Sales Invoice",
             txnNo: invoiceNumber,
             date: invoiceDate,
@@ -390,7 +410,7 @@ export default function POSBillingPage() {
       if (shouldPrint) {
         setPrintData({
           ...invoiceData,
-          paymentModeName: activeBill.paymentMode === "Cash" ? "Cash" : bankAccounts.find(b => b.id === activeBill.paymentMode)?.name || "Bank"
+          paymentModeName: activeBill.paymentMode === "Cash" ? "Cash" : bankAccounts.find(b => b.id === activeBill.selectedBankId)?.name || "Bank"
         });
         setTimeout(() => window.print(), 500);
       } else {
@@ -402,11 +422,12 @@ export default function POSBillingPage() {
           title: activeBill.title,
           items: [],
           discountType: "percent",
-          discountValue: 0,
+          discountValue: "",
           additionalChargeName: "Delivery",
-          additionalChargeValue: 0,
+          additionalChargeValue: "",
           amountReceived: "",
           paymentMode: "Cash",
+          selectedBankId: "",
           customerName: "",
           customerPhone: "",
           isFullyPaid: autoFullyPaid,
@@ -676,7 +697,7 @@ export default function POSBillingPage() {
                          value={activeBill.amountReceived}
                          onChange={(e) => {
                            const val = sanitizeNumericInput(e.target.value);
-                           updateActiveBill({ amountReceived: val === "" ? "" : Number(val) });
+                           updateActiveBill({ amountReceived: val });
                          }}
                          placeholder="0" 
                          className="w-full bg-transparent text-lg font-bold text-gray-800 focus:outline-none" 
@@ -689,12 +710,27 @@ export default function POSBillingPage() {
                           className="w-full h-full text-xs font-bold text-gray-600 focus:outline-none cursor-pointer bg-transparent px-2"
                         >
                           <option value="Cash">Cash</option>
+                          <option value="Bank">Bank</option>
+                          <option value="UPI">UPI</option>
+                          <option value="Cheque">Cheque</option>
+                        </select>
+                     </div>
+                   </div>
+                   {activeBill.paymentMode !== "Cash" && (
+                      <div className="mt-2.5 pt-2.5 border-t border-gray-100">
+                        <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Select Deposit Bank</label>
+                        <select 
+                          value={activeBill.selectedBankId || ""}
+                          onChange={(e) => updateActiveBill({ selectedBankId: e.target.value })}
+                          className="w-full border border-gray-200 rounded py-1 px-2 text-xs font-semibold text-gray-600 focus:outline-none bg-white cursor-pointer"
+                        >
+                          <option value="">Select Bank Account...</option>
                           {bankAccounts.filter(b => b.status !== "inactive").map(b => (
                             <option key={b.id} value={b.id}>{b.name}</option>
                           ))}
                         </select>
-                     </div>
-                   </div>
+                      </div>
+                    )}
                  </div>
               </div>
 
@@ -758,7 +794,7 @@ export default function POSBillingPage() {
                     value={activeBill.discountType === "percent" ? activeBill.discountValue : ""}
                     onChange={(e) => {
                       const val = sanitizeNumericInput(e.target.value);
-                      updateActiveBill({ discountType: "percent", discountValue: val === "" ? "" : Number(val) });
+                      updateActiveBill({ discountType: "percent", discountValue: val });
                     }}
                     className="w-full border border-yellow-300 bg-yellow-50/30 rounded py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 font-bold" 
                   />
@@ -773,7 +809,7 @@ export default function POSBillingPage() {
                     value={activeBill.discountType === "flat" ? activeBill.discountValue : ""}
                     onChange={(e) => {
                       const val = sanitizeNumericInput(e.target.value);
-                      updateActiveBill({ discountType: "flat", discountValue: val === "" ? "" : Number(val) });
+                      updateActiveBill({ discountType: "flat", discountValue: val });
                     }}
                     className="w-full border border-gray-200 rounded py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-indigo-500 font-bold" 
                   />
@@ -812,7 +848,7 @@ export default function POSBillingPage() {
                     value={activeBill.additionalChargeValue}
                     onChange={(e) => {
                       const val = sanitizeNumericInput(e.target.value);
-                      updateActiveBill({ additionalChargeValue: val === "" ? "" : Number(val) });
+                      updateActiveBill({ additionalChargeValue: val });
                     }}
                     className="w-full border border-yellow-300 bg-yellow-50/30 rounded py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 font-bold" 
                   />

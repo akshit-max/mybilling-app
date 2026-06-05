@@ -68,8 +68,19 @@ export default function SMSModal({
         return;
       }
 
-      // We don't have the user's name readily available here, so we just use "Admin" or fetch it
-      // but for SMS Marketing page compatibility, "Admin" is fine.
+      const response = await fetch("/api/send-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: cleaned,
+          message: message,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to send SMS");
+
+      // Log to campaigns
       await addDoc(collection(db, "smsCampaigns"), {
         userId: user.uid,
         campaignName: `Transactional SMS: ${customerName}`,
@@ -81,9 +92,9 @@ export default function SMSModal({
 
       toast.success("SMS Sent Successfully! 💬");
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to send SMS");
+      toast.error(err.message || "Failed to send SMS");
     } finally {
       setSending(false);
     }

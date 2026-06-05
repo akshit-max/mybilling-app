@@ -8,6 +8,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { useSession } from "@/context/SessionContext";
+import * as XLSX from "xlsx";
+import QRCode from "react-qr-code";
 
 type Product = {
   id: string;
@@ -89,6 +91,16 @@ export default function ItemsPage() {
   const [formCostPrice, setFormCostPrice] = useState("0");
   const [formCostTaxIncluded, setFormCostTaxIncluded] = useState<"with" | "without">("without");
   const [formDiscountOnSales, setFormDiscountOnSales] = useState("0");
+
+  // Party Wise Prices State
+  const [partyPrices, setPartyPrices] = useState<{ partyName: string; price: string }[]>([]);
+  const [newPartyName, setNewPartyName] = useState("");
+  const [newPartyPrice, setNewPartyPrice] = useState("");
+
+  // Custom Fields State
+  const [customFields, setCustomFields] = useState<{ key: string; value: string }[]>([]);
+  const [newFieldKey, setNewFieldKey] = useState("");
+  const [newFieldValue, setNewFieldValue] = useState("");
 
   const fetchProductsList = async () => {
     const user = auth.currentUser;
@@ -252,6 +264,14 @@ export default function ItemsPage() {
     setFormCostTaxIncluded("without");
     setFormDiscountOnSales("0");
 
+    // Reset Party Prices & Custom Fields
+    setPartyPrices([]);
+    setNewPartyName("");
+    setNewPartyPrice("");
+    setCustomFields([]);
+    setNewFieldKey("");
+    setNewFieldValue("");
+
     setIsModalOpen(true);
   };
 
@@ -282,6 +302,24 @@ export default function ItemsPage() {
         setFormCostPrice(String(data.costPrice || "0"));
         setFormCostTaxIncluded(data.costTaxIncluded ? "with" : "without");
         setFormDiscountOnSales(String(data.discountOnSales || "0"));
+
+        // Load Party Wise Prices
+        const loadedPartyPrices: { partyName: string; price: string }[] = 
+          Array.isArray(data.partyPrices) 
+            ? data.partyPrices.map((pp: any) => ({ partyName: pp.partyName || "", price: String(pp.price || "0") }))
+            : [];
+        setPartyPrices(loadedPartyPrices);
+        setNewPartyName("");
+        setNewPartyPrice("");
+
+        // Load Custom Fields
+        const loadedCustomFields: { key: string; value: string }[] =
+          Array.isArray(data.customFields)
+            ? data.customFields.map((cf: any) => ({ key: cf.key || "", value: cf.value || "" }))
+            : [];
+        setCustomFields(loadedCustomFields);
+        setNewFieldKey("");
+        setNewFieldValue("");
 
         setIsModalOpen(true);
       } else {
@@ -349,6 +387,16 @@ export default function ItemsPage() {
     try {
       setModalSaving(true);
 
+      // Validate and build party wise prices (filter out incomplete rows)
+      const validPartyPrices = partyPrices
+        .filter(pp => pp.partyName.trim() && !isNaN(Number(pp.price)) && Number(pp.price) >= 0)
+        .map(pp => ({ partyName: pp.partyName.trim(), price: Number(pp.price) }));
+
+      // Validate and build custom fields (filter out empty keys)
+      const validCustomFields = customFields
+        .filter(cf => cf.key.trim())
+        .map(cf => ({ key: cf.key.trim(), value: cf.value.trim() }));
+
       const productData = {
         userId: user.uid,
         name: formName.trim(),
@@ -369,6 +417,8 @@ export default function ItemsPage() {
         costPrice: Number(formCostPrice) || 0,
         costTaxIncluded: formCostTaxIncluded === "with",
         discountOnSales: Number(formDiscountOnSales) || 0,
+        partyPrices: validPartyPrices,
+        customFields: validCustomFields,
       };
 
       if (!navigator.onLine) {
@@ -457,76 +507,147 @@ export default function ItemsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.csv')) {
-      toast.error('Please upload a valid .csv file');
+    const fileName = file.name.toLowerCase();
+    const isCSV = fileName.endsWith('.csv');
+    const isXLSX = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+
+    if (!isCSV && !isXLSX) {
+      toast.error('Please upload a valid .csv or .xlsx file');
+      e.target.value = '';
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const text = event.target?.result as string;
-        if (!text) return;
-        
-        const lines = text.split('\n').filter(line => line.trim());
-        if (lines.length < 2) {
-          toast.error("CSV is empty or missing data rows");
-          return;
-        }
+    const user = auth.currentUser;
+    if (!user) {
+      toast.error("Not logged in");
+      return;
+    }
 
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-        const nameIdx = headers.findIndex(h => h.includes('name'));
-        const priceIdx = headers.findIndex(h => h.includes('price'));
-        const stockIdx = headers.findIndex(h => h.includes('stock'));
-        const catIdx = headers.findIndex(h => h.includes('category'));
-        const gstIdx = headers.findIndex(h => h.includes('gst'));
-        const codeIdx = headers.findIndex(h => h.includes('code'));
-
-        if (nameIdx === -1) {
-          toast.error("CSV must contain a 'Name' column");
-          return;
-        }
-
-        const user = auth.currentUser;
-        if (!user) return;
-
-        setLoading(true);
-        toast.loading("Uploading items...", { id: "bulk-upload" });
-
-        let addedCount = 0;
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-          if (!cols[nameIdx]) continue;
-
-          await addDoc(collection(db, "products"), {
-            userId: user.uid,
-            name: cols[nameIdx],
-            price: priceIdx !== -1 ? Number(cols[priceIdx]) || 0 : 0,
-            stock: stockIdx !== -1 ? Number(cols[stockIdx]) || 0 : 0,
-            category: catIdx !== -1 && cols[catIdx] ? cols[catIdx] : "-",
-            gst: gstIdx !== -1 ? Number(cols[gstIdx]) || 18 : 18,
-            itemCode: codeIdx !== -1 && cols[codeIdx] ? cols[codeIdx] : null,
-            barcode: codeIdx !== -1 && cols[codeIdx] ? cols[codeIdx] : null,
-            type: "Product",
-            unit: "PCS",
-            createdAt: serverTimestamp(),
-            createdBy: activeProfile?.name || "Admin"
-          });
-          addedCount++;
-        }
-
-        toast.success(`Successfully added ${addedCount} items! ✅`, { id: "bulk-upload" });
-        fetchProductsList();
-      } catch (err) {
-        console.error(err);
-        toast.error("Failed to parse and upload CSV", { id: "bulk-upload" });
-      } finally {
-        setLoading(false);
-        e.target.value = '';
+    const processRows = async (rows: Record<string, any>[]) => {
+      if (rows.length === 0) {
+        toast.error("File is empty or has no data rows");
+        return;
       }
+
+      // Normalize header keys to lowercase for flexible detection
+      const normalizedRows = rows.map(row => {
+        const normalized: Record<string, any> = {};
+        Object.keys(row).forEach(k => { normalized[k.trim().toLowerCase()] = row[k]; });
+        return normalized;
+      });
+
+      const sampleKeys = Object.keys(normalizedRows[0] || {});
+      const findKey = (patterns: string[]) => sampleKeys.find(k => patterns.some(p => k.includes(p)));
+
+      const nameKey = findKey(['name', 'item name', 'product name']);
+      const priceKey = findKey(['price', 'sales price', 'selling price', 'rate']);
+      const stockKey = findKey(['stock', 'qty', 'quantity', 'opening stock']);
+      const catKey = findKey(['category', 'cat']);
+      const gstKey = findKey(['gst', 'tax', 'tax rate']);
+      const codeKey = findKey(['code', 'item code', 'sku', 'barcode']);
+      const unitKey = findKey(['unit', 'uom']);
+      const hsnKey = findKey(['hsn', 'hsn code']);
+      const costKey = findKey(['cost', 'purchase price', 'cost price']);
+
+      if (!nameKey) {
+        toast.error("File must have a 'Name' column. Check your headers and try again.");
+        return;
+      }
+
+      setLoading(true);
+      toast.loading("Uploading items from file...", { id: "bulk-upload" });
+
+      let addedCount = 0;
+      let skippedCount = 0;
+
+      for (const row of normalizedRows) {
+        const name = String(row[nameKey] || "").trim();
+        if (!name) { skippedCount++; continue; }
+
+        const price = priceKey ? (Number(row[priceKey]) || 0) : 0;
+        const stock = stockKey ? (Number(row[stockKey]) || 0) : 0;
+        const category = catKey && row[catKey] ? String(row[catKey]).trim() : "-";
+        const gst = gstKey ? (Number(row[gstKey]) || 18) : 18;
+        const itemCode = codeKey && row[codeKey] ? String(row[codeKey]).trim() : null;
+        const unit = unitKey && row[unitKey] ? String(row[unitKey]).trim().toUpperCase() : "PCS";
+        const hsnCode = hsnKey && row[hsnKey] ? String(row[hsnKey]).trim() : null;
+        const costPrice = costKey ? (Number(row[costKey]) || 0) : 0;
+
+        await addDoc(collection(db, "products"), {
+          userId: user.uid,
+          name,
+          price,
+          stock,
+          category,
+          gst,
+          itemCode,
+          barcode: itemCode,
+          unit,
+          hsnCode,
+          costPrice,
+          type: "Product",
+          partyPrices: [],
+          customFields: [],
+          createdAt: serverTimestamp(),
+          createdBy: activeProfile?.name || "Admin",
+        });
+        addedCount++;
+      }
+
+      if (addedCount > 0) {
+        toast.success(
+          `Successfully added ${addedCount} item(s)!${skippedCount > 0 ? ` (${skippedCount} row(s) skipped — empty name)` : ""} ✅`,
+          { id: "bulk-upload" }
+        );
+      } else {
+        toast.error("No valid items found. Ensure 'Name' column has values.", { id: "bulk-upload" });
+      }
+      fetchProductsList();
     };
-    reader.readAsText(file);
+
+    // CSV path: read as text
+    if (isCSV) {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const text = event.target?.result as string;
+          if (!text?.trim()) { toast.error("File is empty"); return; }
+          const workbook = XLSX.read(text, { type: "string" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+          await processRows(rows);
+        } catch (err) {
+          console.error(err);
+          toast.error("Failed to parse CSV file. Check format and retry.", { id: "bulk-upload" });
+        } finally {
+          setLoading(false);
+          e.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+    } else {
+      // XLSX path: read as ArrayBuffer
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const data = event.target?.result;
+          if (!data) { toast.error("File could not be read"); return; }
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+          await processRows(rows);
+        } catch (err) {
+          console.error(err);
+          toast.error("Failed to parse Excel file. Check format and retry.", { id: "bulk-upload" });
+        } finally {
+          setLoading(false);
+          e.target.value = '';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
   };
+
 
   // Derived Analytics Stats
   const totalItems = products.length;
@@ -648,7 +769,14 @@ export default function ItemsPage() {
       
       {/* Top Header */}
       <div className="flex justify-between items-center bg-white px-6 py-3 border-b border-gray-200 shadow-sm">
-        <h1 className="text-lg font-semibold text-gray-800">Items</h1>
+        <div className="flex items-center gap-2">
+          {/* <Link href="/dashboard" className="text-xs text-gray-500 hover:text-indigo-650 transition-all flex items-center gap-1 bg-gray-50 border border-gray-250/60 px-2 py-1 rounded font-semibold">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <span>Dashboard</span>
+          </Link> */}
+          {/* <span className="text-gray-300 font-light text-xs">/</span> */}
+          <h1 className="text-lg font-semibold text-gray-800">Items</h1>
+        </div>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-2 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-indigo-50 transition-all">
             <span>Manage Offer</span>
@@ -659,13 +787,16 @@ export default function ItemsPage() {
               className="flex items-center gap-2 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-indigo-50 transition-all"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              <span>Reports</span>
+              <span>Manage Reports</span>
               <ChevronDown size={12} />
             </button>
             {showReportsDropdown && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowReportsDropdown(false)}></div>
                 <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 py-1.5 text-left text-xs font-medium text-gray-700">
+                  <Link href="/dashboard/reports" className="block px-4 py-2 hover:bg-indigo-50 hover:text-indigo-650 w-full text-left font-semibold border-b border-gray-100">
+                    Manage Reports
+                  </Link>
                   <Link href="/dashboard/reports/rate-list" className="block px-4 py-2 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left">
                     Rate List
                   </Link>
@@ -760,6 +891,17 @@ export default function ItemsPage() {
           <div className="text-xl font-bold text-gray-800">{loading ? "..." : outOfStockCount}</div>
         </div>
 
+      </div>
+
+      {/* Barcode View Guidance Banner */}
+      <div className="mx-6 mt-4 bg-indigo-50/70 border border-indigo-100 text-indigo-900 px-4 py-2.5 rounded-lg flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-2.5 text-xs font-semibold">
+          <span className="text-base">💡</span>
+          <span>To view or print the scannable barcode or QR label for any item, click on the <strong className="font-bold text-indigo-700">"View"</strong> option in the three-dots menu <strong className="font-mono font-bold">(⋮)</strong> on the item row.</span>
+        </div>
+        {/* <Link href="/dashboard" className="text-[11px] font-bold text-indigo-600 hover:underline bg-white border border-indigo-200 px-2.5 py-1 rounded shadow-xs shrink-0">
+          Go to Dashboard
+        </Link> */}
       </div>
 
       {/* Enterprise Styled Card */}
@@ -1098,7 +1240,7 @@ export default function ItemsPage() {
             type="file" 
             id="excel-upload-input" 
             className="hidden" 
-            accept=".csv" 
+            accept=".csv,.xlsx,.xls" 
             onChange={handleUploadExcel}
           />
         </div>
@@ -1326,25 +1468,54 @@ export default function ItemsPage() {
                     
                     {/* Item code / barcode */}
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Item Code</label>
+                      <div className="col-span-2">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                          Item Code / Barcode
+                        </label>
                         <div className="flex gap-2">
                           <input 
                             type="text" 
                             value={formItemCode}
                             onChange={(e) => setFormItemCode(e.target.value)}
-                            placeholder="ex: ITM12349"
-                            className="flex-1 border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+                            placeholder="e.g. ITM12349 (or auto-generate)"
+                            className="flex-1 border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono"
                           />
+                          {formItemCode && (
+                            <button 
+                              type="button"
+                              onClick={() => setFormItemCode("")}
+                              title="Clear item code"
+                              className="text-gray-400 hover:text-red-500 border border-gray-200 rounded px-2 text-xs font-bold transition-colors shrink-0"
+                            >
+                              ✕ Clear
+                            </button>
+                          )}
                           <button 
                             type="button"
                             onClick={handleBarcodeGenerate}
-                            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[10px] font-bold border border-indigo-200 px-2 rounded transition-colors shrink-0"
+                            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[10px] font-bold border border-indigo-200 px-2.5 rounded transition-colors shrink-0"
                           >
-                            Auto-Generate Code
+                            ⚡ Auto-Generate
                           </button>
                         </div>
-                        <p className="text-[9px] text-gray-400 mt-1 leading-tight">Barcode labels can be printed from the Product Details page.</p>
+                        <p className="text-[9px] text-gray-400 mt-1 leading-tight">
+                          You can type a custom code or auto-generate. Use the × button to clear and retype.
+                        </p>
+
+                        {/* Live QR / Barcode Preview */}
+                        {formItemCode.trim() && (
+                          <div className="mt-3 flex flex-col items-center bg-gray-50 border border-gray-200 rounded-lg py-4 px-4 gap-2">
+                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1">Barcode / QR Preview</p>
+                            <QRCode
+                              value={formItemCode.trim()}
+                              size={100}
+                              level="M"
+                              fgColor="#1e1b4b"
+                            />
+                            <p className="text-[10px] font-mono font-bold text-gray-700 mt-1 tracking-widest uppercase">{formItemCode.trim()}</p>
+                            <p className="text-[9px] text-gray-400">To view or print full scannable barcode/QR label, go to View Details of this item.</p>
+                          </div>
+                        )}
                       </div>
 
                       <div>
@@ -1358,6 +1529,7 @@ export default function ItemsPage() {
                         />
                       </div>
                     </div>
+
 
                     {/* date & low stock limit */}
                     <div className="grid grid-cols-2 gap-4">
@@ -1490,38 +1662,189 @@ export default function ItemsPage() {
 
                 {/* 4. PARTY WISE PRICES PLACEHOLDER */}
                 {activeModalTab === "party" && (
-                  <div className="flex flex-col items-center justify-center text-center py-10 space-y-3">
-                    <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center text-2xl shadow-sm">
-                      📋
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-bold text-gray-700">Party Wise Prices</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">Set custom selling prices for specific parties / customers.</p>
+                      </div>
                     </div>
-                    <div className="max-w-xs space-y-1">
-                      <p className="text-xs font-bold text-gray-700">Party Wise Prices</p>
-                      <p className="text-[10px] text-gray-400 leading-normal">
-                        To enable Party Wise Prices and set custom pricing structures for specific accounts, please save this item specifications first.
-                      </p>
+
+                    {/* Add New Party Price Row */}
+                    <div className="bg-indigo-50/50 border border-indigo-100 rounded-lg p-3 space-y-2">
+                      <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Add New Party Price</p>
+                      <div className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Party / Customer Name <span className="text-red-400">*</span></label>
+                          <input
+                            type="text"
+                            placeholder="e.g. ABC Traders"
+                            value={newPartyName}
+                            onChange={(e) => setNewPartyName(e.target.value)}
+                            className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white"
+                          />
+                        </div>
+                        <div className="w-32">
+                          <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Price (₹) <span className="text-red-400">*</span></label>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0.00"
+                            value={newPartyPrice}
+                            onChange={(e) => setNewPartyPrice(e.target.value)}
+                            className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white font-mono"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trimName = newPartyName.trim();
+                            const priceNum = Number(newPartyPrice);
+                            if (!trimName) { toast.error("Party name cannot be empty"); return; }
+                            if (isNaN(priceNum) || priceNum < 0) { toast.error("Enter a valid price (0 or more)"); return; }
+                            if (partyPrices.some(pp => pp.partyName.toLowerCase() === trimName.toLowerCase())) {
+                              toast.error("A price for this party already exists"); return;
+                            }
+                            setPartyPrices([...partyPrices, { partyName: trimName, price: String(priceNum) }]);
+                            setNewPartyName("");
+                            setNewPartyPrice("");
+                            toast.success(`Party price added for ${trimName}`);
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold px-3 py-1.5 rounded transition-colors shrink-0"
+                        >
+                          + Add
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Existing Party Prices List */}
+                    {partyPrices.length > 0 ? (
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Saved Party Prices ({partyPrices.length})</p>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                          {partyPrices.map((pp, idx) => (
+                            <div key={idx} className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50">
+                              <span className="text-xs font-semibold text-gray-700">{pp.partyName}</span>
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs font-bold font-mono text-indigo-600">₹ {Number(pp.price).toLocaleString("en-IN")}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setPartyPrices(partyPrices.filter((_, i) => i !== idx))}
+                                  className="text-red-400 hover:text-red-600 text-[10px] font-bold transition-colors"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-gray-400 border border-dashed border-gray-200 rounded-lg">
+                        <p className="text-xs font-medium">No party prices added yet</p>
+                        <p className="text-[10px] mt-0.5">Use the form above to set customer-specific prices</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* 5. CUSTOM FIELDS PLACEHOLDER */}
+                {/* 5. CUSTOM FIELDS - FUNCTIONAL */}
                 {activeModalTab === "custom" && (
-                  <div className="flex flex-col items-center justify-center text-center py-10 space-y-3">
-                    <div className="w-16 h-16 bg-gray-50 text-gray-400 rounded-full flex items-center justify-center text-2xl shadow-sm border border-gray-150">
-                      🏷️
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-xs font-bold text-gray-700">Custom Fields</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">Add custom specification fields (e.g. Brand, Color, Weight, Material) to this item.</p>
                     </div>
-                    <div className="max-w-xs space-y-2">
-                      <p className="text-xs font-bold text-gray-700">Custom Specification Fields</p>
-                      <p className="text-[10px] text-gray-400 leading-normal">
-                        You do not have any custom fields created yet for your inventory dashboard.
-                      </p>
-                      <button 
-                        type="button" 
-                        className="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center justify-center gap-1.5 w-full mt-1.5"
-                      >
-                        <Plus size={12} />
-                        <span>Create Custom fields</span>
-                      </button>
+
+                    {/* Add New Field Row */}
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Add New Field</p>
+                      <div className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Field Name <span className="text-red-400">*</span></label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Brand, Color, Weight"
+                            value={newFieldKey}
+                            onChange={(e) => setNewFieldKey(e.target.value)}
+                            className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Value</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Samsung, Red, 500g"
+                            value={newFieldValue}
+                            onChange={(e) => setNewFieldValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const trimKey = newFieldKey.trim();
+                                if (!trimKey) { toast.error("Field name cannot be empty"); return; }
+                                if (customFields.some(cf => cf.key.toLowerCase() === trimKey.toLowerCase())) {
+                                  toast.error("A field with this name already exists"); return;
+                                }
+                                setCustomFields([...customFields, { key: trimKey, value: newFieldValue.trim() }]);
+                                setNewFieldKey("");
+                                setNewFieldValue("");
+                              }
+                            }}
+                            className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trimKey = newFieldKey.trim();
+                            if (!trimKey) { toast.error("Field name cannot be empty"); return; }
+                            if (customFields.some(cf => cf.key.toLowerCase() === trimKey.toLowerCase())) {
+                              toast.error("A field with this name already exists"); return;
+                            }
+                            setCustomFields([...customFields, { key: trimKey, value: newFieldValue.trim() }]);
+                            setNewFieldKey("");
+                            setNewFieldValue("");
+                            toast.success(`Field '${trimKey}' added`);
+                          }}
+                          className="bg-gray-700 hover:bg-gray-800 text-white text-[10px] font-bold px-3 py-1.5 rounded transition-colors shrink-0"
+                        >
+                          + Add
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Existing Custom Fields List */}
+                    {customFields.length > 0 ? (
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Saved Fields ({customFields.length})</p>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                          {customFields.map((cf, idx) => (
+                            <div key={idx} className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50">
+                              <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded uppercase tracking-wider">{cf.key}</span>
+                                <span className="text-xs text-gray-700 font-semibold">{cf.value || "—"}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setCustomFields(customFields.filter((_, i) => i !== idx))}
+                                className="text-red-400 hover:text-red-600 text-[10px] font-bold transition-colors"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-gray-400 border border-dashed border-gray-200 rounded-lg">
+                        <p className="text-xs font-medium">No custom fields added yet</p>
+                        <p className="text-[10px] mt-0.5">Add fields like Brand, Color, Material, Size, etc.</p>
+                      </div>
+                    )}
                   </div>
                 )}
 

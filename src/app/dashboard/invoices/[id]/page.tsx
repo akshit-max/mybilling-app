@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { db, auth } from "@/lib/firebase";
-import { doc, getDoc, Timestamp, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, Timestamp, deleteDoc, collection, query, where, getDocs, updateDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import { useParams, useRouter } from "next/navigation";
 import { FaWhatsapp } from "react-icons/fa";
 import {
@@ -28,6 +29,8 @@ import toast from "react-hot-toast";
 import { syncInventory } from "@/lib/inventorySync";
 import WhatsAppModal from "@/components/ui/WhatsAppModal";
 import SMSModal from "@/components/ui/SMSModal";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 /* TYPES */
 type Item = {
@@ -35,7 +38,11 @@ type Item = {
   name: string;
   qty: number;
   price: number;
-  tax?: number; 
+  tax?: number;
+  gstRate?: number;    // new field from updated create page
+  discountPct?: number; // per-item discount %
+  hsn?: string;         // HSN/SAC code
+  description?: string; // item description
 };
 
 type Invoice = {
@@ -45,6 +52,8 @@ type Invoice = {
   items: Item[];
   subtotal: number;
   discountAmount: number;
+  discountType?: string;
+  discountValue?: number;
   cgst: number;
   sgst: number;
   igst?: number;
@@ -67,6 +76,8 @@ type Invoice = {
   ewayBillGenerated?: boolean;
   ewayBillNo?: string;
   ewayBillDate?: string;
+  selectedBankId?: string;
+  selectedQRBankId?: string;
 };
 
 type Company = {
@@ -113,8 +124,14 @@ export default function ViewInvoice() {
   const [company, setCompany] = useState<Company | null>(null);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bankDetails, setBankDetails] = useState<any>(null);
+  const [qrBankDetails, setQrBankDetails] = useState<any>(null);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [showSMSModal, setShowSMSModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
 
   // Sync settings states
   const [invoiceTheme, setInvoiceTheme] = useState<"luxury" | "stylish" | "tally">("luxury");
@@ -140,51 +157,11 @@ export default function ViewInvoice() {
   const [printFormat, setPrintFormat] = useState<"a4" | "thermal">("a4");
   const [activeLabel, setActiveLabel] = useState<"ORIGINAL FOR RECIPIENT" | "DUPLICATE FOR TRANSPORTER" | "TRIPLICATE FOR SUPPLIER">("ORIGINAL FOR RECIPIENT");
 
-  /* FETCH INVOICE */
+  /* FETCH INVOICE & SETTINGS IN SYNC */
   useEffect(() => {
-    const fetchInvoice = async () => {
+    const fetchData = async (user: any) => {
+      // 1. Fetch Settings
       try {
-        // 1. Try Firestore First
-        const ref = doc(db, "invoices", id);
-        const snap = await getDoc(ref);
-
-        if (snap.exists()) {
-          setInvoice(snap.data() as Invoice);
-        } else {
-          throw new Error("Not in Firestore");
-        }
-      } catch (err) {
-        // 2. Fallback to IndexedDB
-        console.warn("Falling back to offline invoices", err);
-        try {
-          const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
-          const offlineInvoices = await getOfflineInvoices(auth.currentUser?.uid);
-          const foundOffline = offlineInvoices.find(
-            (inv: any) =>
-              inv.id?.toString() === id || inv.invoiceNumber === id
-          );
-
-          if (foundOffline) {
-            setInvoice(foundOffline as any);
-          }
-        } catch (offlineErr) {
-          console.error("Offline fetch failed", offlineErr);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInvoice();
-  }, [id]);
-
-  /* FETCH SETTINGS IN SYNC */
-  useEffect(() => {
-    const fetchSettingsAndCompany = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-
         const ref = doc(db, "settings", user.uid);
         const snap = await getDoc(ref);
 
@@ -197,7 +174,6 @@ export default function ViewInvoice() {
             gstin: data.gstin || ""
           });
 
-          // Sync invoice preview & printing preferences
           if (data.invoiceTheme) setInvoiceTheme(data.invoiceTheme);
           if (data.invoiceThemeColor) setAccentColor(data.invoiceThemeColor);
           if (data.thermalWidth) setThermalWidth(data.thermalWidth);
@@ -211,7 +187,6 @@ export default function ViewInvoice() {
           if (s.showPhone !== undefined) setShowPhone(s.showPhone);
           if (s.showTime !== undefined) setShowTime(s.showTime);
 
-          // Auto-hide address alert if address exists
           if (data.address) {
             setShowAlert(false);
           }
@@ -219,10 +194,69 @@ export default function ViewInvoice() {
       } catch (err) {
         console.error("Error loading settings sync:", err);
       }
+
+      // 2. Fetch Invoice Details
+      try {
+        const ref = doc(db, "invoices", id);
+        const snap = await getDoc(ref);
+
+        if (snap.exists()) {
+          const invData = snap.data() as Invoice;
+          setInvoice(invData);
+          if (invData.selectedBankId) {
+            getDoc(doc(db, "bankAccounts", invData.selectedBankId))
+              .then(bSnap => bSnap.exists() && setBankDetails(bSnap.data()))
+              .catch(err => console.error("Error loading bank:", err));
+          }
+          if (invData.selectedQRBankId) {
+            getDoc(doc(db, "bankAccounts", invData.selectedQRBankId))
+              .then(qSnap => qSnap.exists() && setQrBankDetails(qSnap.data()))
+              .catch(err => console.error("Error loading QR bank:", err));
+          }
+        } else {
+          throw new Error("Not in Firestore");
+        }
+      } catch (err) {
+        console.warn("Falling back to offline invoices", err);
+        try {
+          const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
+          const offlineInvoices = await getOfflineInvoices(user.uid);
+          const foundOffline = offlineInvoices.find(
+            (inv: any) =>
+              inv.id?.toString() === id || inv.invoiceNumber === id
+          );
+
+          if (foundOffline) {
+            const invData = foundOffline as any;
+            setInvoice(invData);
+            if (invData.selectedBankId) {
+              getDoc(doc(db, "bankAccounts", invData.selectedBankId))
+                .then(bSnap => bSnap.exists() && setBankDetails(bSnap.data()))
+                .catch(err => console.error("Error loading bank:", err));
+            }
+            if (invData.selectedQRBankId) {
+              getDoc(doc(db, "bankAccounts", invData.selectedQRBankId))
+                .then(qSnap => qSnap.exists() && setQrBankDetails(qSnap.data()))
+                .catch(err => console.error("Error loading QR bank:", err));
+            }
+          }
+        } catch (offlineErr) {
+          console.error("Offline fetch failed", offlineErr);
+        }
+      } finally {
+        setLoading(false);
+      }
     };
 
-    fetchSettingsAndCompany();
-  }, []);
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        fetchData(user);
+      } else {
+        setLoading(false);
+      }
+    });
+    return () => unsub();
+  }, [id]);
 
   if (loading) {
     return (
@@ -255,10 +289,13 @@ export default function ViewInvoice() {
 
   const totalTaxAmount = invoice.items
     ? invoice.items.reduce((acc, item) => {
-        const taxRate = item.tax || (invoice.gstEnabled ? 18 : 0);
-        const itemAmount = (Number(item.qty) || 0) * (Number(item.price) || 0);
-        const itemTax = itemAmount * (taxRate / 100);
-        return acc + itemTax;
+        // Support both old (tax) and new (gstRate) field names
+        const taxRate = item.gstRate !== undefined ? item.gstRate
+                      : item.tax !== undefined ? item.tax
+                      : 0;
+        const baseAmount = (Number(item.qty) || 0) * (Number(item.price) || 0);
+        const afterItemDiscount = baseAmount * (1 - ((item.discountPct || 0) / 100));
+        return acc + afterItemDiscount * (taxRate / 100);
       }, 0)
     : 0;
 
@@ -269,6 +306,69 @@ export default function ViewInvoice() {
 
   const handleWhatsAppShare = () => {
     setShowWhatsAppModal(true);
+  };
+
+  const handleEmailShare = () => {
+    setIsShareOpen(false);
+    setEmailTo("");
+    setEmailSubject(`Invoice #${invoice?.invoiceNumber || ""} from ${company?.name || "us"}`);
+    setShowEmailModal(true);
+  };
+
+  const handleSendEmail = async () => {
+    const trimmedEmail = emailTo.trim();
+    if (!trimmedEmail) {
+      toast.error("Please enter a recipient email address");
+      return;
+    }
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    if (!emailSubject.trim()) {
+      toast.error("Email subject cannot be empty");
+      return;
+    }
+    try {
+      setEmailSending(true);
+      const htmlBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+          <h2 style="color: #1f2937;">Invoice #${invoice?.invoiceNumber || ""}</h2>
+          <p style="color: #6b7280;">Dear Customer,</p>
+          <p style="color: #6b7280;">Please find your invoice details below:</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+            <tr style="background: #f9fafb;"><th style="padding: 8px; text-align: left; border: 1px solid #e5e7eb;">Description</th><th style="padding: 8px; text-align: right; border: 1px solid #e5e7eb;">Details</th></tr>
+            <tr><td style="padding: 8px; border: 1px solid #e5e7eb;">Invoice Number</td><td style="padding: 8px; text-align: right; border: 1px solid #e5e7eb;">${invoice?.invoiceNumber || ""}</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #e5e7eb;">Customer</td><td style="padding: 8px; text-align: right; border: 1px solid #e5e7eb;">${invoice?.customerName || ""}</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #e5e7eb;">Total Amount</td><td style="padding: 8px; text-align: right; border: 1px solid #e5e7eb; font-weight: bold;">₹${invoice?.total?.toFixed(2) || "0.00"}</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #e5e7eb;">Status</td><td style="padding: 8px; text-align: right; border: 1px solid #e5e7eb; color: ${invoice?.status === 'paid' ? '#059669' : '#d97706'};">${(invoice?.status || "").toUpperCase()}</td></tr>
+          </table>
+          <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">Thank you for your business with <strong>${company?.name || "us"}</strong>.</p>
+        </div>
+      `;
+      const response = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: trimmedEmail,
+          subject: emailSubject.trim(),
+          html: htmlBody,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.error) {
+        throw new Error(result.error || "Email send failed");
+      }
+      toast.success(`Invoice emailed to ${trimmedEmail} ✅`);
+      setShowEmailModal(false);
+    } catch (err: any) {
+      console.error("Email send error:", err);
+      toast.error(err.message || "Failed to send email. Please try again.");
+    } finally {
+      setEmailSending(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -286,6 +386,40 @@ export default function ViewInvoice() {
             })).filter((i: any) => i.id);
             if (itemsToSync.length > 0) {
               await syncInventory(user.uid, itemsToSync, "INCREASE");
+            }
+          }
+          // Revert Cash/Bank transaction & balance
+          if (user && (invoice.invoiceType === "invoice" || !invoice.invoiceType)) {
+            try {
+              const tq = query(
+                collection(db, "cashBankTransactions"),
+                where("userId", "==", user.uid),
+                where("txnNo", "==", invoice.invoiceNumber),
+                where("type", "==", "Sales Invoice")
+              );
+              const tSnap = await getDocs(tq);
+              if (!tSnap.empty) {
+                const oldTxnDoc = tSnap.docs[0];
+                const oldTxn = oldTxnDoc.data();
+                
+                if (oldTxn.received > 0) {
+                  if (oldTxn.accountId === "cash") {
+                    const sRef = doc(db, "settings", user.uid);
+                    const sSnap = await getDoc(sRef);
+                    const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+                    await updateDoc(sRef, { cashInHand: current - oldTxn.received });
+                  } else {
+                    const bRef = doc(db, "bankAccounts", oldTxn.accountId);
+                    const bSnap = await getDoc(bRef);
+                    const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+                    await updateDoc(bRef, { balance: current - oldTxn.received });
+                  }
+                }
+                
+                await deleteDoc(doc(db, "cashBankTransactions", oldTxnDoc.id));
+              }
+            } catch (syncErr) {
+              console.error("Ledger reversion failed on deletion:", syncErr);
             }
           }
           await deleteDoc(doc(db, "invoices", id));
@@ -311,6 +445,127 @@ export default function ViewInvoice() {
       window.print();
     }, 150);
   };
+
+  const triggerDownload = async (format: "a4" | "thermal", label: typeof activeLabel) => {
+    setPrintFormat(format);
+    setActiveLabel(label);
+    setIsDownloadOpen(false);
+    setIsPrintOpen(false);
+    
+    const loadingToast = toast.loading("Generating PDF...");
+
+    // Wait for React state to update the DOM before capturing
+    setTimeout(async () => {
+      try {
+        const sourceEl = document.getElementById("print-container-target");
+        if (!sourceEl) {
+          toast.dismiss(loadingToast);
+          toast.error("Invoice template not found");
+          return;
+        }
+
+        // Clone the hidden print container into a visible off-screen div
+        const clone = sourceEl.cloneNode(true) as HTMLElement;
+        clone.style.cssText = [
+          "display: block !important",
+          "visibility: visible !important",
+          "position: fixed",
+          "top: 0",
+          "left: -9999px",
+          "z-index: -1",
+          format === "thermal"
+            ? `width: ${thermalWidth === "2" ? "210px" : "290px"}`
+            : "width: 794px",    // ~210mm at 96dpi
+          "background: white",
+          "padding: 40px",
+          "box-shadow: none",
+          "border: none",
+        ].join(";");
+
+        // Remove any inner display:none from cloned children
+        clone.querySelectorAll<HTMLElement>("*").forEach((el) => {
+          el.style.removeProperty("display");
+          el.style.visibility = "visible";
+        });
+
+        document.body.appendChild(clone);
+
+        // Inject a style override to neutralize oklch/lab CSS color functions
+        // that html2canvas cannot parse (they are used by Tailwind v4 / modern browsers)
+        const styleOverride = document.createElement("style");
+        styleOverride.textContent = `
+          * {
+            color: inherit !important;
+            background-color: inherit !important;
+            border-color: #e5e7eb !important;
+          }
+          .text-gray-900, h1, h2, h3, strong, b, td, th { color: #111827 !important; }
+          .text-gray-700 { color: #374151 !important; }
+          .text-gray-600 { color: #4b5563 !important; }
+          .text-gray-500 { color: #6b7280 !important; }
+          .text-gray-400 { color: #9ca3af !important; }
+          .text-red-500 { color: #ef4444 !important; }
+          .text-green-600 { color: #16a34a !important; }
+          .text-indigo-600 { color: #4f46e5 !important; }
+          .bg-white { background-color: #ffffff !important; }
+          .bg-gray-50 { background-color: #f9fafb !important; }
+          .bg-gray-100 { background-color: #f3f4f6 !important; }
+        `;
+        clone.appendChild(styleOverride);
+
+        const canvas = await html2canvas(clone, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: "#ffffff",
+          logging: false,
+          width: clone.scrollWidth,
+          height: clone.scrollHeight,
+          onclone: (clonedDoc) => {
+            // Walk every element and replace any property value containing
+            // lab(, oklch(, color( with a safe fallback color
+            clonedDoc.querySelectorAll<HTMLElement>("*").forEach((el) => {
+              const computed = window.getComputedStyle(el);
+              const unsafeProps = ["color", "background-color", "border-color", "outline-color"];
+              unsafeProps.forEach((prop) => {
+                const val = computed.getPropertyValue(prop);
+                if (val && (val.includes("lab(") || val.includes("oklch(") || val.includes("color("))) {
+                  (el.style as any)[prop] = "#000000";
+                }
+              });
+            });
+          },
+        });
+
+        document.body.removeChild(clone);
+
+        const imgData = canvas.toDataURL("image/png");
+        
+        let pdf: jsPDF;
+        if (format === "a4") {
+          pdf = new jsPDF("p", "mm", "a4");
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+          pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+        } else {
+          const tWidth = thermalWidth === "2" ? 58 : 80;
+          const pdfHeight = (canvas.height * tWidth) / canvas.width;
+          pdf = new jsPDF("p", "mm", [tWidth, pdfHeight]);
+          pdf.addImage(imgData, "PNG", 0, 0, tWidth, pdfHeight);
+        }
+
+        pdf.save(`Invoice_${invoice?.invoiceNumber || id}.pdf`);
+        toast.dismiss(loadingToast);
+        toast.success("PDF downloaded successfully! ✅");
+
+      } catch (err) {
+        console.error("PDF generation error:", err);
+        toast.dismiss(loadingToast);
+        toast.error("Failed to generate PDF. Please try again.");
+      }
+    }, 300);
+  };
+
 
   return (
     <div className="flex flex-col flex-1 min-w-0 font-sans bg-gray-50/60 min-h-screen">
@@ -372,6 +627,7 @@ export default function ViewInvoice() {
           `}
         }
       `}</style>
+
 
       {/* ──────────────────────────────────────────────────────── */}
       {/* SCREEN VIEW ONLY CONTAINER */}
@@ -463,7 +719,7 @@ export default function ViewInvoice() {
             <div className="relative">
               <div className="flex items-center">
                 <button 
-                  onClick={() => triggerPrint("a4", "ORIGINAL FOR RECIPIENT")}
+                  onClick={() => triggerDownload("a4", "ORIGINAL FOR RECIPIENT")}
                   className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-900 hover:bg-gray-50 border border-gray-200 border-r-0 px-3 py-1.5 rounded-l-md font-bold transition shadow-3xs"
                 >
                   <Download size={13} />
@@ -478,8 +734,8 @@ export default function ViewInvoice() {
               </div>
               {isDownloadOpen && (
                 <div className="absolute left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-md py-1 w-44 z-50 text-xs font-semibold">
-                  <button onClick={() => triggerPrint("a4", "DUPLICATE FOR TRANSPORTER")} className="w-full text-left px-4 py-2 text-gray-600 hover:bg-gray-50">Download Duplicate</button>
-                  <button onClick={() => triggerPrint("a4", "TRIPLICATE FOR SUPPLIER")} className="w-full text-left px-4 py-2 text-gray-600 hover:bg-gray-50">Download Triplicate</button>
+                  <button onClick={() => triggerDownload("a4", "DUPLICATE FOR TRANSPORTER")} className="w-full text-left px-4 py-2 text-gray-600 hover:bg-gray-50">Download Duplicate</button>
+                  <button onClick={() => triggerDownload("a4", "TRIPLICATE FOR SUPPLIER")} className="w-full text-left px-4 py-2 text-gray-600 hover:bg-gray-50">Download Triplicate</button>
                 </div>
               )}
             </div>
@@ -526,7 +782,7 @@ export default function ViewInvoice() {
                 <ChevronDown size={12} className="text-gray-400" />
               </button>
               {isShareOpen && (
-                <div className="absolute left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-md py-1 w-36 z-50 text-xs font-semibold">
+                <div className="absolute left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-md py-1 w-40 z-50 text-xs font-semibold">
                   <button onClick={handleWhatsAppShare} className="w-full flex items-center gap-2 px-4 py-2 text-brand-tertiary hover:bg-green-50">
                     <FaWhatsapp size={14} />
                     <span>WhatsApp</span>
@@ -534,6 +790,10 @@ export default function ViewInvoice() {
                   <button onClick={() => { setShowSMSModal(true); setIsShareOpen(false); }} className="w-full flex items-center gap-2 px-4 py-2 text-brand-primary hover:bg-blue-50">
                     <FileText size={14} />
                     <span>SMS</span>
+                  </button>
+                  <button onClick={handleEmailShare} className="w-full flex items-center gap-2 px-4 py-2 text-indigo-600 hover:bg-indigo-50">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                    <span>Email</span>
                   </button>
                 </div>
               )}
@@ -656,38 +916,53 @@ export default function ViewInvoice() {
                              className="font-extrabold border-b border-gray-300 uppercase tracking-wider text-[9px]"
                            >
                               <th className="py-2 px-3">ITEMS</th>
-                              <th className="py-2 px-3 text-center">QTY.</th>
-                              <th className="py-2 px-3 text-right">RATE</th>
-                              <th className="py-2 px-3 text-center">TAX</th>
-                              <th className="py-2 px-3 text-right">AMOUNT</th>
+                               <th className="py-2 px-3 text-center">QTY.</th>
+                               <th className="py-2 px-3 text-right">RATE</th>
+                               <th className="py-2 px-3 text-center">TAX</th>
+                               <th className="py-2 px-3 text-right">AMOUNT</th>
                            </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-250 text-gray-700 font-semibold">
                            {invoice.items && invoice.items.map((item, idx) => {
-                             const taxRate = item.tax || (invoice.gstEnabled ? 18 : 0);
-                             return (
-                               <tr key={idx} className="hover:bg-gray-50/30">
-                                  <td className="py-2 px-3">
-                                     <p className="font-bold text-gray-900 uppercase">{item.name}</p>
-                                     {showDescription && <p className="text-[9px] text-gray-400 font-normal mt-0.5">Custom Item Description</p>}
-                                  </td>
-                                  <td className="py-2 px-3 text-center font-mono text-gray-900">
-                                    <span>{item.qty} PCS</span>
-                                    {freeItemQty && <span className="text-brand-tertiary font-bold block text-[9px]">(+0 Free)</span>}
-                                  </td>
-                                  <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
-                                  <td className="py-2 px-3 text-center font-mono text-gray-500">{taxRate}%</td>
-                                  <td className="py-2 px-3 text-right font-bold font-mono text-gray-900">₹{(item.qty * item.price).toFixed(2)}</td>
-                               </tr>
-                             );
-                           })}
+                              const taxRate = item.gstRate !== undefined ? item.gstRate
+                                            : item.tax !== undefined ? item.tax : 0;
+                              const baseAmount = (Number(item.qty) || 0) * (Number(item.price) || 0);
+                              
+                              let itemDiscVal = 0;
+                              let discDisplay = "—";
+                              if ((item as any).discountType === "flat") {
+                                itemDiscVal = Number((item as any).discountValue) || 0;
+                                discDisplay = itemDiscVal > 0 ? `₹${itemDiscVal.toFixed(2)}` : "—";
+                              } else if ((item as any).discountType === "percent" || item.discountPct !== undefined) {
+                                const pct = Number((item as any).discountValue ?? item.discountPct ?? 0);
+                                itemDiscVal = baseAmount * (pct / 100);
+                                discDisplay = pct > 0 ? `${pct}%` : "—";
+                              }
+                              
+                              const afterDiscount = Math.max(0, baseAmount - itemDiscVal);
+                              return (
+                                <tr key={idx} className="hover:bg-gray-50/30">
+                                   <td className="py-2 px-3">
+                                      <p className="font-bold text-gray-900 uppercase">{item.name}</p>
+                                      {item.description && <p className="text-[9px] text-gray-400 font-normal mt-0.5">{item.description}</p>}
+                                   </td>
+                                   <td className="py-2 px-3 text-center font-mono text-gray-900">
+                                     <span>{item.qty} PCS</span>
+                                     {freeItemQty && <span className="text-brand-tertiary font-bold block text-[9px]">(+0 Free)</span>}
+                                   </td>
+                                   <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
+                                   <td className="py-2 px-3 text-center font-mono text-gray-500">{invoice.gstEnabled && taxRate > 0 ? `${taxRate}%` : "—"}</td>
+                                   <td className="py-2 px-3 text-right font-bold font-mono text-gray-900">₹{afterDiscount.toFixed(2)}</td>
+                                </tr>
+                              );
+                            })}
 
-                           {/* SUBTOTAL ROW AT THE BOTTOM OF TABLE */}
+                           {/* SUBTOTAL ROW */}
                            <tr className="bg-gray-50/50 font-bold border-y-2 border-gray-300 text-gray-900 text-[10px]">
-                              <td className="py-2 px-3 text-left uppercase">SUBTOTAL</td>
-                              <td className="py-2 px-3 text-center font-mono">{totalQty} PCS</td>
-                              <td className="py-2 px-3 text-right">-</td>
-                              <td className="py-2 px-3 text-center font-mono">₹{totalTaxAmount.toFixed(2)}</td>
+                               <td className="py-2 px-3 text-left uppercase">SUBTOTAL</td>
+                               <td className="py-2 px-3 text-center font-mono">{totalQty} PCS</td>
+                               <td className="py-2 px-3 text-right">-</td>
+                              <td className="py-2 px-3 text-center font-mono">{invoice.gstEnabled ? `₹${totalTaxAmount.toFixed(2)}` : "-"}</td>
                               <td className="py-2 px-3 text-right font-mono">₹{invoice.subtotal.toFixed(2)}</td>
                            </tr>
                         </tbody>
@@ -700,7 +975,8 @@ export default function ViewInvoice() {
                      {/* Left Column: Terms */}
                      <div className="w-[50%] space-y-3">
                         <div>
-                           <p className="font-extrabold text-gray-500 uppercase tracking-wider">TERMS AND CONDITIONS</p>
+                           
+                            <p className="font-extrabold text-gray-500 uppercase tracking-wider">TERMS AND CONDITIONS</p>
                            <p className="text-gray-500 leading-normal mt-1 font-medium">
                               1. Goods once sold will not be taken back or exchanged.<br/>
                               2. All disputes are subject to [ENTER_YOUR_CITY_NAME] jurisdiction only.
@@ -718,18 +994,18 @@ export default function ViewInvoice() {
                         {invoice.gstEnabled && (
                           invoice.isInterstate ? (
                             <div className="flex justify-between text-gray-500">
-                              <span>IGST (18%)</span>
+                              <span>IGST</span>
                               <span>₹{(invoice.igst || 0).toFixed(2)}</span>
                             </div>
                           ) : (
                             <>
                               <div className="flex justify-between text-gray-500">
-                                <span>CGST @ {(totalTaxAmount > 0 ? (totalTaxAmount / 2 / invoice.subtotal * 100).toFixed(2) : "9")}%</span>
-                                <span>₹{invoice.cgst.toFixed(2)}</span>
+                                <span>CGST</span>
+                                 <span>₹{invoice.cgst.toFixed(2)}</span>
                               </div>
                               <div className="flex justify-between text-gray-500">
-                                <span>SGST @ {(totalTaxAmount > 0 ? (totalTaxAmount / 2 / invoice.subtotal * 100).toFixed(2) : "9")}%</span>
-                                <span>₹{invoice.sgst.toFixed(2)}</span>
+                                <span>SGST</span>
+                                 <span>₹{invoice.sgst.toFixed(2)}</span>
                               </div>
                             </>
                           )
@@ -737,8 +1013,8 @@ export default function ViewInvoice() {
 
                         {invoice.discountAmount > 0 && (
                           <div className="flex justify-between text-brand-tertiary">
-                             <span>Discount</span>
-                             <span>-₹{invoice.discountAmount.toFixed(2)}</span>
+                             <span>Discount {(invoice as any).discountType === "percent" ? `(${(invoice as any).discountValue}%)` : ""}</span>
+                              <span>-₹{invoice.discountAmount.toFixed(2)}</span>
                           </div>
                         )}
 
@@ -874,7 +1150,7 @@ export default function ViewInvoice() {
       {/* ======================================================== */}
       {/* PRINT-ONLY MASTER CONTAINER (Toggled by window.print()) */}
       {/* ======================================================== */}
-      <div className="print-only-container">
+      <div id="print-container-target" className="print-only-container">
         {printFormat === "a4" ? (
           
           /* A4 Print Document */
@@ -956,31 +1232,34 @@ export default function ViewInvoice() {
                             className="font-extrabold border-b border-gray-300 uppercase tracking-wider text-[9px]"
                           >
                             <th className="py-2 px-3">ITEMS</th>
-                            <th className="py-2 px-3 text-center">QTY.</th>
-                            <th className="py-2 px-3 text-right">RATE</th>
-                            <th className="py-2 px-3 text-center">TAX</th>
-                            <th className="py-2 px-3 text-right">AMOUNT</th>
+                               <th className="py-2 px-3 text-center">QTY.</th>
+                               <th className="py-2 px-3 text-right">RATE</th>
+                               <th className="py-2 px-3 text-center">TAX</th>
+                               <th className="py-2 px-3 text-right">AMOUNT</th>
                          </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-250 text-gray-700 font-semibold">
                          {invoice.items && invoice.items.map((item, idx) => {
-                           const taxRate = item.tax || (invoice.gstEnabled ? 18 : 0);
-                           return (
-                             <tr key={idx} className="hover:bg-gray-50/30">
-                                <td className="py-2 px-3">
-                                   <p className="font-bold text-gray-900 uppercase">{item.name}</p>
-                                   {showDescription && <p className="text-[9px] text-gray-400 font-normal mt-0.5">Custom Item Description</p>}
-                                </td>
-                                <td className="py-2 px-3 text-center font-mono text-gray-900">
-                                  <span>{item.qty} PCS</span>
-                                  {freeItemQty && <span className="text-brand-tertiary font-bold block text-[9px]">(+0 Free)</span>}
-                                </td>
-                                <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
-                                <td className="py-2 px-3 text-center font-mono text-gray-500">{taxRate}%</td>
-                                <td className="py-2 px-3 text-right font-bold font-mono text-gray-900">₹{(item.qty * item.price).toFixed(2)}</td>
-                             </tr>
-                           );
-                         })}
+                              const taxRate = item.gstRate !== undefined ? item.gstRate
+                                            : item.tax !== undefined ? item.tax : 0;
+                              const baseAmount = (Number(item.qty) || 0) * (Number(item.price) || 0);
+                              const afterDiscount = baseAmount * (1 - ((item.discountPct || 0) / 100));
+                              return (
+                                <tr key={idx} className="hover:bg-gray-50/30">
+                                   <td className="py-2 px-3">
+                                      <p className="font-bold text-gray-900 uppercase">{item.name}</p>
+                                      {item.description && <p className="text-[9px] text-gray-400 font-normal mt-0.5">{item.description}</p>}
+                                   </td>
+                                   <td className="py-2 px-3 text-center font-mono text-gray-900">
+                                     <span>{item.qty} PCS</span>
+                                     {freeItemQty && <span className="text-brand-tertiary font-bold block text-[9px]">(+0 Free)</span>}
+                                   </td>
+                                   <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
+                                   <td className="py-2 px-3 text-center font-mono text-gray-500">{invoice.gstEnabled && taxRate > 0 ? `${taxRate}%` : "—"}</td>
+                                   <td className="py-2 px-3 text-right font-bold font-mono text-gray-900">₹{afterDiscount.toFixed(2)}</td>
+                                </tr>
+                              );
+                            })}
 
                          {/* SUBTOTAL ROW AT THE BOTTOM OF TABLE */}
                          <tr className="bg-gray-50/50 font-bold border-y-2 border-gray-300 text-gray-900 text-[10px]">
@@ -1018,18 +1297,18 @@ export default function ViewInvoice() {
                       {invoice.gstEnabled && (
                         invoice.isInterstate ? (
                           <div className="flex justify-between text-gray-500">
-                            <span>IGST (18%)</span>
+                            <span>IGST</span>
                             <span>₹{(invoice.igst || 0).toFixed(2)}</span>
                           </div>
                         ) : (
                           <>
                             <div className="flex justify-between text-gray-500">
-                              <span>CGST @ {(totalTaxAmount > 0 ? (totalTaxAmount / 2 / invoice.subtotal * 100).toFixed(2) : "9")}%</span>
-                              <span>₹{invoice.cgst.toFixed(2)}</span>
+                              <span>CGST</span>
+                                 <span>₹{invoice.cgst.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-gray-500">
-                              <span>SGST @ {(totalTaxAmount > 0 ? (totalTaxAmount / 2 / invoice.subtotal * 100).toFixed(2) : "9")}%</span>
-                              <span>₹{invoice.sgst.toFixed(2)}</span>
+                              <span>SGST</span>
+                                 <span>₹{invoice.sgst.toFixed(2)}</span>
                             </div>
                           </>
                         )
@@ -1037,8 +1316,8 @@ export default function ViewInvoice() {
 
                       {invoice.discountAmount > 0 && (
                         <div className="flex justify-between text-brand-tertiary">
-                           <span>Discount</span>
-                           <span>-₹{invoice.discountAmount.toFixed(2)}</span>
+                           <span>Discount {(invoice as any).discountType === "percent" ? `(${(invoice as any).discountValue}%)` : ""}</span>
+                              <span>-₹{invoice.discountAmount.toFixed(2)}</span>
                         </div>
                       )}
 
@@ -1238,6 +1517,72 @@ export default function ViewInvoice() {
           message={`Dear ${invoice?.customerName},\n\nYour Invoice has been generated.\n\nTotal Amount: *₹${invoice?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
           onClose={() => setShowWhatsAppModal(false)}
         />
+      )}
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
+            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+              <div className="flex items-center gap-2">
+                <svg className="text-indigo-600" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                <h2 className="text-sm font-bold text-gray-800">Email Invoice</h2>
+              </div>
+              <button onClick={() => setShowEmailModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                  Recipient Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  placeholder="e.g. customer@gmail.com"
+                  value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSendEmail(); }}
+                  className="w-full border border-gray-200 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                  Subject <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Email subject"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="w-full border border-gray-200 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+              <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-[10px] text-indigo-700 leading-relaxed">
+                📄 Invoice <strong>#{invoice?.invoiceNumber}</strong> · Customer: <strong>{invoice?.customerName}</strong> · Total: <strong>₹{invoice?.total?.toFixed(2)}</strong>
+              </div>
+            </div>
+            <div className="px-5 py-3 bg-gray-50 border-t border-gray-200 flex justify-end gap-2">
+              <button
+                onClick={() => setShowEmailModal(false)}
+                className="px-4 py-1.5 border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendEmail}
+                disabled={emailSending}
+                className="px-5 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+              >
+                {emailSending ? (
+                  <><svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Sending...</>
+                ) : (
+                  <>Send Email</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

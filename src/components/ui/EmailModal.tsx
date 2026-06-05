@@ -1,0 +1,176 @@
+"use client";
+
+import React, { useState } from "react";
+import { X } from "lucide-react";
+import toast from "react-hot-toast";
+
+type EmailModalProps = {
+  onClose: () => void;
+  customerName: string;
+  documentType: string; // e.g. "Invoice", "Quotation", "Delivery Challan"
+  documentNumber: string;
+  totalAmount: number;
+  companyName: string;
+  defaultEmail?: string;
+};
+
+export default function EmailModal({
+  onClose,
+  customerName,
+  documentType,
+  documentNumber,
+  totalAmount,
+  companyName,
+  defaultEmail = "",
+}: EmailModalProps) {
+  const [to, setTo] = useState(defaultEmail);
+  const [subject, setSubject] = useState(`${documentType} #${documentNumber} from ${companyName || "us"}`);
+  const [sending, setSending] = useState(false);
+
+  const handleSend = async () => {
+    const trimmedTo = to.trim();
+    if (!trimmedTo) {
+      toast.error("Please enter a recipient email address");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedTo)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    if (!subject.trim()) {
+      toast.error("Email subject cannot be empty");
+      return;
+    }
+
+    try {
+      setSending(true);
+
+      const htmlBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+          <h2 style="color: #1f2937;">${documentType} #${documentNumber}</h2>
+          <p style="color: #6b7280;">Dear Customer,</p>
+          <p style="color: #6b7280;">Please find details of your ${documentType.toLowerCase()} below:</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+            <tr style="background: #f9fafb;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #e5e7eb;">Description</th>
+              <th style="padding: 8px; text-align: right; border: 1px solid #e5e7eb;">Details</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #e5e7eb;">${documentType} Number</td>
+              <td style="padding: 8px; text-align: right; border: 1px solid #e5e7eb;">${documentNumber}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #e5e7eb;">Customer</td>
+              <td style="padding: 8px; text-align: right; border: 1px solid #e5e7eb;">${customerName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #e5e7eb;">Total Amount</td>
+              <td style="padding: 8px; text-align: right; border: 1px solid #e5e7eb; font-weight: bold;">₹${totalAmount.toFixed(2)}</td>
+            </tr>
+          </table>
+          <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">Thank you for your business with <strong>${companyName || "us"}</strong>.</p>
+        </div>
+      `;
+
+      const response = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: trimmedTo,
+          subject: subject.trim(),
+          html: htmlBody,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok || result.error) {
+        throw new Error(result.error || "Email send failed");
+      }
+
+      toast.success(`${documentType} emailed successfully to ${trimmedTo} ✅`);
+      onClose();
+    } catch (err: any) {
+      console.error("Email send error:", err);
+      toast.error(err.message || "Failed to send email. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
+        <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+          <div className="flex items-center gap-2">
+            <svg className="text-indigo-600" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect width="20" height="16" x="2" y="4" rx="2" />
+              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+            </svg>
+            <h2 className="text-sm font-bold text-gray-800">Email {documentType}</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+              Recipient Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              placeholder="e.g. customer@gmail.com"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSend(); }}
+              className="w-full border border-gray-200 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+              Subject <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="Email subject"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="w-full border border-gray-200 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+          <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-[10px] text-indigo-700 leading-relaxed">
+            📄 {documentType} <strong>#{documentNumber}</strong> · Customer: <strong>{customerName}</strong> · Total: <strong>₹{totalAmount.toFixed(2)}</strong>
+          </div>
+        </div>
+        <div className="px-5 py-3 bg-gray-50 border-t border-gray-200 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-1.5 border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSend}
+            disabled={sending}
+            className="px-5 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+          >
+            {sending ? (
+              <>
+                <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+                Sending...
+              </>
+            ) : (
+              <>Send Email</>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

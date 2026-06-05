@@ -21,6 +21,7 @@ import {
 import Link from "next/link";
 import toast from "react-hot-toast";
 import WhatsAppModal from "@/components/ui/WhatsAppModal";
+import EmailModal from "@/components/ui/EmailModal";
 import SMSModal from "@/components/ui/SMSModal";
 import { syncInventory } from "@/lib/inventorySync";
 
@@ -99,6 +100,7 @@ export default function ViewCreditNote() {
   const [purchaseReturn, setCreditNote] = useState<CreditNote | null>(null);
   const [loading, setLoading] = useState(true);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const [showSMSModal, setShowSMSModal] = useState(false);
 
   const [accentColor, setAccentColor] = useState("#4F46E5");
@@ -685,6 +687,18 @@ export default function ViewCreditNote() {
           existingPhone={purchaseReturn?.customerPhone}
           message={`Dear ${purchaseReturn?.customerName},\n\nYour Purchase Return has been generated.\n\nTotal Amount: *₹${purchaseReturn?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
           onClose={() => setShowWhatsAppModal(false)}
+        />
+      )}
+
+      {showEmailModal && (
+        <EmailModal
+          onClose={() => setShowEmailModal(false)}
+          customerName={purchaseReturn?.customerName || "Customer"}
+          documentType={"Purchase Return"}
+          documentNumber={purchaseReturn?.purchaseReturnNumber || "1"}
+          totalAmount={purchaseReturn?.total || 0}
+          companyName={company?.name || "us"}
+          defaultEmail=""
         />
       )}
     </div>

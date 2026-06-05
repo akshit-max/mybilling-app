@@ -8,6 +8,7 @@ import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { ArrowLeft, Settings, Landmark } from "lucide-react";
+import { INDIAN_STATES } from "@/lib/constants";
 
 export default function EditPartyPage() {
   const { id } = useParams() as { id: string };
@@ -49,6 +50,7 @@ export default function EditPartyPage() {
   
   const [billingAddress, setBillingAddress] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
+  const [state, setState] = useState("");
   const [sameAsBilling, setSameAsBilling] = useState(true);
 
   const [creditPeriod, setCreditPeriod] = useState("30");
@@ -82,6 +84,7 @@ export default function EditPartyPage() {
           setCategory(data.category || "");
           setBillingAddress(data.billingAddress || data.address || "");
           setShippingAddress(data.shippingAddress || "");
+          setState(data.state || "");
           setSameAsBilling(data.sameAsBilling !== undefined ? data.sameAsBilling : true);
           setCreditPeriod(String(data.creditPeriod || 30));
           setCreditLimit(String(data.creditLimit || 0));
@@ -169,6 +172,7 @@ export default function EditPartyPage() {
         contactPersonDob,
         // Keep these fields for backward compatibility with old logic
         address: billingAddress.trim(),
+        state: state.trim(),
       };
 
       // Add bank details if provided
@@ -430,6 +434,23 @@ export default function EditPartyPage() {
                   onChange={(e) => setShippingAddress(e.target.value)}
                   className="w-full border border-gray-200 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
                 ></textarea>
+              </div>
+
+              {/* State */}
+              <div className="md:col-span-2">
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1">
+                  STATE
+                </label>
+                <select 
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  className="w-full border border-gray-200 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 bg-white text-gray-700 font-semibold"
+                >
+                  <option value="">Select State</option>
+                  {INDIAN_STATES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
               </div>
 
             </div>

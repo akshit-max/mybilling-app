@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { db, auth } from "@/lib/firebase";
 import { doc, getDoc, Timestamp } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -16,6 +17,10 @@ type Item = {
   name: string;
   qty: number;
   price: number;
+  hsn?: string;
+  discountType?: string;
+  discountValue?: number;
+  discountPct?: number;
 };
 
 type Invoice = {
@@ -62,9 +67,21 @@ export default function ThermalReceipt() {
   const [loading, setLoading] =
     useState(true);
 
-  /* FETCH INVOICE */
+  /* FETCH INVOICE & COMPANY IN SYNC */
   useEffect(() => {
-    const fetchInvoice = async () => {
+    const fetchData = async (user: any) => {
+      // 1. Fetch Company
+      try {
+        const ref = doc(db, "settings", user.uid);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          setCompany(snap.data() as Company);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
+      // 2. Fetch Invoice
       try {
         const ref = doc(db, "invoices", id);
         const snap = await getDoc(ref);
@@ -79,7 +96,7 @@ export default function ThermalReceipt() {
         console.warn("Falling back to offline invoices", err);
         try {
           const { getOfflineInvoices } = await import("@/lib/offlineInvoices");
-          const offlineInvoices = await getOfflineInvoices(auth.currentUser?.uid);
+          const offlineInvoices = await getOfflineInvoices(user.uid);
           const foundOffline = offlineInvoices.find(
             (inv: any) =>
               inv.id?.toString() === id || inv.invoiceNumber === id
@@ -96,35 +113,15 @@ export default function ThermalReceipt() {
       }
     };
 
-    fetchInvoice();
-  }, [id]);
-
-  /* FETCH COMPANY */
-  useEffect(() => {
-    const fetchCompany = async () => {
-      try {
-        const user = auth.currentUser;
-
-        if (!user) return;
-
-        const ref = doc(
-          db,
-          "settings",
-          user.uid
-        );
-
-        const snap = await getDoc(ref);
-
-        if (snap.exists()) {
-          setCompany(snap.data() as Company);
-        }
-      } catch (err) {
-        console.error(err);
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        fetchData(user);
+      } else {
+        setLoading(false);
       }
-    };
-
-    fetchCompany();
-  }, []);
+    });
+    return () => unsub();
+  }, [id]);
 
   if (loading) {
     return (
@@ -278,36 +275,54 @@ export default function ThermalReceipt() {
           {/* ITEMS */}
           <div className="space-y-4">
 
-            {invoice.items.map((item, i) => (
-              <div
-                key={i}
-                className="space-y-1.5"
-              >
+            {invoice.items.map((item, i) => {
+              const baseAmount = (Number(item.qty) || 0) * (Number(item.price) || 0);
+              let itemDiscVal = 0;
+              let discDisplay = "";
+              
+              if (item.discountType === "flat") {
+                itemDiscVal = Number(item.discountValue) || 0;
+                if (itemDiscVal > 0) discDisplay = `₹${itemDiscVal.toFixed(2)}`;
+              } else if (item.discountType === "percent" || item.discountPct !== undefined) {
+                const pct = Number(item.discountValue ?? item.discountPct ?? 0);
+                itemDiscVal = baseAmount * (pct / 100);
+                if (pct > 0) discDisplay = `${pct}%`;
+              }
+              
+              const afterDiscount = Math.max(0, baseAmount - itemDiscVal);
+              
+              return (
+                <div
+                  key={i}
+                  className="space-y-1.5"
+                >
+                  <div className="flex justify-between items-start gap-3 text-sm">
+                    <span className="text-gray-900 break-words font-medium">
+                      {item.name}
+                    </span>
+                    <span className="font-semibold text-gray-900 tabular-nums whitespace-nowrap">
+                      ₹{afterDiscount.toFixed(2)}
+                    </span>
+                  </div>
 
-                <div className="flex justify-between items-start gap-3 text-sm">
-
-                  <span className="text-gray-900 break-words">
-                    {item.name}
-                  </span>
-
-                  <span className="font-semibold text-gray-900 tabular-nums whitespace-nowrap">
-                    ₹
-                    {(
-                      item.qty * item.price
-                    ).toFixed(2)}
-                  </span>
-
+                  <div className="flex flex-wrap justify-between text-xs text-gray-500 gap-x-2">
+                    <div>
+                      {item.qty} × ₹{item.price}
+                      {discDisplay && (
+                        <span className="ml-1.5 text-purple-600 font-medium">
+                          (Disc: -{discDisplay})
+                        </span>
+                      )}
+                    </div>
+                    {item.hsn && (
+                      <span className="font-mono text-[10px] text-gray-400">
+                        HSN: {item.hsn}
+                      </span>
+                    )}
+                  </div>
                 </div>
-
-                <div className="text-xs text-gray-500">
-                  {item.qty}
-                  {" × "}
-                  ₹
-                  {item.price}
-                </div>
-
-              </div>
-            ))}
+              );
+            })}
 
           </div>
 

@@ -24,3 +24,25 @@ export const sanitizeNumericInput = (value: string | number): string | number =>
   
   return sanitized;
 };
+
+/**
+ * Recursively cleans undefined properties from any object or array.
+ * Required because Firestore throws exceptions for any undefined fields.
+ */
+export const cleanUndefined = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefined);
+  } else if (obj !== null && typeof obj === "object") {
+    if (obj instanceof Date) {
+      return obj;
+    }
+    const newObj: any = {};
+    for (const key of Object.keys(obj)) {
+      if (obj[key] !== undefined) {
+        newObj[key] = cleanUndefined(obj[key]);
+      }
+    }
+    return newObj;
+  }
+  return obj;
+};

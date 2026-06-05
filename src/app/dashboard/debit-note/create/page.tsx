@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Settings2, ScanBarcode, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Settings2, ScanBarcode, Plus, Trash2, Landmark, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc, setDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
@@ -63,6 +63,12 @@ export default function CreateCreditNote() {
   const [linkedInvoiceNumber, setLinkedInvoiceNumber] = useState("");
   
   const [amountReceived, setAmountReceived] = useState<number | string>(0);
+  const [paymentMode, setPaymentMode] = useState("Cash");
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState("");
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [newBank, setNewBank] = useState({ name: "", balance: "", asOfDate: new Date().toISOString().split("T")[0], accountNumber: "", reAccountNumber: "", ifsc: "", bankName: "", branchName: "", upiId: "", addDetails: false });
+  const [addingBank, setAddingBank] = useState(false);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -120,6 +126,18 @@ export default function CreateCreditNote() {
         const cnsnap = await getDocs(cnq);
         setCreditNoteNumber((cnsnap.size + 1).toString());
 
+        const bq = query(collection(db, "bankAccounts"), where("userId", "==", user.uid));
+        const bsnap = await getDocs(bq);
+        const bList = bsnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        setBankAccounts(bList);
+        if (bList.length > 0) {
+          const active = bList.find((b: any) => b.status !== "inactive") || bList[0];
+          setSelectedBankId(active.id);
+        }
+
+        const settingsSnap = await getDoc(doc(db, "settings", user.uid));
+        if (settingsSnap.exists()) setCompanyState((settingsSnap.data().state || "").trim());
+
       } catch (err) {
         toast.error("Failed to load data");
       } finally {
@@ -132,6 +150,59 @@ export default function CreateCreditNote() {
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (paymentMode !== "Cash" && !selectedBankId && bankAccounts.length > 0) {
+      const active = bankAccounts.find((b: any) => b.status !== "inactive") || bankAccounts[0];
+      setSelectedBankId(active.id);
+    }
+  }, [paymentMode, bankAccounts, selectedBankId]);
+
+  const handleSaveBank = async () => {
+    if (!newBank.name.trim()) return toast.error("Account Name is required");
+    const user = auth.currentUser;
+    if (!user) return toast.error("Not logged in");
+    try {
+      setAddingBank(true);
+      const bankId = uuidv4();
+      const bankData = { userId: user.uid, name: newBank.name.trim(), balance: Number(newBank.balance) || 0, asOfDate: newBank.asOfDate, accountNumber: newBank.addDetails ? newBank.accountNumber.trim() : "", ifsc: newBank.addDetails ? newBank.ifsc.trim().toUpperCase() : "", bankName: newBank.addDetails ? newBank.bankName.trim() : "", branchName: newBank.addDetails ? newBank.branchName.trim() : "", upiId: newBank.upiId.trim(), status: "active", createdAt: new Date() };
+      await setDoc(doc(db, "bankAccounts", bankId), bankData);
+      setBankAccounts([...bankAccounts, { id: bankId, ...bankData }]);
+      setSelectedBankId(bankId);
+      setShowBankModal(false);
+      setNewBank({ name: "", balance: "", asOfDate: new Date().toISOString().split("T")[0], accountNumber: "", reAccountNumber: "", ifsc: "", bankName: "", branchName: "", upiId: "", addDetails: false });
+      toast.success("Bank Account added! 🏦");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add bank account");
+    } finally {
+      setAddingBank(false);
+    }
+  };
+
+  // Resolve custom party-wise prices when customer changes
+  useEffect(() => {
+    if (!customerName) return;
+    setItems(prevItems =>
+      prevItems.map(item => {
+        if (!item.productId) return item;
+        const prod = products.find(p => p.id === item.productId);
+        if (!prod) return item;
+        let resolvedPrice = prod.price;
+        if (customerName && Array.isArray((prod as any).partyPrices)) {
+          const customPriceObj = (prod as any).partyPrices.find(
+            (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+          );
+          if (customPriceObj) {
+            resolvedPrice = Number(customPriceObj.price) || prod.price;
+          }
+        }
+        return {
+          ...item,
+          price: resolvedPrice
+        };
+      })
+    );
+  }, [customerName, products]);
 
   const validItems = items.filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0).map((i) => ({ ...i, qty: Number(i.qty), price: Number(i.price) }));
   const selectedCustomer = customers.find((c) => c.name === customerName);
@@ -186,6 +257,8 @@ export default function CreateCreditNote() {
         igst: calc.igst,
         status: Number(amountReceived) >= finalTotal ? "adjusted" : "issued",
         amountReceived: Number(amountReceived),
+        paymentMode,
+        selectedBankId: paymentMode === "Cash" ? "" : selectedBankId,
         createdAt: new Date(),
         notes,
         additionalChargeName,
@@ -197,6 +270,45 @@ export default function CreateCreditNote() {
       };
 
       await addDoc(collection(db, "debitNotes"), data);
+
+      // Sync Cash & Bank ledger — Debit Note = customer pays = money IN
+      const amountNum = Number(amountReceived);
+      if (amountNum > 0) {
+        try {
+          const isCash = paymentMode === "Cash";
+          let newBalance = 0;
+          if (isCash) {
+            const sRef = doc(db, "settings", user.uid);
+            const sSnap = await getDoc(sRef);
+            const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+            newBalance = current + amountNum;
+            await updateDoc(sRef, { cashInHand: newBalance });
+          } else if (selectedBankId) {
+            const bRef = doc(db, "bankAccounts", selectedBankId);
+            const bSnap = await getDoc(bRef);
+            const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+            newBalance = current + amountNum;
+            await updateDoc(bRef, { balance: newBalance });
+          }
+          await addDoc(collection(db, "cashBankTransactions"), {
+            userId: user.uid,
+            accountId: isCash ? "cash" : (selectedBankId || "bank"),
+            type: "Debit Note",
+            txnNo: debitNoteNumber,
+            date: debitNoteDate,
+            party: customerName,
+            mode: isCash ? "Cash" : "Bank",
+            paid: 0,
+            received: amountNum,
+            balanceAfter: newBalance,
+            remarks: `Payment against Debit Note #${debitNoteNumber}`,
+            createdAt: new Date()
+          });
+        } catch (cashErr) {
+          console.error("Cash/Bank ledger update failed:", cashErr);
+        }
+      }
+
       toast.success("Debit Note created successfully!");
       router.push("/dashboard/debit-note");
     } catch (err) {
@@ -317,14 +429,23 @@ export default function CreateCreditNote() {
                         onChange={(e) => {
                           const found = products.find(p => p.id === e.target.value);
                           if (found) {
+                            let resolvedPrice = found.price;
+                            if (customerName && Array.isArray((found as any).partyPrices)) {
+                              const customPriceObj = (found as any).partyPrices.find(
+                                (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+                              );
+                              if (customPriceObj) {
+                                resolvedPrice = Number(customPriceObj.price) || found.price;
+                              }
+                            }
                             const updated = [...items];
                             updated[idx] = {
                               ...updated[idx],
                               productId: found.id,
                               name: found.name,
-                              price: found.price,
+                              price: resolvedPrice,
                               qty: 1,
-                              gstRate: found.gst || 18,
+                              gstRate: found.gst ?? 18,
                               hsn: found.hsnCode || "",
                               description: ""
                             };
@@ -438,19 +559,70 @@ export default function CreateCreditNote() {
               <span className="font-extrabold text-indigo-700 text-xl font-mono">₹{finalTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
             </div>
 
-            <div className="space-y-2 pt-2 border-t border-gray-100">
+            <div className="space-y-3 pt-2 border-t border-gray-100">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Amount Received / Adjusted</span>
                 <label className="flex items-center gap-1 text-[10px] font-bold text-gray-500"><input type="checkbox" checked={Number(amountReceived) >= finalTotal} onChange={(e) => handleMarkFullyPaid(e.target.checked)} /> Mark as fully paid</label>
               </div>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
-                <input type="text" value={amountReceived} onChange={(e) => setAmountReceived(sanitizeNumericInput(e.target.value))} className="w-full border border-gray-200 rounded px-8 py-2 text-sm focus:outline-none focus:border-indigo-500 font-bold font-mono text-gray-800" />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-xs">₹</span>
+                  <input type="text" value={amountReceived} onChange={(e) => setAmountReceived(sanitizeNumericInput(e.target.value))} className="w-full border border-gray-200 rounded pl-7 pr-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-gray-800" />
+                </div>
+                <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white font-semibold text-gray-600">
+                  <option value="Cash">Cash</option>
+                  <option value="Bank">Bank</option>
+                </select>
               </div>
+              {paymentMode !== "Cash" && (
+                <div className="space-y-1 pt-1 border-t border-dashed border-gray-150">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider">Bank Account</label>
+                    <button onClick={() => setShowBankModal(true)} type="button" className="text-indigo-600 text-[10px] font-bold uppercase hover:underline">+ Add Bank</button>
+                  </div>
+                  <select value={selectedBankId} onChange={(e) => setSelectedBankId(e.target.value)} className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white font-semibold text-gray-600">
+                    <option value="">No Active Account Selected</option>
+                    {bankAccounts.filter((b: any) => b.status !== "inactive").map(bank => (
+                      <option key={bank.id} value={bank.id}>{bank.name} (A/C: {bank.accountNumber || "UPI Profile"})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </main>
+
+      {showBankModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5"><Landmark size={14} className="text-indigo-500" /> Add Bank Account</span>
+              <button onClick={() => setShowBankModal(false)} className="p-1 text-gray-400 hover:text-gray-700"><X size={15} /></button>
+            </div>
+            <div className="p-5 space-y-4 text-xs text-gray-600">
+              <div>
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Account Name *</label>
+                <input type="text" placeholder="e.g. Personal Bank Account" value={newBank.name} onChange={(e) => setNewBank({ ...newBank, name: e.target.value })} className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Opening Balance</label>
+                  <input type="number" placeholder="₹ 0.00" value={newBank.balance} onChange={(e) => setNewBank({ ...newBank, balance: e.target.value })} className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono" />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">As Of Date</label>
+                  <input type="date" value={newBank.asOfDate} onChange={(e) => setNewBank({ ...newBank, asOfDate: e.target.value })} className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500" />
+                </div>
+              </div>
+              <div className="border-t border-gray-100 pt-3 flex justify-end gap-2">
+                <button type="button" onClick={() => setShowBankModal(false)} className="text-xs text-gray-500 border border-gray-300 bg-white px-4 py-1.5 rounded hover:bg-gray-50 font-semibold">Cancel</button>
+                <button type="button" onClick={handleSaveBank} disabled={addingBank} className="text-xs text-white bg-indigo-600 px-5 py-1.5 rounded hover:bg-indigo-700 font-semibold disabled:opacity-50">{addingBank ? "Saving..." : "Save Bank"}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -227,6 +227,92 @@ export default function GSTR2ReportPage() {
     setShowDownloadMenu(false);
   };
 
+  const handleEmailReport = async () => {
+    if (!emailData.to.trim()) {
+      toast.error("Please enter your Email ID");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailData.to.trim())) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    if (emailData.cc && !emailRegex.test(emailData.cc.trim())) {
+      toast.error("Please enter a valid CA email address");
+      return;
+    }
+
+    if (filteredData.length === 0) {
+      toast.error("No data to email");
+      return;
+    }
+
+    const headers = [
+      "GSTIN/UIN OF RECIPIENT", "RECEIVERS NAME", "INVOICE NUMBER", 
+      "INVOICE DATE", "INVOICE VALUE", "PLACE OF SUPPLY", "REVERSE CHARGE", 
+      "APPLICABLE TAX %", "INVOICE TYPE", "ECOMMERCE GSTIN", "RATE", 
+      "TAXABLE VALUE", "CESS AMOUNT"
+    ];
+    
+    const rows = filteredData.map(item => [
+      item.customerGSTIN || "-",
+      item.customerName || "-",
+      item.purchaseInvoiceNumber || "-",
+      item.date || "-",
+      item.total.toFixed(2),
+      item.placeOfSupply,
+      "N",
+      "-",
+      item.type === "invoice" ? "Regular" : "Credit Note",
+      "-",
+      item.items?.[0]?.gstRate || "-",
+      item.subtotal.toFixed(2),
+      "-"
+    ]);
+
+    const tableHTML = `
+      <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2 style="color: #1e3a8a;">GSTR-2 (Sales) Report - ${activeTab}</h2>
+        <table style="border-collapse: collapse; width: 100%; margin-top: 16px;">
+          <thead>
+            <tr style="background-color: #f3f4f6; color: #111827;">
+              ${headers.map(h => `<th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-weight: bold;">${h}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(cell => `<td style="border: 1px solid #e5e7eb; padding: 6px; color: #374151;">${cell}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    const emails = [emailData.to.trim(), emailData.cc?.trim()].filter(Boolean);
+
+    await toast.promise(
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: emails,
+          subject: `GSTR-2 Report - ${activeTab}`,
+          html: tableHTML
+        })
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Email send failed");
+        return data;
+      }),
+      {
+        loading: 'Generating and emailing JSON report...',
+        success: `Report sent successfully to ${emailData.to}! 📧`,
+        error: (err) => err.message || 'Failed to send email.',
+      }
+    );
+
+    setShowEmailModal(false);
+    setEmailData({ to: "", cc: "" });
+  };
+
   const tabs = ["B2B", "B2CL", "B2CS", "CDNR", "CDNUR", "EXEMP", "HSN"];
 
   return (
@@ -457,23 +543,7 @@ export default function GSTR2ReportPage() {
                 Cancel
               </button>
               <button 
-                onClick={() => {
-                  if (!emailData.to) {
-                    toast.error("Please enter your Email ID");
-                    return;
-                  }
-                  toast.promise(
-                    new Promise((resolve) => setTimeout(resolve, 1500)),
-                    {
-                      loading: 'Generating and emailing JSON report...',
-                      success: `Report sent successfully to ${emailData.to}! 📧`,
-                      error: 'Failed to send email.',
-                    }
-                  ).then(() => {
-                    setShowEmailModal(false);
-                    setEmailData({ to: "", cc: "" });
-                  });
-                }}
+                onClick={handleEmailReport}
                 className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded text-sm font-bold hover:bg-indigo-200 transition-colors"
               >
                 Send Report

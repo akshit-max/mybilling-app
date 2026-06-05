@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Printer, Download, Share2, Edit, Trash2, ChevronDown } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { doc, getDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, deleteDoc, updateDoc, query, collection, where, getDocs } from "firebase/firestore";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -20,6 +20,7 @@ type PaymentOut = {
   partyName: string;
   paymentDate: string;
   paymentMode: string;
+  selectedBankId?: string;
   amountPaid: number;
   paymentDiscount: number;
   notes: string;
@@ -58,14 +59,70 @@ export default function PaymentOutReceipt() {
   }, [id]);
 
   const handleDelete = async () => {
-    if (confirm("Are you sure you want to delete this payment record? Note: This will not automatically un-settle the associated purchases.")) {
+    if (!payment) return;
+    if (confirm("Are you sure you want to delete this payment record? This will revert the settled amounts on associated purchases and adjust Cash/Bank balances.")) {
       try {
+        const user = auth.currentUser;
+        if (!user) return toast.error("Authentication required");
+
+        // 1. Revert Purchase balances
+        const settledInvoices = payment.settledInvoices || [];
+        for (const item of settledInvoices) {
+          const invRef = doc(db, "purchases", item.invoiceId);
+          const invSnap = await getDoc(invRef);
+          if (invSnap.exists()) {
+            const invData = invSnap.data();
+            const originalAmountPaid = Number(invData.amountPaid || 0);
+            const newAmountPaid = Math.max(0, originalAmountPaid - item.amountSettled);
+            const isFullyPaid = newAmountPaid >= Number(invData.total || 0);
+            
+            await updateDoc(invRef, {
+              amountPaid: newAmountPaid,
+              status: isFullyPaid ? "paid" : "pending"
+            });
+          }
+        }
+
+        // 2. Revert Cash/Bank balance (add back since it was paid out)
+        const rcv = Number(payment.amountPaid || 0);
+        if (rcv > 0) {
+          const isCash = payment.paymentMode === "Cash";
+          const accountId = payment.selectedBankId || (isCash ? "cash" : "bank");
+          
+          if (accountId === "cash") {
+            const sRef = doc(db, "settings", user.uid);
+            const sSnap = await getDoc(sRef);
+            const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+            await updateDoc(sRef, { cashInHand: current + rcv });
+          } else {
+            const bRef = doc(db, "bankAccounts", accountId);
+            const bSnap = await getDoc(bRef);
+            if (bSnap.exists()) {
+              const current = Number(bSnap.data().balance || 0);
+              await updateDoc(bRef, { balance: current + rcv });
+            }
+          }
+        }
+
+        // 3. Delete cashBankTransactions entry
+        const tq = query(
+          collection(db, "cashBankTransactions"),
+          where("userId", "==", user.uid),
+          where("txnNo", "==", payment.paymentNumber),
+          where("type", "==", "Payment Out")
+        );
+        const tSnap = await getDocs(tq);
+        if (!tSnap.empty) {
+          await deleteDoc(doc(db, "cashBankTransactions", tSnap.docs[0].id));
+        }
+
+        // 4. Delete the payment record itself
         await deleteDoc(doc(db, "paymentOut", id));
-        toast.success("Payment deleted successfully");
-        window.location.href = "/dashboard/payment-out";
+        toast.success("Payment deleted successfully!");
+        router.push("/dashboard/payment-out");
       } catch (err) {
         console.error(err);
-        toast.error("Failed to delete payment");
+        toast.error("Failed to delete payment record");
       }
     }
   };
@@ -119,6 +176,10 @@ export default function PaymentOutReceipt() {
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">Payment Out #{payment.paymentNumber}</h1>
         </div>
         <div className="flex items-center gap-3">
+          <Link href={`/dashboard/payment-out/edit/${payment.id}`} className="flex items-center gap-2 bg-white border border-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition shadow-sm">
+            <Edit size={16} />
+            Edit
+          </Link>
           <button className="flex items-center gap-2 bg-white border border-red-200 text-red-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-50 transition shadow-sm" onClick={handleDelete}>
             <Trash2 size={16} /> Delete
           </button>

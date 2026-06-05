@@ -10,7 +10,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 import { useSession } from "@/context/SessionContext";
 
-import { sanitizeNumericInput } from "@/lib/sanitize";
+import { sanitizeNumericInput, cleanUndefined } from "@/lib/sanitize";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 import { syncInventory } from "@/lib/inventorySync";
 import { v4 as uuidv4 } from "uuid";
@@ -59,10 +59,11 @@ export default function CreateSalesInvoice() {
   const [customerName, setCustomerName] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [items, setItems] = useState<Item[]>([{ name: "", qty: 1, price: 0, gstRate: 18, description: "" }]);
-  const [discountType, setDiscountType] = useState<DiscountType>("flat");
-  const [discountValue, setDiscountValue] = useState<number | string>(0);
+  const [items, setItems] = useState<Item[]>([{ name: "", qty: 1, price: 0, gstRate: undefined, description: "" }]);
+  const [discountType, setDiscountType] = useState<DiscountType>("percent");
+  const [discountValue, setDiscountValue] = useState<number | string>("");
   const [gstEnabled, setGstEnabled] = useState(true);
+  const [isInterstateOverride, setIsInterstateOverride] = useState(false);
   const [status, setStatus] = useState<"paid" | "pending" | "credit">("paid");
   const [dueDate, setDueDate] = useState("");
   const [invoiceType, setInvoiceType] = useState<"invoice" | "estimate">("invoice");
@@ -139,6 +140,16 @@ export default function CreateSalesInvoice() {
   const [addingCustomer, setAddingCustomer] = useState(false);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
+  // Sync selectedBankId when payment mode is changed to a bank option
+  useEffect(() => {
+    if (paymentMode !== "Cash" && !selectedBankId && bankAccounts.length > 0) {
+      const activeBank = bankAccounts.find((b: any) => b.status !== "inactive");
+      if (activeBank) {
+        setSelectedBankId(activeBank.id);
+      }
+    }
+  }, [paymentMode, bankAccounts, selectedBankId]);
+
   // Fetch initial collections
   useEffect(() => {
     const fetchData = async () => {
@@ -158,7 +169,7 @@ export default function CreateSalesInvoice() {
               if (qData.customerName) setCustomerName(qData.customerName);
               if (qData.items && qData.items.length) {
                 // Ensure gstRate fallback is there
-                const mappedItems = qData.items.map((i: any) => ({...i, gstRate: i.gstRate || 18}));
+                const mappedItems = qData.items.map((i: any) => ({...i, gstRate: i.gstRate ?? 18}));
                 setItems(mappedItems);
               }
               if (qData.shippingAddress) setShippingAddress(qData.shippingAddress);
@@ -310,6 +321,31 @@ export default function CreateSalesInvoice() {
     }
   }, [customerName, customers]);
 
+  // Resolve custom party-wise prices when customer changes
+  useEffect(() => {
+    if (!customerName) return;
+    setItems(prevItems =>
+      prevItems.map(item => {
+        if (!item.productId) return item;
+        const prod = products.find(p => p.id === item.productId);
+        if (!prod) return item;
+        let resolvedPrice = prod.price;
+        if (customerName && Array.isArray((prod as any).partyPrices)) {
+          const customPriceObj = (prod as any).partyPrices.find(
+            (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+          );
+          if (customPriceObj) {
+            resolvedPrice = Number(customPriceObj.price) || prod.price;
+          }
+        }
+        return {
+          ...item,
+          price: resolvedPrice
+        };
+      })
+    );
+  }, [customerName, products]);
+
   // Update payment terms or dates
   useEffect(() => {
     if (paymentTerms && invoiceDate) {
@@ -382,6 +418,14 @@ export default function CreateSalesInvoice() {
       ...i,
       qty: Number(i.qty),
       price: Number(i.price),
+      gstRate: (i.gstRate !== undefined && i.gstRate !== null) ? Number(i.gstRate) : undefined,
+      discountType: (i as any).discountType || "percent",
+      discountValue: (i as any).discountValue !== undefined ? Number((i as any).discountValue) : undefined,
+      // keep legacy discountPct for backwards compatibility
+      discountPct: (i as any).discountType === "percent" && (i as any).discountValue !== undefined
+        ? Number((i as any).discountValue)
+        : (i as any).discountPct,
+      hsn: (i as any).hsn || "",
     }));
 
   const selectedCustomer = customers.find((c) => c.name === customerName);
@@ -393,12 +437,14 @@ export default function CreateSalesInvoice() {
     !!companyStateSanitized &&
     customerStateSanitized !== companyStateSanitized;
 
+  const finalIsInterstate = isInterstateOverride || isInterstate;
+
   const calc = calculateInvoice(
     validItems,
     discountType,
-    Number(discountValue),
+    discountValue === "" ? 0 : Number(discountValue),
     gstEnabled,
-    isInterstate
+    finalIsInterstate
   );
 
   const rawTotal = calc.total + Number(additionalChargeValue || 0);
@@ -448,12 +494,12 @@ export default function CreateSalesInvoice() {
   };
 
   const addItem = () => {
-    setItems([...items, { name: "", qty: 1, price: 0, gstRate: 18 }]);
+    setItems([...items, { name: "", qty: 1, price: 0, gstRate: undefined, description: "", hsn: "" }]);
   };
 
   const removeItem = (index: number) => {
     if (items.length <= 1) {
-      setItems([{ name: "", qty: 1, price: 0, gstRate: 18 }]);
+      setItems([{ name: "", qty: 1, price: 0, gstRate: undefined, description: "", hsn: "" }]);
       return;
     }
     setItems(items.filter((_, i) => i !== index));
@@ -526,6 +572,10 @@ export default function CreateSalesInvoice() {
     const user = auth.currentUser;
     if (!user) return toast.error("Access denied. Please authenticate.");
 
+    if (paymentMode !== "Cash" && !selectedBankId) {
+      return toast.error("Please select a bank account for non-cash payment");
+    }
+
     if (invoiceType === "invoice") {
       for (const item of validItems) {
         if (item.productId) {
@@ -574,7 +624,7 @@ export default function CreateSalesInvoice() {
         discountValue: Number(discountValue),
         discountAmount: calc.discountAmount,
         gstEnabled,
-        isInterstate,
+        isInterstate: finalIsInterstate,
         cgst: calc.cgst,
         sgst: calc.sgst,
         igst: calc.igst,
@@ -590,13 +640,14 @@ export default function CreateSalesInvoice() {
         additionalChargeValue: Number(additionalChargeValue),
         autoRoundOff,
         roundOffAmount,
-        selectedBankId,
+        selectedBankId: paymentMode === "Cash" ? "" : selectedBankId,
         selectedQRBankId,
         settings: invoiceSettings,
         signatureType,
         signatureImage,
         createdBy: activeProfile.name
       };
+      const cleanedInvoiceData = cleanUndefined(invoiceData);
 
       if (isOfflineMode) {
         // --- OFFLINE WORKSPACE SAVING ---
@@ -620,7 +671,7 @@ export default function CreateSalesInvoice() {
           }
           await cacheProducts(cachedProducts);
         }
-        await saveOfflineInvoice(invoiceData as any);
+        await saveOfflineInvoice(cleanedInvoiceData as any);
         toast.success("Sales Invoice saved offline draft ✅");
         router.push("/dashboard/invoices");
         return;
@@ -638,7 +689,7 @@ export default function CreateSalesInvoice() {
         }
       }
 
-      await addDoc(collection(db, "invoices"), invoiceData);
+      await addDoc(collection(db, "invoices"), cleanedInvoiceData);
 
       // Update Cash & Bank Balance (read-then-write to get accurate new balance)
       const amountRec = Number(amountReceived);
@@ -652,9 +703,8 @@ export default function CreateSalesInvoice() {
             const currentCash = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
             newBalance = currentCash + amountRec;
             await updateDoc(sRef, { cashInHand: newBalance });
-          } else {
-            // paymentMode holds the bank account document ID
-            const bRef = doc(db, "bankAccounts", paymentMode);
+          } else if (selectedBankId) {
+            const bRef = doc(db, "bankAccounts", selectedBankId);
             const bSnap = await getDoc(bRef);
             const currentBank = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
             newBalance = currentBank + amountRec;
@@ -663,7 +713,7 @@ export default function CreateSalesInvoice() {
 
           await addDoc(collection(db, "cashBankTransactions"), {
             userId: user.uid,
-            accountId: isCash ? "cash" : paymentMode,
+            accountId: isCash ? "cash" : (selectedBankId || "bank"),
             type: "Sales Invoice",
             txnNo: invoiceNumber,
             date: invoiceDate,
@@ -939,13 +989,22 @@ export default function CreateSalesInvoice() {
                           onChange={(e) => {
                             const found = products.find(p => p.id === e.target.value);
                             if (found) {
+                              let resolvedPrice = found.price;
+                              if (customerName && Array.isArray((found as any).partyPrices)) {
+                                const customPriceObj = (found as any).partyPrices.find(
+                                  (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+                                );
+                                if (customPriceObj) {
+                                  resolvedPrice = Number(customPriceObj.price) || found.price;
+                                }
+                              }
                               const updated = [...items];
                               updated[idx] = {
                                 productId: found.id,
                                 name: found.name,
-                                price: found.price,
+                                price: resolvedPrice,
                                 qty: 1,
-                                gstRate: found.gst || 18,
+                                gstRate: found.gst !== undefined && found.gst !== null ? Number(found.gst) : 18,
                                 hsn: found.hsnCode || "",
                                 description: ""
                               };
@@ -971,9 +1030,15 @@ export default function CreateSalesInvoice() {
                       </div>
                     </td>
 
-                    {/* HSN Code */}
+                    {/* HSN Code - editable input */}
                     <td className="px-4 py-4 align-top">
-                      <span className="text-gray-600 font-mono font-medium block mt-1">{item.hsn || "-"}</span>
+                      <input
+                        type="text"
+                        value={item.hsn || ""}
+                        onChange={(e) => updateItem(idx, "hsn", e.target.value)}
+                        placeholder="HSN/SAC"
+                        className="w-20 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 font-mono bg-white block mt-0.5"
+                      />
                     </td>
 
                     {/* Quantity */}
@@ -998,26 +1063,66 @@ export default function CreateSalesInvoice() {
                       />
                     </td>
 
-                    {/* Discount */}
+                    {/* Per-item Discount (₹ or %) */}
                     <td className="px-4 py-4 align-top">
-                      <span className="text-gray-400 block mt-1">-</span>
+                      <div className="flex items-center border border-gray-200 rounded overflow-hidden bg-white mt-0.5 w-28">
+                        <select
+                          value={(item as any).discountType ?? "percent"}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountType: e.target.value } as any;
+                            setItems(updated);
+                          }}
+                          className="px-1 py-1 text-[10px] font-bold text-gray-500 bg-transparent border-r border-gray-200 focus:outline-none cursor-pointer"
+                        >
+                          <option value="percent">%</option>
+                          <option value="flat">₹</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          value={(item as any).discountValue ?? ""}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountValue: e.target.value === "" ? undefined : Number(e.target.value) } as any;
+                            setItems(updated);
+                          }}
+                          placeholder="0"
+                          className="w-full px-2 py-1 text-xs focus:outline-none font-mono text-right bg-transparent"
+                        />
+                      </div>
                     </td>
 
-                    {/* Tax rate displaying absolute calculations */}
+                    {/* GST Rate - editable select */}
                     <td className="px-4 py-4 align-top">
                       <div className="space-y-0.5 mt-0.5">
-                        <span className="text-xs font-semibold text-gray-700 font-mono">{item.gstRate || 18}%</span>
-                        {gstEnabled && (
+                        <select
+                          value={item.gstRate ?? ""}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], gstRate: e.target.value === "" ? undefined : Number(e.target.value) };
+                            setItems(updated);
+                          }}
+                          className="border border-gray-200 rounded px-1 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white font-mono font-semibold w-20"
+                        >
+                          <option value="">None</option>
+                          <option value="0">0%</option>
+                          <option value="5">5%</option>
+                          <option value="12">12%</option>
+                          <option value="18">18%</option>
+                          <option value="28">28%</option>
+                        </select>
+                        {gstEnabled && item.gstRate !== undefined && item.gstRate !== null && (
                           <span className="text-[10px] text-gray-400 block font-mono">
-                            (₹ {(((Number(item.qty) || 0) * (Number(item.price) || 0)) * ((item.gstRate || 18) / 100)).toFixed(2)})
+                            (₹ {(((Number(item.qty) || 0) * (Number(item.price) || 0)) * ((item.gstRate) / 100)).toFixed(2)})
                           </span>
                         )}
                       </div>
                     </td>
 
-                    {/* Amount */}
+                    {/* Amount — subtract per-item discount */}
                     <td className="px-4 py-4 text-right font-bold font-mono text-gray-800 align-top">
-                      <span className="block mt-1">₹ {((Number(item.qty) || 0) * (Number(item.price) || 0)).toFixed(2)}</span>
+                      <span className="block mt-1">₹ {Math.max(0, ((Number(item.qty) || 0) * (Number(item.price) || 0)) * (1 - ((item as any).discountPct || 0) / 100)).toFixed(2)}</span>
                     </td>
 
                     {/* Delete action */}
@@ -1101,7 +1206,7 @@ export default function CreateSalesInvoice() {
                               name: found.name,
                               qty: 1,
                               price: found.price,
-                              gstRate: found.gst || 18,
+                              gstRate: found.gst ?? 18,
                               hsn: found.hsnCode || "",
                             }
                           ]);
@@ -1153,23 +1258,37 @@ export default function CreateSalesInvoice() {
               </div>
 
               <div className="pt-4 border-t border-gray-150 space-y-3">
-                <div className="flex items-center justify-between">
-                  <button 
-                    onClick={() => setShowBankModal(true)} 
-                    className="text-indigo-600 text-xs font-semibold flex items-center gap-1.5 hover:underline"
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider">Bank Account Profile</label>
+                    <button 
+                      onClick={() => setShowBankModal(true)} 
+                      className="text-indigo-600 text-[10px] font-bold uppercase hover:underline"
+                    >
+                      + Add Bank Account Settings
+                    </button>
+                  </div>
+                  <select
+                    value={selectedBankId}
+                    onChange={(e) => setSelectedBankId(e.target.value)}
+                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white font-semibold text-gray-650"
                   >
-                    <Landmark size={13} className="text-indigo-500" />
-                    <span>{selectedBankId ? "Change Bank Account" : "+ Add Bank Account Settings"}</span>
-                  </button>
-                  {selectedBankId && (
+                    <option value="">No Active Account Selected</option>
+                    {bankAccounts.filter((b: any) => b.status !== "inactive").map(bank => (
+                      <option key={bank.id} value={bank.id}>{bank.name} (A/C: {bank.accountNumber || "UPI Profile"})</option>
+                    ))}
+                  </select>
+                </div>
+                {selectedBankId && (
+                  <div className="flex justify-end">
                     <button 
                       onClick={() => setSelectedBankId("")} 
                       className="text-red-500 text-[10px] hover:underline uppercase font-bold"
                     >
                       Remove Bank
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {selectedBankId && (
                   (() => {
@@ -1296,16 +1415,20 @@ export default function CreateSalesInvoice() {
                     <select
                       value={discountType}
                       onChange={(e) => setDiscountType(e.target.value as any)}
-                      className="border border-gray-200 rounded px-1 py-0.5 text-[10px] focus:outline-none bg-white text-gray-500 font-bold"
+                      className="border border-gray-200 rounded px-1.5 py-0.5 text-[10px] focus:outline-none bg-white text-gray-600 font-bold cursor-pointer"
                     >
-                      <option value="flat">₹</option>
                       <option value="percent">%</option>
+                      <option value="flat">₹</option>
                     </select>
                     <input 
                       type="number"
+                      min="0"
                       value={discountValue}
-                      onChange={(e) => setDiscountValue(sanitizeNumericInput(e.target.value))}
-                      className="border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none font-mono text-right w-16 bg-white"
+                      onChange={(e) => {
+                        setDiscountValue(e.target.value === "" ? "" : sanitizeNumericInput(e.target.value));
+                      }}
+                      placeholder="e.g. 10"
+                      className="border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none font-mono text-right w-20 bg-white"
                     />
                   </div>
                 )}
@@ -1338,26 +1461,40 @@ export default function CreateSalesInvoice() {
               <div className="border-t border-gray-100 pt-3 space-y-3">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-gray-500">Amount Received</span>
-                  <div className="flex items-center gap-2">
-                    <div className="relative bg-white rounded">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">₹</span>
-                      <input 
-                        type="number"
-                        value={amountReceived}
-                        onChange={(e) => setAmountReceived(sanitizeNumericInput(e.target.value))}
-                        className="border border-gray-200 rounded py-1 pl-4 pr-1 text-xs focus:outline-none font-mono text-right w-24"
-                      />
+                  <div className="flex flex-col items-end gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="relative bg-white rounded">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">₹</span>
+                        <input 
+                          type="number"
+                          value={amountReceived}
+                          onChange={(e) => setAmountReceived(sanitizeNumericInput(e.target.value))}
+                          className="border border-gray-200 rounded py-1 pl-4 pr-1 text-xs focus:outline-none font-mono text-right w-24"
+                        />
+                      </div>
+                      <select
+                        value={paymentMode}
+                        onChange={(e) => setPaymentMode(e.target.value)}
+                        className="border border-gray-200 rounded py-1 px-1 text-[10px] focus:outline-none bg-white text-gray-600 font-semibold cursor-pointer max-w-[100px]"
+                      >
+                        <option value="Cash">Cash Only</option>
+                        <option value="Bank">Bank Transfer</option>
+                        <option value="UPI">UPI Digital Payment</option>
+                        <option value="Cheque">Cheque Deposit</option>
+                      </select>
                     </div>
-                    <select
-                      value={paymentMode}
-                      onChange={(e) => setPaymentMode(e.target.value)}
-                      className="border border-gray-200 rounded py-1 px-1 text-[10px] focus:outline-none bg-white text-gray-600 font-semibold cursor-pointer max-w-[100px]"
-                    >
-                      <option value="Cash">Cash</option>
-                      {bankAccounts.filter((b: any) => b.status !== "inactive").map((b: any) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
+                    {paymentMode !== "Cash" && (
+                      <select
+                        value={selectedBankId}
+                        onChange={(e) => setSelectedBankId(e.target.value)}
+                        className="border border-gray-200 rounded py-1 px-1.5 text-[9px] focus:outline-none bg-white text-gray-600 font-semibold cursor-pointer w-full max-w-[200px]"
+                      >
+                        <option value="">Select Bank Account...</option>
+                        {bankAccounts.filter((b: any) => b.status !== "inactive").map(bank => (
+                          <option key={bank.id} value={bank.id}>{bank.name}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
 
@@ -1631,6 +1768,36 @@ export default function CreateSalesInvoice() {
                   onChange={(e) => setInvoiceSettings({ ...invoiceSettings, itemImageEnabled: e.target.checked })}
                   className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4.5 h-4.5"
                 />
+              </div>
+
+              {/* GST Toggles */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-gray-700">Enable GST</p>
+                    <p className="text-[10px] text-gray-400">Calculate taxes on line items</p>
+                  </div>
+                  <input 
+                    type="checkbox"
+                    checked={gstEnabled}
+                    onChange={(e) => setGstEnabled(e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4.5 h-4.5"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-gray-700">Apply IGST (Interstate)</p>
+                    <p className="text-[10px] text-gray-400">Force IGST calculation instead of CGST/SGST split</p>
+                  </div>
+                  <input 
+                    type="checkbox"
+                    checked={isInterstateOverride}
+                    onChange={(e) => setIsInterstateOverride(e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4.5 h-4.5"
+                    disabled={!gstEnabled}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between border-b border-gray-100 pb-3">

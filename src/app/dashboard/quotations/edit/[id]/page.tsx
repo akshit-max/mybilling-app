@@ -326,6 +326,31 @@ export default function EditQuotation() {
     }
   }, [customerName, customers]);
 
+  // Resolve custom party-wise prices when customer changes
+  useEffect(() => {
+    if (!customerName) return;
+    setItems(prevItems =>
+      prevItems.map(item => {
+        if (!item.productId) return item;
+        const prod = products.find(p => p.id === item.productId);
+        if (!prod) return item;
+        let resolvedPrice = prod.price;
+        if (customerName && Array.isArray((prod as any).partyPrices)) {
+          const customPriceObj = (prod as any).partyPrices.find(
+            (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+          );
+          if (customPriceObj) {
+            resolvedPrice = Number(customPriceObj.price) || prod.price;
+          }
+        }
+        return {
+          ...item,
+          price: resolvedPrice
+        };
+      })
+    );
+  }, [customerName, products]);
+
   // Valid calculations
   const validItems = items
     .filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0)
@@ -1017,12 +1042,21 @@ export default function EditQuotation() {
                               <button
                                 key={p.id}
                                 onClick={() => {
+                                  let resolvedPrice = p.price;
+                                  if (customerName && Array.isArray((p as any).partyPrices)) {
+                                    const customPriceObj = (p as any).partyPrices.find(
+                                      (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+                                    );
+                                    if (customPriceObj) {
+                                      resolvedPrice = Number(customPriceObj.price) || p.price;
+                                    }
+                                  }
                                   const updated = [...items];
                                   updated[idx] = {
                                     productId: p.id,
                                     name: p.name,
                                     qty: 1,
-                                    price: p.price,
+                                    price: resolvedPrice,
                                     gstRate: p.gst ?? 18,
                                     hsn: p.hsnCode || "",
                                     description: ""

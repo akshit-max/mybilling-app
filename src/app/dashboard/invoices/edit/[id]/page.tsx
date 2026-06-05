@@ -9,7 +9,7 @@ import { collection, getDocs, query, where, updateDoc, doc, getDoc, addDoc, dele
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
-import { sanitizeNumericInput } from "@/lib/sanitize";
+import { sanitizeNumericInput, cleanUndefined } from "@/lib/sanitize";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 import { v4 as uuidv4 } from "uuid";
 import { INDIAN_STATES } from "@/lib/indianStates";
@@ -26,6 +26,9 @@ type Item = {
   gstRate?: number;
   hsn?: string;
   description?: string;
+  discountType?: string;
+  discountValue?: number;
+  discountPct?: number;
 };
 
 type Customer = {
@@ -306,6 +309,16 @@ export default function EditSalesInvoice() {
     return () => unsub();
   }, [id]);
 
+  // Sync selectedBankId when payment mode is changed to a bank option
+  useEffect(() => {
+    if (paymentMode !== "Cash" && !selectedBankId && bankAccounts.length > 0) {
+      const activeBank = bankAccounts.find((b: any) => b.status !== "inactive");
+      if (activeBank) {
+        setSelectedBankId(activeBank.id);
+      }
+    }
+  }, [paymentMode, bankAccounts, selectedBankId]);
+
   // Adjust due dates on date terms change or date modification
   useEffect(() => {
     if (paymentTerms && invoiceDate) {
@@ -325,6 +338,31 @@ export default function EditSalesInvoice() {
     }
   }, [customerName, customers]);
 
+  // Resolve custom party-wise prices when customer changes
+  useEffect(() => {
+    if (!customerName) return;
+    setItems(prevItems =>
+      prevItems.map(item => {
+        if (!item.productId) return item;
+        const prod = products.find(p => p.id === item.productId);
+        if (!prod) return item;
+        let resolvedPrice = prod.price;
+        if (customerName && Array.isArray((prod as any).partyPrices)) {
+          const customPriceObj = (prod as any).partyPrices.find(
+            (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+          );
+          if (customPriceObj) {
+            resolvedPrice = Number(customPriceObj.price) || prod.price;
+          }
+        }
+        return {
+          ...item,
+          price: resolvedPrice
+        };
+      })
+    );
+  }, [customerName, products]);
+
   // Valid calculations
   const validItems = items
     .filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0)
@@ -332,6 +370,13 @@ export default function EditSalesInvoice() {
       ...i,
       qty: Number(i.qty),
       price: Number(i.price),
+      gstRate: (i.gstRate !== undefined && i.gstRate !== null) ? Number(i.gstRate) : undefined,
+      discountType: (i as any).discountType || "percent",
+      discountValue: (i as any).discountValue !== undefined ? Number((i as any).discountValue) : undefined,
+      discountPct: (i as any).discountType === "percent" && (i as any).discountValue !== undefined
+        ? Number((i as any).discountValue)
+        : (i as any).discountPct,
+      hsn: (i as any).hsn || "",
     }));
 
   const selectedCustomer = customers.find((c) => c.name === customerName);
@@ -526,6 +571,10 @@ export default function EditSalesInvoice() {
     const user = auth.currentUser;
     if (!user) return toast.error("Access denied. Please authenticate.");
 
+    if (paymentMode !== "Cash" && !selectedBankId) {
+      return toast.error("Please select a bank account for non-cash payment");
+    }
+
     try {
       setSaving(true);
 
@@ -601,12 +650,14 @@ export default function EditSalesInvoice() {
         additionalChargeValue: Number(additionalChargeValue),
         autoRoundOff,
         roundOffAmount,
-        selectedBankId,
+        selectedBankId: paymentMode === "Cash" ? "" : selectedBankId,
         selectedQRBankId,
         settings: invoiceSettings,
         signatureType,
         signatureImage
       };
+      
+      const cleanedUpdateData = cleanUndefined(updateData);
 
       if (isOfflineMode || isOfflineInvoice) {
         // --- OFFLINE UPDATE WORKSPACE ---
@@ -646,7 +697,7 @@ export default function EditSalesInvoice() {
 
         const updatedInvoice = {
           ...existing,
-          ...updateData,
+          ...cleanedUpdateData,
         };
 
         await updateOfflineInvoice(updatedInvoice as any);
@@ -681,7 +732,7 @@ export default function EditSalesInvoice() {
         }
       }
 
-      await updateDoc(doc(db, "invoices", id), updateData);
+      await updateDoc(doc(db, "invoices", id), cleanedUpdateData);
       
       // Sync Cash & Bank
       if (invoiceType === "invoice") {
@@ -724,17 +775,17 @@ export default function EditSalesInvoice() {
                 const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
                 newBalance = current + amountRec;
                 await updateDoc(sRef, { cashInHand: newBalance });
-             } else {
-                const bRef = doc(db, "bankAccounts", paymentMode);
-                const bSnap = await getDoc(bRef);
-                const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
-                newBalance = current + amountRec;
-                await updateDoc(bRef, { balance: newBalance });
-             }
+             } else if (selectedBankId) {
+                 const bRef = doc(db, "bankAccounts", selectedBankId);
+                 const bSnap = await getDoc(bRef);
+                 const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+                 newBalance = current + amountRec;
+                 await updateDoc(bRef, { balance: newBalance });
+              }
   
              await addDoc(collection(db, "cashBankTransactions"), {
                userId: user.uid,
-               accountId: isCash ? "cash" : paymentMode,
+               accountId: isCash ? "cash" : (selectedBankId || "bank"),
                type: "Sales Invoice",
                txnNo: invoiceNumber,
                date: invoiceDate,
@@ -1034,12 +1085,13 @@ export default function EditSalesInvoice() {
             {/* Table Header labels */}
             <div className="grid grid-cols-12 gap-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider pb-1.5 border-b border-gray-100 hidden md:grid">
               <span className="col-span-1 text-center">NO.</span>
-              <span className="col-span-4">ITEMS / SERVICES</span>
-              <span className="col-span-2 text-center">HSN / SAC</span>
+              <span className="col-span-3">ITEMS / SERVICES</span>
+              <span className="col-span-1 text-center">HSN</span>
               <span className="col-span-1 text-center">QTY</span>
-              <span className="col-span-2 text-right">PRICE/ITEM (₹)</span>
+              <span className="col-span-2 text-right">RATE</span>
+              <span className="col-span-2 text-center">DISCOUNT</span>
               <span className="col-span-1 text-center">TAX</span>
-              <span className="col-span-1 text-right">AMOUNT (₹)</span>
+              <span className="col-span-1 text-right">AMOUNT</span>
             </div>
 
             {/* Table Row loops */}
@@ -1054,7 +1106,7 @@ export default function EditSalesInvoice() {
                     </div>
 
                     {/* Product Name Autocomplete */}
-                    <div className="col-span-11 md:col-span-4 relative">
+                    <div className="col-span-11 md:col-span-3 relative">
                       <input
                         type="text"
                         placeholder="Search or enter item name..."
@@ -1072,12 +1124,21 @@ export default function EditSalesInvoice() {
                               <button
                                 key={p.id}
                                 onClick={() => {
+                                  let resolvedPrice = p.price;
+                                  if (customerName && Array.isArray((p as any).partyPrices)) {
+                                    const customPriceObj = (p as any).partyPrices.find(
+                                      (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+                                    );
+                                    if (customPriceObj) {
+                                      resolvedPrice = Number(customPriceObj.price) || p.price;
+                                    }
+                                  }
                                   const updated = [...items];
                                   updated[idx] = {
                                     productId: p.id,
                                     name: p.name,
                                     qty: 1,
-                                    price: p.price,
+                                    price: resolvedPrice,
                                     gstRate: p.gst ?? 18,
                                     hsn: p.hsnCode || "",
                                     description: ""
@@ -1095,10 +1156,10 @@ export default function EditSalesInvoice() {
                     </div>
 
                     {/* HSN Code */}
-                    <div className="col-span-4 md:col-span-2">
+                    <div className="col-span-4 md:col-span-1">
                       <input
                         type="text"
-                        placeholder="HSN (Optional)"
+                        placeholder="HSN"
                         value={item.hsn || ""}
                         onChange={(e) => updateItem(idx, "hsn", e.target.value)}
                         className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-600 bg-white max-w-[120px] mx-auto text-center"
@@ -1108,7 +1169,7 @@ export default function EditSalesInvoice() {
                     {/* Quantity */}
                     <div className="col-span-2 md:col-span-1">
                       <input
-                        type="text"
+                        type="number"
                         placeholder="Qty"
                         value={item.qty}
                         onChange={(e) => updateItem(idx, "qty", e.target.value)}
@@ -1119,12 +1180,42 @@ export default function EditSalesInvoice() {
                     {/* Price per Item */}
                     <div className="col-span-3 md:col-span-2">
                       <input
-                        type="text"
+                        type="number"
                         placeholder="Price"
                         value={item.price}
                         onChange={(e) => updateItem(idx, "price", e.target.value)}
                         className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-right text-gray-700 bg-white"
                       />
+                    </div>
+
+                    {/* Per-item Discount (₹ or %) */}
+                    <div className="col-span-3 md:col-span-2">
+                      <div className="flex items-center border border-gray-200 rounded overflow-hidden bg-white mt-0.5 w-full">
+                        <select
+                          value={(item as any).discountType ?? "percent"}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountType: e.target.value } as any;
+                            setItems(updated);
+                          }}
+                          className="px-1 py-1 text-[10px] font-bold text-gray-500 bg-transparent border-r border-gray-200 focus:outline-none cursor-pointer"
+                        >
+                          <option value="percent">%</option>
+                          <option value="flat">₹</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          value={(item as any).discountValue ?? ""}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountValue: e.target.value === "" ? undefined : Number(e.target.value) } as any;
+                            setItems(updated);
+                          }}
+                          placeholder="0"
+                          className="w-full px-2 py-1.5 text-xs focus:outline-none font-mono text-right bg-transparent"
+                        />
+                      </div>
                     </div>
 
                     {/* GST Rate */}
@@ -1145,7 +1236,7 @@ export default function EditSalesInvoice() {
                     {/* Dynamic Amount and Delete */}
                     <div className="col-span-1 flex items-center justify-end gap-2 text-right">
                       <span className="font-bold font-mono text-xs text-gray-700">
-                        ₹{((Number(item.qty || 0)) * (Number(item.price || 0))).toFixed(2)}
+                        ₹{Math.max(0, ((Number(item.qty) || 0) * (Number(item.price) || 0)) - ((item as any).discountType === "flat" ? (Number((item as any).discountValue) || 0) : ((Number(item.qty) || 0) * (Number(item.price) || 0)) * (Number((item as any).discountValue ?? item.discountPct ?? 0) / 100))).toFixed(2)}
                       </span>
                       <button 
                         onClick={() => removeItem(idx)}
@@ -1369,8 +1460,8 @@ export default function EditSalesInvoice() {
                       onChange={(e) => setDiscountType(e.target.value as any)}
                       className="border border-gray-200 rounded px-1.5 py-1 text-[10px] font-semibold text-gray-600 focus:outline-none bg-white"
                     >
-                      <option value="flat">Flat (₹)</option>
-                      <option value="percentage">Percentage (%)</option>
+                      <option value="flat">₹</option>
+                      <option value="percent">%</option>
                     </select>
                     
                     <input
@@ -1440,6 +1531,22 @@ export default function EditSalesInvoice() {
                   </select>
                 </div>
               </div>
+
+              {paymentMode !== "Cash" && (
+                <div className="space-y-1 pt-2">
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider">Select Bank Account</label>
+                  <select
+                    value={selectedBankId}
+                    onChange={(e) => setSelectedBankId(e.target.value)}
+                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white font-semibold text-gray-600"
+                  >
+                    <option value="">Select Bank Account...</option>
+                    {bankAccounts.filter((b: any) => b.status !== "inactive").map(bank => (
+                      <option key={bank.id} value={bank.id}>{bank.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Mark fully paid row */}
               <div className="flex justify-between items-center pt-1.5">

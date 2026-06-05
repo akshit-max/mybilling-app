@@ -117,6 +117,31 @@ export default function CreateCreditNote() {
     return () => unsub();
   }, []);
 
+  // Resolve custom party-wise prices when customer changes
+  useEffect(() => {
+    if (!customerName) return;
+    setItems(prevItems =>
+      prevItems.map(item => {
+        if (!item.productId) return item;
+        const prod = products.find(p => p.id === item.productId);
+        if (!prod) return item;
+        let resolvedPrice = prod.price;
+        if (customerName && Array.isArray((prod as any).partyPrices)) {
+          const customPriceObj = (prod as any).partyPrices.find(
+            (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+          );
+          if (customPriceObj) {
+            resolvedPrice = Number(customPriceObj.price) || prod.price;
+          }
+        }
+        return {
+          ...item,
+          price: resolvedPrice
+        };
+      })
+    );
+  }, [customerName, products]);
+
   const validItems = items.filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0).map((i) => ({ ...i, qty: Number(i.qty), price: Number(i.price) }));
   const selectedCustomer = customers.find((c) => c.name === customerName);
   const isInterstate = !!selectedCustomer?.state && !!companyState && selectedCustomer.state.trim().toUpperCase() !== companyState.trim().toUpperCase();
@@ -312,14 +337,23 @@ export default function CreateCreditNote() {
                         onChange={(e) => {
                           const found = products.find(p => p.id === e.target.value);
                           if (found) {
+                            let resolvedPrice = found.price;
+                            if (customerName && Array.isArray((found as any).partyPrices)) {
+                              const customPriceObj = (found as any).partyPrices.find(
+                                (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+                              );
+                              if (customPriceObj) {
+                                resolvedPrice = Number(customPriceObj.price) || found.price;
+                              }
+                            }
                             const updated = [...items];
                             updated[idx] = {
                               ...updated[idx],
                               productId: found.id,
                               name: found.name,
-                              price: found.price,
+                              price: resolvedPrice,
                               qty: 1,
-                              gstRate: found.gst || 18,
+                              gstRate: found.gst ?? 18,
                               hsn: found.hsnCode || "",
                               description: ""
                             };

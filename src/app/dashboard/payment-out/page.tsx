@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Search, ChevronDown, Plus, FileText, Download } from "lucide-react";
+import { Search, ChevronDown, Plus, FileText, Download, Edit } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -208,18 +208,19 @@ export default function PaymentOutPage() {
                 <th className="p-4 font-bold text-right">Total Amount Settled (₹)</th>
                 <th className="p-4 font-bold text-right">Amount Paid (₹)</th>
                 <th className="p-4 font-bold text-center">Payment Mode</th>
+                <th className="p-4 font-bold text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-400 font-medium">
+                  <td colSpan={7} className="p-8 text-center text-gray-400 font-medium">
                     Loading payments...
                   </td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-16 text-center">
+                  <td colSpan={7} className="p-16 text-center">
                     <div className="flex flex-col items-center justify-center text-gray-400">
                       <FileText size={48} className="mb-4 text-gray-300 opacity-50" />
                       <p className="font-semibold text-gray-500">No Transactions Matching the current filter</p>
@@ -252,6 +253,17 @@ export default function PaymentOutPage() {
                       <span className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase bg-gray-100 text-gray-600">
                         {payment.paymentMode}
                       </span>
+                    </td>
+                    <td className="p-4 text-center">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/dashboard/payment-out/edit/${payment.id}`);
+                        }}
+                        className="text-gray-400 hover:text-indigo-600 transition p-1.5"
+                      >
+                        <Edit size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))

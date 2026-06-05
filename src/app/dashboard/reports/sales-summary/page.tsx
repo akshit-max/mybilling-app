@@ -139,22 +139,84 @@ export default function SalesSummaryReport() {
     toast.success("Excel downloaded successfully 📊");
   };
 
-  const handleEmailExcel = () => {
-    if (!emailData.to) {
+  const handleEmailExcel = async () => {
+    if (!emailData.to.trim()) {
       toast.error("Please enter your Email ID");
       return;
     }
-    toast.promise(
-      new Promise((resolve) => setTimeout(resolve, 1500)),
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailData.to.trim())) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    if (emailData.cc && !emailRegex.test(emailData.cc.trim())) {
+      toast.error("Please enter a valid CA email address");
+      return;
+    }
+
+    if (filteredInvoices.length === 0) {
+      toast.error("No data to email");
+      return;
+    }
+
+    const headers = ["Date", "Invoice Number", "Party Name", "Items Count", "Status", "Total Amount (₹)"];
+    const rows = filteredInvoices.map(inv => [
+      inv.date,
+      inv.invoiceNumber,
+      inv.customerName,
+      inv.itemsCount.toString(),
+      inv.status.toUpperCase(),
+      inv.total.toFixed(2)
+    ]);
+
+    const tableHTML = `
+      <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2 style="color: #1e3a8a;">Sales Summary Report</h2>
+        <p style="color: #4b5563;">Generated on: ${new Date().toLocaleDateString('en-IN')}</p>
+        <table style="border-collapse: collapse; width: 100%; margin-top: 16px;">
+          <thead>
+            <tr style="background-color: #f3f4f6; color: #111827;">
+              ${headers.map(h => `<th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-weight: bold;">${h}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(cell => `<td style="border: 1px solid #e5e7eb; padding: 6px; color: #374151;">${cell}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+          <tfoot>
+            <tr style="font-weight: bold; background-color: #f9fafb;">
+              <td colspan="5" style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">Total Sales:</td>
+              <td style="border: 1px solid #e5e7eb; padding: 8px;">₹ ${totalSalesAmount.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+
+    const emails = [emailData.to.trim(), emailData.cc?.trim()].filter(Boolean);
+
+    await toast.promise(
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: emails,
+          subject: "Sales Summary Report",
+          html: tableHTML
+        })
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Email send failed");
+        return data;
+      }),
       {
         loading: 'Generating and emailing Excel report...',
         success: `Excel Report sent successfully to ${emailData.to}! 📧`,
-        error: 'Failed to send email.',
+        error: (err) => err.message || 'Failed to send email.',
       }
-    ).then(() => {
-      setShowEmailModal(false);
-      setEmailData({ to: "", cc: "" });
-    });
+    );
+
+    setShowEmailModal(false);
+    setEmailData({ to: "", cc: "" });
   };
 
   return (

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { db, auth } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import { ArrowLeft, Printer } from "lucide-react";
 import toast from "react-hot-toast";
 import { QRCodeSVG } from "qrcode.react";
@@ -15,13 +16,12 @@ export default function EWayBillPrint() {
   const [loading, setLoading] = useState(true);
   const [invoice, setInvoice] = useState<any>(null);
   const [company, setCompany] = useState<any>(null);
+  const [bankDetails, setBankDetails] = useState<any>(null);
+  const [qrBankDetails, setQrBankDetails] = useState<any>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchData = async (user: any) => {
       try {
-        const user = auth.currentUser;
-        if (!user) return;
-
         const sRef = doc(db, "settings", user.uid);
         const sSnap = await getDoc(sRef);
         if (sSnap.exists()) {
@@ -31,7 +31,18 @@ export default function EWayBillPrint() {
         const ref = doc(db, "invoices", id);
         const snap = await getDoc(ref);
         if (snap.exists()) {
-          setInvoice(snap.data());
+          const invData = snap.data();
+          setInvoice(invData);
+          if (invData.selectedBankId) {
+            getDoc(doc(db, "bankAccounts", invData.selectedBankId))
+              .then(bSnap => bSnap.exists() && setBankDetails(bSnap.data()))
+              .catch(err => console.error("Error loading bank:", err));
+          }
+          if (invData.selectedQRBankId) {
+            getDoc(doc(db, "bankAccounts", invData.selectedQRBankId))
+              .then(qSnap => qSnap.exists() && setQrBankDetails(qSnap.data()))
+              .catch(err => console.error("Error loading QR bank:", err));
+          }
         } else {
           toast.error("Invoice not found");
         }
@@ -41,7 +52,15 @@ export default function EWayBillPrint() {
         setLoading(false);
       }
     };
-    fetchData();
+
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        fetchData(user);
+      } else {
+        setLoading(false);
+      }
+    });
+    return () => unsub();
   }, [id]);
 
   if (loading) return <div className="p-12 text-center text-gray-500">Loading e-Way Bill Document...</div>;

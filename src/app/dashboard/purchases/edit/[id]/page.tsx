@@ -327,6 +327,14 @@ export default function EditSalesInvoice() {
     }
   }, [customerName, customers]);
 
+  // Sync selectedBankId when payment mode is changed to a bank option
+  useEffect(() => {
+    if (paymentMode !== "Cash" && !selectedBankId && bankAccounts.length > 0) {
+      const activeBank = bankAccounts.find(b => b.status !== "inactive") || bankAccounts[0];
+      setSelectedBankId(activeBank.id);
+    }
+  }, [paymentMode, bankAccounts, selectedBankId]);
+
   // Valid calculations
   const validItems = items
     .filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0)
@@ -590,7 +598,7 @@ export default function EditSalesInvoice() {
         additionalChargeValue: Number(additionalChargeValue),
         autoRoundOff,
         roundOffAmount,
-        selectedBankId,
+        selectedBankId: paymentMode === "Cash" ? "" : selectedBankId,
         selectedQRBankId,
         settings: invoiceSettings,
         signatureType,
@@ -692,8 +700,8 @@ export default function EditSalesInvoice() {
                 const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
                 newBalance = Math.max(0, current - amountPaidNum);
                 await updateDoc(sRef, { cashInHand: newBalance });
-             } else {
-                const bRef = doc(db, "bankAccounts", paymentMode);
+             } else if (selectedBankId) {
+                const bRef = doc(db, "bankAccounts", selectedBankId);
                 const bSnap = await getDoc(bRef);
                 const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
                 newBalance = Math.max(0, current - amountPaidNum);
@@ -702,7 +710,7 @@ export default function EditSalesInvoice() {
   
              await addDoc(collection(db, "cashBankTransactions"), {
                userId: user.uid,
-               accountId: isCash ? "cash" : paymentMode,
+               accountId: isCash ? "cash" : (selectedBankId || "bank"),
                type: "Purchase Invoice",
                txnNo: purchaseInvoiceNumber,
                date: invoiceDate,

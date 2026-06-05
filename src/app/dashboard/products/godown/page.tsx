@@ -27,9 +27,10 @@ type Product = {
   itemCode?: string;
   batch?: string;
   price: number;
-  purchasePrice?: number;
+  costPrice?: number;
   stock: number;
   stockByGodown?: Record<string, number>;
+  unit?: string;
 };
 
 export default function GodownPage() {
@@ -482,6 +483,8 @@ export default function GodownPage() {
               ) : (
                 activeProducts.map(p => {
                   const qty = getStockQty(p, selectedGodownId);
+                  const parsedPrice = Number(p.price || 0);
+                  const parsedCostPrice = Number(p.costPrice || 0);
                   return (
                     <tr key={p.id} className={`hover:bg-indigo-50/30 transition-colors ${selectedProducts.includes(p.id) ? "bg-indigo-50/50" : ""}`}>
                       <td className="px-4 py-3">
@@ -495,10 +498,10 @@ export default function GodownPage() {
                       <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
                       <td className="px-4 py-3 text-gray-500">{p.itemCode || "-"}</td>
                       <td className="px-4 py-3 text-gray-500">{p.batch || "-"}</td>
-                      <td className="px-4 py-3 font-bold text-gray-800">{qty} PCS</td>
-                      <td className="px-4 py-3 font-medium text-gray-800">₹{(qty * p.price).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-gray-600">₹{p.price.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-gray-600">₹{p.purchasePrice?.toFixed(2) || "0.0"}</td>
+                      <td className="px-4 py-3 font-bold text-gray-800">{qty} {p.unit || "PCS"}</td>
+                      <td className="px-4 py-3 font-medium text-gray-800">₹{(qty * parsedPrice).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-gray-600">₹{parsedPrice.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-gray-600">₹{parsedCostPrice.toFixed(2)}</td>
                     </tr>
                   )
                 })

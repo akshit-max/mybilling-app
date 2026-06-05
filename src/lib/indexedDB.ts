@@ -2,7 +2,7 @@ import { openDB } from "idb";
 
 export const dbPromise = openDB(
   "mybillbook-db",
-  1,
+  2,
   {
     upgrade(db) {
 

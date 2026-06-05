@@ -232,6 +232,36 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
   const getPageTitle = () => {
     if (!pathname) return "Dashboard";
     if (pathname === "/dashboard") return "Dashboard";
+
+    // Clean nested sub-routes
+    if (pathname.includes("/dashboard/invoices/edit/")) return "Edit Sales Invoice";
+    if (pathname.includes("/dashboard/invoices/create")) return "Create Sales Invoice";
+    if (pathname.startsWith("/dashboard/invoices/")) return "Sales Invoice Details";
+
+    if (pathname.includes("/dashboard/purchases/edit/")) return "Edit Purchase Invoice";
+    if (pathname.includes("/dashboard/purchases/create")) return "Create Purchase Invoice";
+    if (pathname.startsWith("/dashboard/purchases/")) return "Purchase Invoice Details";
+
+    if (pathname.includes("/dashboard/payment-in/edit/")) return "Edit Payment In";
+    if (pathname.includes("/dashboard/payment-in/create")) return "Record Payment In";
+    if (pathname.startsWith("/dashboard/payment-in/")) return "Payment In Details";
+
+    if (pathname.includes("/dashboard/payment-out/edit/")) return "Edit Payment Out";
+    if (pathname.includes("/dashboard/payment-out/create")) return "Record Payment Out";
+    if (pathname.startsWith("/dashboard/payment-out/")) return "Payment Out Details";
+
+    if (pathname.includes("/dashboard/sales-return/edit/")) return "Edit Sales Return";
+    if (pathname.includes("/dashboard/sales-return/create")) return "Create Sales Return";
+    if (pathname.startsWith("/dashboard/sales-return/")) return "Sales Return Details";
+
+    if (pathname.includes("/dashboard/purchase-return/edit/")) return "Edit Purchase Return";
+    if (pathname.includes("/dashboard/purchase-return/create")) return "Create Purchase Return";
+    if (pathname.startsWith("/dashboard/purchase-return/")) return "Purchase Return Details";
+
+    if (pathname.includes("/dashboard/quotations/edit/")) return "Edit Quotation";
+    if (pathname.includes("/dashboard/quotations/create")) return "Create Quotation";
+    if (pathname.startsWith("/dashboard/quotations/")) return "Quotation Details";
+
     if (pathname.includes("/dashboard/reports")) return "Reports";
     if (pathname.includes("/dashboard/products")) return "Items";
     if (pathname.includes("/dashboard/customers")) return "Parties";
@@ -241,9 +271,13 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
     if (pathname.includes("/dashboard/sales-return")) return "Sales Return";
     if (pathname.includes("/dashboard/settings")) return "Settings";
     
-    // Fallback: capitalize the last segment
+    // Fallback: capitalize the last segment, but strip Firestore ID / UUID
     const segments = pathname.split('/').filter(Boolean);
-    const last = segments[segments.length - 1];
+    let last = segments[segments.length - 1];
+    if (last && (last.length > 15 || /^[0-9a-fA-F-]{20,}$/.test(last))) {
+      // Use parent segment instead
+      last = segments[segments.length - 2] || "Dashboard";
+    }
     return last ? last.charAt(0).toUpperCase() + last.slice(1) : "Dashboard";
   };
 

@@ -179,22 +179,81 @@ export default function AgeingReport() {
     toast.success("Excel downloaded successfully 📊");
   };
 
-  const handleEmailExcel = () => {
-    if (!emailData.to) {
+  const handleEmailExcel = async () => {
+    if (!emailData.to.trim()) {
       toast.error("Please enter your Email ID");
       return;
     }
-    toast.promise(
-      new Promise((resolve) => setTimeout(resolve, 1500)),
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailData.to.trim())) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    if (emailData.cc && !emailRegex.test(emailData.cc.trim())) {
+      toast.error("Please enter a valid CA email address");
+      return;
+    }
+
+    if (filteredParties.length === 0) {
+      toast.error("No data to email");
+      return;
+    }
+
+    const headers = ["Party Name", "By Tomorrow", "Upcoming", "Total Due", "1-15 Days Overdue", "16-30 Days Overdue", "30+ Days Overdue", "Total Overdue", "Total Amount"];
+    const rows = filteredParties.map(p => [
+      p.name,
+      p.byTomorrow > 0 ? `₹ ${p.byTomorrow.toLocaleString()}` : "-",
+      p.upcoming > 0 ? `₹ ${p.upcoming.toLocaleString()}` : "-",
+      p.totalDue > 0 ? `₹ ${p.totalDue.toLocaleString()}` : "-",
+      p.overdue1_15 > 0 ? `₹ ${p.overdue1_15.toLocaleString()}` : "-",
+      p.overdue16_30 > 0 ? `₹ ${p.overdue16_30.toLocaleString()}` : "-",
+      p.overdue30Plus > 0 ? `₹ ${p.overdue30Plus.toLocaleString()}` : "-",
+      p.totalOverdue > 0 ? `₹ ${p.totalOverdue.toLocaleString()}` : "-",
+      `₹ ${p.totalAmount.toLocaleString()}`
+    ]);
+
+    const tableHTML = `
+      <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2 style="color: #1e3a8a;">Ageing Report</h2>
+        <p style="color: #4b5563;">Generated on: ${new Date().toLocaleDateString('en-IN')}</p>
+        <table style="border-collapse: collapse; width: 100%; margin-top: 16px;">
+          <thead>
+            <tr style="background-color: #f3f4f6; color: #111827;">
+              ${headers.map(h => `<th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-weight: bold;">${h}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(cell => `<td style="border: 1px solid #e5e7eb; padding: 6px; color: #374151;">${cell}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    const emails = [emailData.to.trim(), emailData.cc?.trim()].filter(Boolean);
+
+    await toast.promise(
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: emails,
+          subject: "Ageing Report",
+          html: tableHTML
+        })
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Email send failed");
+        return data;
+      }),
       {
         loading: 'Generating and emailing Excel report...',
         success: `Excel Report sent successfully to ${emailData.to}! 📧`,
-        error: 'Failed to send email.',
+        error: (err) => err.message || 'Failed to send email.',
       }
-    ).then(() => {
-      setShowEmailModal(false);
-      setEmailData({ to: "", cc: "" });
-    });
+    );
+
+    setShowEmailModal(false);
+    setEmailData({ to: "", cc: "" });
   };
 
   return (

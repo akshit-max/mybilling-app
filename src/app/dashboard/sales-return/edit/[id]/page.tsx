@@ -184,6 +184,8 @@ export default function EditSalesReturn() {
               setStatus(data.status || "paid");
               setInvoiceType(data.invoiceType || "invoice");
               setAutoRoundOff(data.autoRoundOff !== false);
+              setSelectedBankId(data.selectedBankId || "");
+              setSelectedQRBankId(data.selectedQRBankId || "");
             } else {
               toast.error("Sales Return not found!");
             }
@@ -206,7 +208,7 @@ export default function EditSalesReturn() {
               if (qData.customerName) setCustomerName(qData.customerName);
               if (qData.items && qData.items.length) {
                 // Ensure gstRate fallback is there
-                const mappedItems = qData.items.map((i: any) => ({...i, gstRate: i.gstRate || 18}));
+                const mappedItems = qData.items.map((i: any) => ({...i, gstRate: i.gstRate ?? 18}));
                 setItems(mappedItems);
               }
               if (qData.shippingAddress) setShippingAddress(qData.shippingAddress);
@@ -357,6 +359,39 @@ export default function EditSalesReturn() {
       setShippingAddress("");
     }
   }, [customerName, customers]);
+
+  // Sync selectedBankId when payment mode is changed to a bank option
+  useEffect(() => {
+    if (paymentMode !== "Cash" && !selectedBankId && bankAccounts.length > 0) {
+      const activeBank = bankAccounts.find(b => b.status !== "inactive") || bankAccounts[0];
+      setSelectedBankId(activeBank.id);
+    }
+  }, [paymentMode, bankAccounts, selectedBankId]);
+
+  // Resolve custom party-wise prices when customer changes
+  useEffect(() => {
+    if (!customerName) return;
+    setItems(prevItems =>
+      prevItems.map(item => {
+        if (!item.productId) return item;
+        const prod = products.find(p => p.id === item.productId);
+        if (!prod) return item;
+        let resolvedPrice = prod.price;
+        if (customerName && Array.isArray((prod as any).partyPrices)) {
+          const customPriceObj = (prod as any).partyPrices.find(
+            (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+          );
+          if (customPriceObj) {
+            resolvedPrice = Number(customPriceObj.price) || prod.price;
+          }
+        }
+        return {
+          ...item,
+          price: resolvedPrice
+        };
+      })
+    );
+  }, [customerName, products]);
 
   // Update payment terms or dates
   useEffect(() => {
@@ -729,8 +764,8 @@ export default function EditSalesReturn() {
                 const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
                 newBalance = Math.max(0, current - amountPaidNum);
                 await updateDoc(sRef, { cashInHand: newBalance });
-             } else {
-                const bRef = doc(db, "bankAccounts", paymentMode);
+             } else if (selectedBankId) {
+                const bRef = doc(db, "bankAccounts", selectedBankId);
                 const bSnap = await getDoc(bRef);
                 const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
                 newBalance = Math.max(0, current - amountPaidNum);
@@ -739,7 +774,7 @@ export default function EditSalesReturn() {
   
              await addDoc(collection(db, "cashBankTransactions"), {
                userId: user.uid,
-               accountId: isCash ? "cash" : paymentMode,
+               accountId: isCash ? "cash" : (selectedBankId || "bank"),
                type: "Sales Return",
                txnNo: salesReturnNumber,
                date: salesReturnDate,
@@ -1062,13 +1097,22 @@ export default function EditSalesReturn() {
                           onChange={(e) => {
                             const found = products.find(p => p.id === e.target.value);
                             if (found) {
+                              let resolvedPrice = found.price;
+                              if (customerName && Array.isArray((found as any).partyPrices)) {
+                                const customPriceObj = (found as any).partyPrices.find(
+                                  (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+                                );
+                                if (customPriceObj) {
+                                  resolvedPrice = Number(customPriceObj.price) || found.price;
+                                }
+                              }
                               const updated = [...items];
                               updated[idx] = {
                                 productId: found.id,
                                 name: found.name,
-                                price: found.price,
+                                price: resolvedPrice,
                                 qty: 1,
-                                gstRate: found.gst || 18,
+                                gstRate: found.gst ?? 18,
                                 hsn: found.hsnCode || "",
                                 description: ""
                               };
@@ -1129,10 +1173,10 @@ export default function EditSalesReturn() {
                     {/* Tax rate displaying absolute calculations */}
                     <td className="px-4 py-4 align-top">
                       <div className="space-y-0.5 mt-0.5">
-                        <span className="text-xs font-semibold text-gray-700 font-mono">{item.gstRate || 18}%</span>
+                        <span className="text-xs font-semibold text-gray-700 font-mono">{item.gstRate ?? 18}%</span>
                         {gstEnabled && (
                           <span className="text-[10px] text-gray-400 block font-mono">
-                            (₹ {(((Number(item.qty) || 0) * (Number(item.price) || 0)) * ((item.gstRate || 18) / 100)).toFixed(2)})
+                            (₹ {(((Number(item.qty) || 0) * (Number(item.price) || 0)) * ((item.gstRate ?? 18) / 100)).toFixed(2)})
                           </span>
                         )}
                       </div>
@@ -1224,7 +1268,7 @@ export default function EditSalesReturn() {
                               name: found.name,
                               qty: 1,
                               price: found.price,
-                              gstRate: found.gst || 18,
+                              gstRate: found.gst ?? 18,
                               hsn: found.hsnCode || "",
                             }
                           ]);
@@ -1276,23 +1320,37 @@ export default function EditSalesReturn() {
               </div>
 
               <div className="pt-4 border-t border-gray-150 space-y-3">
-                <div className="flex items-center justify-between">
-                  <button 
-                    onClick={() => setShowBankModal(true)} 
-                    className="text-indigo-600 text-xs font-semibold flex items-center gap-1.5 hover:underline"
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider">Bank Account Profile</label>
+                    <button 
+                      onClick={() => setShowBankModal(true)} 
+                      className="text-indigo-600 text-[10px] font-bold uppercase hover:underline"
+                    >
+                      + Add Bank Account Settings
+                    </button>
+                  </div>
+                  <select
+                    value={selectedBankId}
+                    onChange={(e) => setSelectedBankId(e.target.value)}
+                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 bg-white font-semibold text-gray-655"
                   >
-                    <Landmark size={13} className="text-indigo-500" />
-                    <span>{selectedBankId ? "Change Bank Account" : "+ Add Bank Account Settings"}</span>
-                  </button>
-                  {selectedBankId && (
+                    <option value="">No Active Account Selected</option>
+                    {bankAccounts.filter((b: any) => b.status !== "inactive").map(bank => (
+                      <option key={bank.id} value={bank.id}>{bank.name} (A/C: {bank.accountNumber || "UPI Profile"})</option>
+                    ))}
+                  </select>
+                </div>
+                {selectedBankId && (
+                  <div className="flex justify-end">
                     <button 
                       onClick={() => setSelectedBankId("")} 
                       className="text-red-500 text-[10px] hover:underline uppercase font-bold"
                     >
                       Remove Bank
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {selectedBankId && (
                   (() => {
