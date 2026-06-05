@@ -19,6 +19,7 @@ type Staff = {
   salaryType: string;
   salaryAmount: number;
   balance: number;
+  computedBalance?: number;
 };
 
 type AttendanceRecord = {
@@ -85,18 +86,56 @@ export default function StaffAttendancePage() {
       // Fetch Staff
       const sq = query(collection(db, "staffProfiles"), where("userId", "==", userId));
       const sSnap = await getDocs(sq);
-      const sList = sSnap.docs.map(d => ({ id: d.id, ...d.data() } as Staff));
-      setStaff(sList);
+      let sList = sSnap.docs.map(d => ({ id: d.id, ...d.data() } as Staff));
 
-      // Fetch Attendance for this date
-      const aq = query(collection(db, "attendanceRecords"), where("userId", "==", userId), where("date", "==", dateStr));
-      const aSnap = await getDocs(aq);
+      // Fetch ALL Attendance (for computing true balance)
+      const aqAll = query(collection(db, "attendanceRecords"), where("userId", "==", userId));
+      const aSnapAll = await getDocs(aqAll);
+      
       const recs: Record<string, AttendanceRecord> = {};
-      aSnap.docs.forEach(d => {
+      aSnapAll.docs.forEach(d => {
         const data = d.data();
-        recs[data.staffId] = { id: d.id, ...data } as AttendanceRecord;
+        if (data.date === dateStr) {
+          recs[data.staffId] = { id: d.id, ...data } as AttendanceRecord;
+        }
       });
       setRecords(recs);
+
+      // Fetch ALL Transactions
+      const tqAll = query(collection(db, "staffTransactions"), where("userId", "==", userId));
+      const tSnapAll = await getDocs(tqAll);
+
+      // Compute True Balance
+      sList = sList.map(s => {
+        let dailyWage = 0;
+        if (s.salaryType === "Monthly") dailyWage = s.salaryAmount / 30;
+        else if (s.salaryType === "Per Day") dailyWage = s.salaryAmount;
+        else dailyWage = s.salaryAmount * 8;
+        
+        let totalEarnings = 0;
+        aSnapAll.docs.forEach(d => {
+          const data = d.data();
+          if (data.staffId === s.id) {
+            if (data.status === "P" || data.status === "PL" || data.status === "WO") totalEarnings += dailyWage;
+            else if (data.status === "HD") totalEarnings += (dailyWage / 2);
+          }
+        });
+
+        let totalPayments = 0;
+        let totalCollections = 0;
+        tSnapAll.docs.forEach(d => {
+          const data = d.data();
+          if (data.staffId === s.id) {
+            if (data.paymentType === "Collection") totalCollections += data.amount;
+            else totalPayments += data.amount;
+          }
+        });
+
+        const computedBalance = totalEarnings - totalPayments + totalCollections;
+        return { ...s, computedBalance };
+      });
+      
+      setStaff(sList);
 
       // Fetch Settings
       const setRef = query(collection(db, "attendanceSettings"), where("userId", "==", userId));
@@ -133,6 +172,29 @@ export default function StaffAttendancePage() {
         const docRef = await addDoc(collection(db, "attendanceRecords"), recordData);
         setRecords(prev => ({ ...prev, [staffId]: { id: docRef.id, ...recordData } as AttendanceRecord }));
       }
+      
+      // Update local computedBalance dynamically
+      let deltaEarn = 0;
+      const s = staff.find(st => st.id === staffId);
+      if (s) {
+        let dailyWage = 0;
+        if (s.salaryType === "Monthly") dailyWage = s.salaryAmount / 30;
+        else if (s.salaryType === "Per Day") dailyWage = s.salaryAmount;
+        else dailyWage = s.salaryAmount * 8;
+        
+        const oldStatus = existingRecord?.status;
+        let oldEarn = 0;
+        if (oldStatus === "P" || oldStatus === "PL" || oldStatus === "WO") oldEarn = dailyWage;
+        else if (oldStatus === "HD") oldEarn = dailyWage / 2;
+        
+        let newEarn = 0;
+        if (status === "P" || status === "PL" || status === "WO") newEarn = dailyWage;
+        else if (status === "HD") newEarn = dailyWage / 2;
+        
+        deltaEarn = newEarn - oldEarn;
+      }
+      setStaff(prev => prev.map(st => st.id === staffId ? { ...st, computedBalance: (st.computedBalance || 0) + deltaEarn } : st));
+      
       toast.success(`Marked as ${status}`);
       setActiveDropdown(null);
     } catch (err) {
@@ -253,7 +315,7 @@ export default function StaffAttendancePage() {
     else if (r.status === "WO") summary.WO++;
   });
   
-  const totalPending = staff.reduce((acc, s) => acc + (s.balance || 0), 0);
+  const totalPending = staff.reduce((acc, s) => acc + (s.computedBalance || 0), 0);
 
   const prevDay = () => {
     const d = new Date(currentDate);
@@ -376,10 +438,10 @@ export default function StaffAttendancePage() {
                         <td className="px-6 py-4 text-xs font-semibold text-gray-500">-</td>
                         <td className="px-6 py-4">
                            <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
-                             <span className={s.balance >= 0 ? "text-brand-tertiary" : "text-red-500"}>
-                               {s.balance >= 0 ? "↑" : "↓"}
+                             <span className={(s.computedBalance || 0) >= 0 ? "text-brand-tertiary" : "text-red-500"}>
+                               {(s.computedBalance || 0) >= 0 ? "↑" : "↓"}
                              </span>
-                             ₹{Math.abs(s.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                             ₹{Math.abs(s.computedBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                            </div>
                         </td>
                         <td className="px-6 py-4">

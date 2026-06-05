@@ -17,6 +17,7 @@ type Staff = {
   salaryType: string;
   salaryAmount: number;
   balance: number;
+  computedBalance?: number;
 };
 
 type AttendanceRecord = {
@@ -101,7 +102,46 @@ export default function StaffDetailView() {
     try {
       const sq = query(collection(db, "staffProfiles"), where("userId", "==", userId));
       const sSnap = await getDocs(sq);
-      const sList = sSnap.docs.map(d => ({ id: d.id, ...d.data() } as Staff));
+      let sList = sSnap.docs.map(d => ({ id: d.id, ...d.data() } as Staff));
+      
+      // Fetch ALL Attendance (for computing true balance)
+      const aqAll = query(collection(db, "attendanceRecords"), where("userId", "==", userId));
+      const aSnapAll = await getDocs(aqAll);
+      
+      // Fetch ALL Transactions
+      const tqAll = query(collection(db, "staffTransactions"), where("userId", "==", userId));
+      const tSnapAll = await getDocs(tqAll);
+
+      // Compute True Balance
+      sList = sList.map(s => {
+        let dailyWage = 0;
+        if (s.salaryType === "Monthly") dailyWage = s.salaryAmount / 30;
+        else if (s.salaryType === "Per Day") dailyWage = s.salaryAmount;
+        else dailyWage = s.salaryAmount * 8;
+        
+        let totalEarnings = 0;
+        aSnapAll.docs.forEach(d => {
+          const data = d.data();
+          if (data.staffId === s.id) {
+            if (data.status === "P" || data.status === "PL" || data.status === "WO") totalEarnings += dailyWage;
+            else if (data.status === "HD") totalEarnings += (dailyWage / 2);
+          }
+        });
+
+        let totalPayments = 0;
+        let totalCollections = 0;
+        tSnapAll.docs.forEach(d => {
+          const data = d.data();
+          if (data.staffId === s.id) {
+            if (data.paymentType === "Collection") totalCollections += data.amount;
+            else totalPayments += data.amount;
+          }
+        });
+
+        const computedBalance = totalEarnings - totalPayments + totalCollections;
+        return { ...s, computedBalance };
+      });
+
       setStaffList(sList);
       
       const found = sList.find(s => s.id === currentStaffId);
@@ -349,34 +389,73 @@ export default function StaffDetailView() {
   const totalPayments = currentMonthTransactions.filter(t => t.paymentType !== "Collection").reduce((acc, t) => acc + t.amount, 0);
   const totalCollections = currentMonthTransactions.filter(t => t.paymentType === "Collection").reduce((acc, t) => acc + t.amount, 0);
 
-  const nextMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
-  let balanceAtMonthEnd = currentStaff?.balance || 0;
-  transactions.forEach(t => {
-    const tDate = new Date(t.date);
-    if (tDate >= nextMonthStart) {
-      if (t.paymentType === "Collection") {
-        balanceAtMonthEnd -= t.amount;
-      } else {
-        balanceAtMonthEnd += t.amount;
-      }
-    }
-  });
-
-  // Start of current month (e.g. "2026-06-01")
+  // Start of current month string (e.g. "2026-06-01") — used for filtering
   const currentMonthStartStr = currentMonth.getFullYear() + "-" + (currentMonth.getMonth() + 1).toString().padStart(2, "0") + "-01";
 
-  // Calculate cumulative earnings before the current month
+  // Cumulative earnings from attendance before the current month
   const prevCumulativeEarnings = allAttendance
     .filter(r => r.date < currentMonthStartStr)
     .reduce((acc, r) => {
       if (r.status === "P" || r.status === "PL" || r.status === "WO") {
         return acc + dailyWage;
       }
+      if (r.status === "HD") {
+        return acc + (dailyWage / 2);
+      }
       return acc;
     }, 0);
 
-  const previousMonthBalance = balanceAtMonthEnd + totalPayments - totalCollections + prevCumulativeEarnings;
-  const totalDues = balanceAtMonthEnd + prevCumulativeEarnings + totalEarnings;
+  // --- Payroll Calculations (correct approach) ---
+  // previousMonthBalance = what was owed to the staff BEFORE the current month started
+  // = sum of earnings from all months before this one, minus all payments before this month
+  const prevMonthPayments = transactions
+    .filter(t => t.date < currentMonthStartStr && t.paymentType !== "Collection")
+    .reduce((acc, t) => acc + t.amount, 0);
+  const prevMonthCollections = transactions
+    .filter(t => t.date < currentMonthStartStr && t.paymentType === "Collection")
+    .reduce((acc, t) => acc + t.amount, 0);
+  // Previous month closing balance = prior earnings - prior payments + prior collections
+  const previousMonthBalance = prevCumulativeEarnings - prevMonthPayments + prevMonthCollections;
+
+  // Net payable for the current month view = this month's earnings - this month's payments + collections + carry-forward
+  const netPayable = totalEarnings - totalPayments + totalCollections + previousMonthBalance;
+
+  // DEBUG LOG FOR USER: Dump the exact records used for the previous month balance
+  useEffect(() => {
+    if (allAttendance.length > 0 || transactions.length > 0) {
+      console.log("=== PREVIOUS MONTH BALANCE DEBUG ===");
+      const prevAtt = allAttendance.filter(r => r.date < currentMonthStartStr);
+      console.log("1. Previous Earnings records:");
+      prevAtt.forEach(a => {
+        if (a.status === "P" || a.status === "PL" || a.status === "WO") {
+          console.log(`   - Date: ${a.date} | Status: ${a.status} | Amount: ₹${dailyWage}`);
+        } else if (a.status === "HD") {
+          console.log(`   - Date: ${a.date} | Status: ${a.status} | Amount: ₹${dailyWage / 2}`);
+        }
+      });
+
+      const prevTx = transactions.filter(t => t.date < currentMonthStartStr);
+      console.log("\n2. Previous Payment records:");
+      prevTx.filter(t => t.paymentType !== "Collection").forEach(t => {
+        console.log(`   - Date: ${t.date} | Type: ${t.paymentType} | Amount: ₹${t.amount}`);
+      });
+
+      console.log("\n3. Previous Collection records:");
+      prevTx.filter(t => t.paymentType === "Collection").forEach(t => {
+        console.log(`   - Date: ${t.date} | Type: ${t.paymentType} | Amount: ₹${t.amount}`);
+      });
+
+      console.log("\n4. Final calculation:");
+      console.log(`   Previous Earnings = ₹${prevCumulativeEarnings}`);
+      console.log(`   Previous Payments = ₹${prevMonthPayments}`);
+      console.log(`   Previous Collections = ₹${prevMonthCollections}`);
+      console.log(`   Previous Balance = ₹${previousMonthBalance}`);
+      console.log("====================================");
+    }
+  }, [allAttendance, transactions, currentMonthStartStr, prevCumulativeEarnings, prevMonthPayments, prevMonthCollections, previousMonthBalance, dailyWage]);
+
+  // totalDues shown in header = net pending amount the business owes the staff right now
+  const totalDues = netPayable;
 
   if (!currentStaffId) return null;
 
@@ -405,8 +484,8 @@ export default function StaffDetailView() {
               >
                 <div>
                   <p className="text-sm font-bold text-gray-800">{s.name}</p>
-                  <p className={"text-xs font-bold mt-1 " + (s.balance >= 0 ? "text-brand-tertiary" : "text-red-500")}>
-                    {s.balance >= 0 ? "↑" : "↓"} ₹{Math.abs(s.balance).toLocaleString("en-IN")}
+                  <p className={"text-xs font-bold mt-1 " + ((s.computedBalance || 0) >= 0 ? "text-brand-tertiary" : "text-red-500")}>
+                    {(s.computedBalance || 0) >= 0 ? "↑" : "↓"} ₹{Math.abs(s.computedBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
               </Link>
@@ -628,7 +707,7 @@ export default function StaffDetailView() {
 
               <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100 bg-gray-50/30">
                 <div className="px-6 py-4">
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Dues</p>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Net Payable</p>
                   <p className={"text-lg font-black mt-0.5 " + (totalDues >= 0 ? "text-brand-tertiary" : "text-red-500")}>
                     {totalDues >= 0 ? "↑" : "↓"} ₹{Math.abs(totalDues).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </p>
@@ -713,7 +792,17 @@ export default function StaffDetailView() {
                 {/* Previous Month Balance */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
                   <span className="text-sm font-bold text-gray-700">Previous month balance</span>
-                  <span className="text-sm font-bold text-gray-700">₹{previousMonthBalance.toFixed(2)}</span>
+                  <span className={"text-sm font-bold " + (previousMonthBalance >= 0 ? "text-gray-700" : "text-red-500")}>
+                    ₹{previousMonthBalance.toFixed(2)}
+                  </span>
+                </div>
+
+                {/* Net Payable Summary Row */}
+                <div className="flex items-center justify-between px-6 py-4 bg-indigo-50/50 border-b border-indigo-100">
+                  <span className="text-sm font-bold text-indigo-900">Net Payable (Earnings + Prev. Balance − Payments + Collections)</span>
+                  <span className={"text-sm font-extrabold " + (netPayable >= 0 ? "text-indigo-700" : "text-red-600")}>
+                    ₹{netPayable.toFixed(2)}
+                  </span>
                 </div>
               </div>
             </div>

@@ -37,6 +37,7 @@ export default function SalarySlipPrintView() {
   
   const [summary, setSummary] = useState({ P: 0, HD: 0, PL: 0, WO: 0 });
   const [payments, setPayments] = useState(0);
+  const [collections, setCollections] = useState(0);
   const [previousBalance, setPreviousBalance] = useState(0);
 
   useEffect(() => {
@@ -88,6 +89,8 @@ export default function SalarySlipPrintView() {
           } else if (data.date < monthPrefix + "-01") {
             if (data.status === "P" || data.status === "PL" || data.status === "WO") {
               prevCumulativeEarnings += dailyWage;
+            } else if (data.status === "HD") {
+              prevCumulativeEarnings += (dailyWage / 2);
             }
           }
         }
@@ -104,32 +107,33 @@ export default function SalarySlipPrintView() {
       
       let totalPaid = 0;
       let totalCollected = 0;
-      const [yearStr, monthStr] = monthPrefix.split("-");
-      const nextMonthStart = new Date(parseInt(yearStr), parseInt(monthStr), 1);
+      let prevMonthPayments = 0;
+      let prevMonthCollections = 0;
+      const currentMonthStartStr = monthPrefix + "-01";
       
-      let balanceAtMonthEnd = currentStaff.balance;
       tSnap.docs.forEach(d => {
         const data = d.data();
         if (data.date) {
-          const tDate = new Date(data.date);
-          if (tDate >= nextMonthStart) {
+          if (data.date < currentMonthStartStr) {
             if (data.paymentType === "Collection") {
-              balanceAtMonthEnd -= data.amount;
+              prevMonthCollections += data.amount;
             } else {
-              balanceAtMonthEnd += data.amount;
+              prevMonthPayments += data.amount;
             }
           } else if (data.date.startsWith(monthPrefix)) {
-            if (data.paymentType === "Collection") {
-              totalCollected += data.amount;
-            } else {
+            if (data.paymentType !== "Collection") {
               totalPaid += data.amount;
+            } else {
+              totalCollected += data.amount;
             }
           }
         }
       });
       setPayments(totalPaid);
+      setCollections(totalCollected);
 
-      const prevBal = balanceAtMonthEnd + totalPaid - totalCollected + prevCumulativeEarnings;
+      // Previous month closing balance = prior earnings - prior payments + prior collections
+      const prevBal = prevCumulativeEarnings - prevMonthPayments + prevMonthCollections;
       setPreviousBalance(prevBal);
 
     } catch (err) {
@@ -175,9 +179,9 @@ export default function SalarySlipPrintView() {
   const earnPL = summary.PL * dailyWage;
   const grossEarnings = earnP + earnHD + earnWO + earnPL;
 
-  // Approximate Net Payable = Earnings - Payments + Previous Balance
-  // Given screenshot: Net Payable = Earnings + Previous Balance - Payments
-  const netPayable = grossEarnings + previousBalance - payments;
+  // Approximate Net Payable = Earnings - Payments + Collections + Previous Balance
+  // Given screenshot: Net Payable = Earnings + Previous Balance - Payments + Collections
+  const netPayable = grossEarnings + previousBalance - payments + collections;
 
   return (
     <div id="print-area" className="bg-white min-h-screen text-gray-900 font-sans p-8 print:p-0 max-w-[800px] mx-auto relative">
@@ -283,7 +287,7 @@ export default function SalarySlipPrintView() {
           <span className="text-xs font-semibold text-gray-800">₹{previousBalance.toLocaleString("en-IN")}</span>
         </div>
         <div className="flex justify-between px-4 py-3 bg-gray-50">
-          <span className="text-xs font-bold text-gray-900">Net Payable (Earnings + Previous Balance - Payments)</span>
+          <span className="text-xs font-bold text-gray-900">Net Payable (Earnings + Previous Balance - Payments + Collections)</span>
           <span className="text-xs font-bold text-gray-900">₹{netPayable.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       </div>
