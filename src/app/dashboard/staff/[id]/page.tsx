@@ -256,7 +256,7 @@ export default function StaffDetailView() {
         userId: user.uid,
         date: paymentForm.date,
         amount: amount,
-        category: "Employee Salary & Advance",
+        category: "Employee Salaries & Advances",
         paymentMode: paymentForm.paymentMode,
         items: [{
           name: "Payment to " + currentStaff.name + " (" + paymentForm.paymentType + ")",
@@ -986,7 +986,7 @@ export default function StaffDetailView() {
 
               <div className="bg-yellow-50 border border-yellow-100 rounded px-4 py-3 mt-4">
                 <p className="text-[10px] text-yellow-800 font-semibold leading-relaxed">
-                  <span className="font-bold underline">Note:</span> An expense under the category Employee Salary & Advance will automatically be created for this payment
+                  <span className="font-bold underline">Note:</span> An expense under the category Employee Salaries & Advances will automatically be created for this payment
                 </p>
               </div>
             </div>
