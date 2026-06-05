@@ -421,7 +421,7 @@ export default function SalesInvoicesPage() {
                         {inv.isOffline ? (
                           <span className="text-gray-500 bg-gray-50 border border-gray-200 rounded-sm text-[9px] px-1 py-0.5 mr-1 font-bold">DRAFT</span>
                         ) : null}
-                        <Link href={`/dashboard/invoices/${inv.id}`} className="hover:text-indigo-600 hover:underline">
+                        <Link href={inv.isOffline ? `/dashboard/invoices/view-offline?id=${inv.id}` : `/dashboard/invoices/${inv.id}`} className="hover:text-indigo-600 hover:underline">
                           {inv.invoiceNumber}
                         </Link>
                       </td>
@@ -466,7 +466,11 @@ export default function SalesInvoicesPage() {
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                router.push(`/dashboard/invoices/${inv.id}`);
+                                if (inv.isOffline) {
+                                  router.push(`/dashboard/invoices/view-offline?id=${inv.id}`);
+                                } else {
+                                  router.push(`/dashboard/invoices/${inv.id}`);
+                                }
                               }}
                               className="w-full text-left px-3 py-1.5 hover:bg-gray-50 text-xs text-gray-700 font-medium flex items-center gap-1.5 transition-colors"
                             >
@@ -479,6 +483,8 @@ export default function SalesInvoicesPage() {
                                 e.stopPropagation();
                                 if (inv.invoiceType === "estimate") {
                                   router.push(`/dashboard/quotations/edit/${inv.id}`);
+                                } else if (inv.isOffline) {
+                                  router.push(`/dashboard/invoices/edit-offline?id=${inv.id}`);
                                 } else {
                                   router.push(`/dashboard/invoices/edit/${inv.id}`);
                                 }

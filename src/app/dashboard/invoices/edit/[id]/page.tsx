@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { ArrowLeft, Settings2, Share2, ScanBarcode, Plus, ChevronDown, Check, Trash2, Eye, FileText, Landmark, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { collection, getDocs, query, where, updateDoc, doc, getDoc, addDoc, deleteDoc } from "firebase/firestore";
@@ -53,7 +53,9 @@ type Product = {
 
 export default function EditSalesInvoice() {
   const router = useRouter();
-  const { id } = useParams() as { id: string };
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const id = (params?.id as string) || (searchParams?.get("id") as string);
 
   // Invoice state
   const [customerName, setCustomerName] = useState("");

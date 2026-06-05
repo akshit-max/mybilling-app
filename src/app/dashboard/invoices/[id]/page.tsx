@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { db, auth } from "@/lib/firebase";
 import { doc, getDoc, Timestamp, deleteDoc, collection, query, where, getDocs, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { FaWhatsapp } from "react-icons/fa";
 import {
   ArrowLeft,
@@ -118,7 +118,9 @@ function numberToWords(num: number): string {
 }
 
 export default function ViewInvoice() {
-  const { id } = useParams() as { id: string };
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const id = (params?.id as string) || (searchParams?.get("id") as string);
   const router = useRouter();
 
   const [company, setCompany] = useState<Company | null>(null);
