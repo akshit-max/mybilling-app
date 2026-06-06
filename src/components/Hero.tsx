@@ -231,7 +231,7 @@ export default function Hero() {
           <div className="relative w-full max-w-[480px] sm:max-w-[550px] overflow-hidden rounded-2xl shadow-xl shadow-brand-secondary/20 transition-all hover:scale-[1.02] hover:shadow-brand-secondary/40 duration-500 ring-1 ring-white/20">
             <Image
               src="/dark-dashboard.png"
-              alt="myBillBook Premium Dashboard Preview"
+              alt="Cloud Ledger Premium Dashboard Preview"
               width={550}
               height={380}
               priority

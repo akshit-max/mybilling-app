@@ -130,7 +130,7 @@ export default function EInvoicePrint() {
           <div className="flex justify-between items-start mb-6">
             <div className="text-sm font-bold leading-tight">
               <p>{company?.gstin || "27AAJCP7909F1Z4"}</p>
-              <p>{company?.businessName || company?.name || "myBillBook"}</p>
+              <p>{company?.businessName || company?.name || "Cloud Ledger"}</p>
             </div>
             <div className="w-28 h-28">
               <QRCodeSVG 

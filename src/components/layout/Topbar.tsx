@@ -219,8 +219,8 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
     } else {
       // Fallback: Programmatically trigger the browser download of the pre-compiled native desktop application launcher
       const link = document.createElement("a");
-      link.href = "/MyBillBook-32-bit.exe";
-      link.download = "MyBillBook-32-bit.exe";
+      link.href = "/Cloud Ledger-32-bit.exe";
+      link.download = "Cloud Ledger-32-bit.exe";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -317,7 +317,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
           </button>
           
           {/* <a 
-            href="https://mybillbook.featurebase.app/changelog" 
+            href="https://Cloud Ledger.featurebase.app/changelog" 
             target="_blank" 
             rel="noopener noreferrer"
             className="p-2 hover:bg-gray-50 rounded-full transition-colors flex items-center justify-center" 

@@ -160,7 +160,7 @@ export default function SMSMarketingPage() {
           <div>
             <h2 className="text-xl font-bold text-gray-800">Grow Your Business through SMS Promotions</h2>
             <p className="text-xs text-gray-500 mt-2 max-w-xl mx-auto leading-relaxed">
-              Want to share festival sale and discount offer with your customer? Start an SMS campaign today with myBillBook and make your sale a success
+              Want to share festival sale and discount offer with your customer? Start an SMS campaign today with Cloud Ledger and make your sale a success
             </p>
           </div>
         </div>

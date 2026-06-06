@@ -208,7 +208,7 @@ export default function Navbar() {
               </svg>
             </div>
             <span className="font-extrabold text-gray-800 text-base tracking-tight font-sans">
-              my<span className="text-brand-secondary">BillBook</span>
+              Cloud <span className="text-brand-secondary">Ledger</span>
             </span>
           </Link>
 

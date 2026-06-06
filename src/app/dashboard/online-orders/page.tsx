@@ -334,12 +334,12 @@ export default function OnlineOrdersPage() {
                 <div className="h-32 flex items-center justify-center">
                   <FileText size={80} className="text-orange-300" strokeWidth={1} />
                 </div>
-                <p className="text-sm text-gray-600">Order is automatically generated as a Quotation in myBillBook</p>
+                <p className="text-sm text-gray-600">Order is automatically generated as a Quotation in Cloud Ledger</p>
               </div>
             </div>
             
             <div className="p-6 bg-gray-50 flex flex-col items-center border-t border-gray-100">
-              <p className="text-xs text-gray-500 mb-4">By Creating online store, you agree to abide by the <strong>myBillBook Acceptable Usage Policy</strong></p>
+              <p className="text-xs text-gray-500 mb-4">By Creating online store, you agree to abide by the <strong>Cloud Ledger Acceptable Usage Policy</strong></p>
               <button 
                 onClick={handleCreateStore}
                 className="bg-[#E67E4D] hover:bg-[#d66a39] text-white font-bold px-12 py-2.5 rounded-md transition-colors shadow-sm"

@@ -538,7 +538,7 @@ export default function SharedLedgerPage() {
             
             <div className="p-4 bg-white border-2 border-dashed border-gray-300 rounded-xl mb-6 flex items-center justify-center relative">
                <QRCode 
-                 value={typeof window !== "undefined" ? `${window.location.origin}/store/${businessName.split(' ').join('-').toLowerCase()}` : "https://mybillbook.in"} 
+                 value={typeof window !== "undefined" ? `${window.location.origin}/store/${businessName.split(' ').join('-').toLowerCase()}` : "https://Cloud Ledger.in"} 
                  size={150} 
                  fgColor="#312e81" 
                  level="M"
@@ -671,7 +671,7 @@ export default function SharedLedgerPage() {
                   </div>
 
                   <div className="absolute bottom-8 right-8 text-center text-gray-300 font-bold text-4xl opacity-20 -rotate-12 pointer-events-none">
-                     MYBILLBOOK
+                     CLOUD LEDGER
                   </div>
 
                </div>
@@ -793,7 +793,7 @@ export default function SharedLedgerPage() {
                   <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 font-bold">1</div>
                   <div>
                     <h4 className="font-bold text-gray-900 mb-1">Connect with Parties</h4>
-                    <p className="text-xs text-gray-600">Scan the QR code to connect your account with your suppliers or customers using myBillBook.</p>
+                    <p className="text-xs text-gray-600">Scan the QR code to connect your account with your suppliers or customers using Cloud Ledger.</p>
                   </div>
                 </div>
                 <div className="flex gap-4">

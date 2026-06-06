@@ -7,7 +7,7 @@ interface ChatBotProps {
 
 export default function ChatBot({ onClose }: ChatBotProps) {
   const [messages, setMessages] = useState<{ text: string; isBot: boolean }[]>([
-    { text: "Hi, welcome to myBillBook Support!", isBot: true },
+    { text: "Hi, welcome to Cloud Ledger Support!", isBot: true },
     { text: "How would you like us to help you today?", isBot: true }
   ]);
   const [input, setInput] = useState("");
@@ -45,7 +45,7 @@ export default function ChatBot({ onClose }: ChatBotProps) {
     setTimeout(() => {
       let botResponse = "Transferring you now... (This is a dummy action)";
       if (option === "Website Features Overview") {
-        botResponse = "MyBillBook handles Invoicing, Inventory, Party Ledgers, GSTR Reports, and Staff Attendance. Type 'invoice', 'party', 'report', or 'inventory' to learn more!";
+        botResponse = "Cloud Ledger handles Invoicing, Inventory, Party Ledgers, GSTR Reports, and Staff Attendance. Type 'invoice', 'party', 'report', or 'inventory' to learn more!";
       } else if (option === "Plans & Pricing") {
          botResponse = "We offer free and premium tiers. Premium gives you Staff Access, E-invoicing, and more! Ask me about 'pricing' for details.";
       }
@@ -62,7 +62,7 @@ export default function ChatBot({ onClose }: ChatBotProps) {
           <div className="w-6 h-6 bg-brand-secondary rounded-full flex items-center justify-center text-[10px] font-bold">
             <User size={12} className="text-white" />
           </div>
-          <span className="font-semibold text-sm">myBillBook AI Support</span>
+          <span className="font-semibold text-sm">Cloud Ledger AI Support</span>
         </div>
         <button onClick={onClose} className="text-gray-300 hover:text-white transition-colors">
           <X size={18} />

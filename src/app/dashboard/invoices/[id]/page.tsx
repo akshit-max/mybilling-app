@@ -867,10 +867,10 @@ export default function ViewInvoice() {
                           {activeLabel}
                         </span>
                      </div>
-                     {/* myBillBook Logo */}
+                     {/* Cloud Ledger Logo */}
                      <div className="flex items-center font-sans tracking-tight select-none">
-                       <span className="text-sm font-black text-gray-800">my</span>
-                       <span className="text-sm font-black text-brand-secondary">BillBook</span>
+                       <span className="text-sm font-black text-gray-800">Cloud</span>
+<span className="text-sm font-black text-brand-secondary">Ledger</span>
                      </div>
                   </div>
 
@@ -1077,12 +1077,12 @@ export default function ViewInvoice() {
                     )}
                   </div>
 
-                  {/* myBillBook Brand tagline */}
+                  {/* Cloud Ledger Brand tagline */}
                   <div className="border-t border-gray-200 pt-2.5 mt-6 flex flex-col items-center text-[8px] text-gray-400 gap-0.5 font-bold uppercase tracking-wider">
                      <p className="flex items-center gap-1 select-none">
                        <span>Invoice created using</span>
-                       <span className="font-black text-gray-600">my</span>
-                       <span className="font-black text-brand-secondary">BillBook</span>
+                       <span className="font-black text-gray-600">Cloud</span>
+<span className="font-black text-brand-secondary">Ledger</span>
                      </p>
                      <p className="text-[7px] text-gray-300 lowercase font-semibold">Download now at playstore / appstore</p>
                   </div>
@@ -1185,10 +1185,10 @@ export default function ViewInvoice() {
                        {activeLabel}
                      </span>
                    </div>
-                   {/* myBillBook Logo */}
+                   {/* Cloud Ledger Logo */}
                    <div className="flex items-center font-sans tracking-tight select-none">
-                     <span className="text-sm font-black text-gray-800">my</span>
-                     <span className="text-sm font-black text-brand-secondary">BillBook</span>
+                     <span className="text-sm font-black text-gray-800">Cloud</span>
+<span className="text-sm font-black text-brand-secondary">Ledger</span>
                    </div>
                 </div>
 
@@ -1380,12 +1380,12 @@ export default function ViewInvoice() {
                   )}
                 </div>
 
-                {/* myBillBook Brand tagline */}
+                {/* Cloud Ledger Brand tagline */}
                 <div className="border-t border-gray-200 pt-2.5 mt-6 flex flex-col items-center text-[8px] text-gray-400 gap-0.5 font-bold uppercase tracking-wider">
                    <p className="flex items-center gap-1 select-none">
                      <span>Invoice created using</span>
-                     <span className="font-black text-gray-600">my</span>
-                     <span className="font-black text-brand-secondary">BillBook</span>
+                     <span className="font-black text-gray-600">Cloud</span>
+<span className="font-black text-brand-secondary">Ledger</span>
                    </p>
                    <p className="text-[7px] text-gray-300 lowercase font-semibold">Download now at playstore / appstore</p>
                 </div>

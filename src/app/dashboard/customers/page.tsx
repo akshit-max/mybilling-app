@@ -748,7 +748,7 @@ export default function PartiesPage() {
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
                               </span>
                               <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1 w-max bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-50 shadow-md">
-                                Party also on myBillBook, SharedLedger exists
+                                Party also on Cloud Ledger, SharedLedger exists
                                 <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
                               </div>
                             </div>
@@ -837,7 +837,7 @@ export default function PartiesPage() {
         </div>
         <div className="flex-1">
           <p className="font-semibold text-gray-800 text-xs">Add Multiple Parties at once</p>
-          <p className="text-[10px] text-gray-400">Bulk upload all your parties to myBillBook using excel template.</p>
+          <p className="text-[10px] text-gray-400">Bulk upload all your parties to Cloud Ledger using excel template.</p>
         </div>
         <input 
           type="file" 

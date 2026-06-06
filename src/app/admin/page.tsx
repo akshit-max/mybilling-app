@@ -139,7 +139,7 @@ export default function AdminLogin() {
               <ShieldCheck size={24} />
             </div>
             <div>
-              <span className="text-3xl font-extrabold text-white tracking-tight">my<span className="text-[#F97316]/80">BillBook</span> Admin</span>
+              <span className="text-3xl font-extrabold text-white tracking-tight">Cloud <span className="text-[#F97316]/80">Ledger</span> Admin</span>
             </div>
           </div>
 
@@ -185,7 +185,7 @@ export default function AdminLogin() {
             <div className="p-2 bg-[#F97316] rounded-lg text-white shadow-md flex items-center justify-center">
               <ShieldCheck size={20} />
             </div>
-            <span className="text-xl font-extrabold text-slate-900 tracking-tight">my<span className="text-[#F97316]">BillBook</span> Admin</span>
+            <span className="text-xl font-extrabold text-slate-900 tracking-tight">Cloud <span className="text-[#F97316]">Ledger</span> Admin</span>
           </div>
 
           <div className="mb-10 text-center lg:text-left">

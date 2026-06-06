@@ -17,7 +17,7 @@ export default function Footer() {
                 </svg>
               </div>
               <span className="font-extrabold text-white text-xl tracking-tight font-sans">
-                my<span className="text-brand-secondary">BillBook</span>
+                Cloud <span className="text-brand-secondary">Ledger</span>
               </span>
             </div>
 
@@ -62,7 +62,7 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4 text-white">Contact</h4>
             <ul className="space-y-2 text-sm text-white/60">
-              <li>support@mybillbook.com</li>
+              <li>support@Cloud Ledger.com</li>
               <li>+91 74004 17400</li>
               <li>Mon–Sat, 9AM–9PM</li>
             </ul>
@@ -72,7 +72,7 @@ export default function Footer() {
         {/* DIVIDER */}
         <div className="border-t border-white/10 mt-12 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-white/50">
-            © {new Date().getFullYear()} myBillBook. All rights reserved.
+            © {new Date().getFullYear()} Cloud Ledger. All rights reserved.
           </p>
 
           <div className="flex gap-6 text-sm text-white/50">

@@ -50,7 +50,7 @@ export function SuperAdminSidebar({ collapsed, setCollapsed, mobileOpen, setMobi
                  <ShieldCheck size={18} strokeWidth={2.5}/>
                </div>
                <span className="text-[17px] font-black text-white tracking-tight leading-none pt-0.5">
-                 my<span className="text-[#F97316]">BillBook</span> Admin
+                 Cloud <span className="text-[#F97316]">Ledger</span> Admin
                </span>
              </div>
            ) : (

@@ -163,7 +163,7 @@ export default function ReferAndEarnPage() {
                   <Download size={20} />
                 </div>
                 <p className="text-xs font-medium text-gray-600 leading-relaxed max-w-[200px]">
-                  2. Your friend download myBillBook and subscribe the plan
+                  2. Your friend download Cloud Ledger and subscribe the plan
                 </p>
               </div>
 

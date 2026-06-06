@@ -116,7 +116,7 @@ export default function PricingPage() {
               <h2 className="text-sm font-bold text-gray-800">
                 You don't have any active plan
               </h2>
-              <p className="text-xs text-gray-600 mt-1">Choose the best plan to continue using myBillBook without any interruption</p>
+              <p className="text-xs text-gray-600 mt-1">Choose the best plan to continue using Cloud Ledger without any interruption</p>
             </>
           )}
           <div className="flex items-center gap-1 text-[10px] font-bold text-brand-tertiary mt-2 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">

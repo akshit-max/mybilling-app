@@ -15,13 +15,13 @@
 // });
 
 // // export const metadata = {
-// //   title: "myBillBook",
+// //   title: "Cloud Ledger",
 // //   description: "GST Billing SaaS",
 // // };
 
 
 // export const metadata = {
-//   title: "myBillBook",
+//   title: "Cloud Ledger",
 //   description: "Smart GST Billing Software",
 //   manifest: "/manifest.json",
 //   icons: {
@@ -76,7 +76,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "myBillBook",
+  title: "Cloud Ledger",
 
   description: "Smart GST Billing Software",
 

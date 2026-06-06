@@ -1,7 +1,7 @@
 import { openDB } from "idb";
 
 export const dbPromise = openDB(
-  "mybillbook-db",
+  "Cloud Ledger-db",
   2,
   {
     upgrade(db) {

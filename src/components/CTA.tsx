@@ -20,7 +20,7 @@ export default function CTA() {
           {/* LEFT */}
           <div className="max-w-xl relative z-10">
             <h2 className="text-4xl md:text-5xl font-extrabold leading-[1.1] tracking-tight text-white drop-shadow-sm">
-              Start using myBillBook today
+              Start using Cloud Ledger today
             </h2>
 
             <p className="mt-4 text-white/80 text-sm">

@@ -173,7 +173,7 @@ export default function AccountSettingsPage() {
 
         {/* Help us banner */}
         <div className="bg-brand-neutral border-b border-orange-100 px-6 py-2.5 flex items-center justify-between shrink-0">
-          <span className="text-xs text-gray-700 font-bold">Help us make myBillBook better for your business!</span>
+          <span className="text-xs text-gray-700 font-bold">Help us make Cloud Ledger better for your business!</span>
           <button className="flex items-center gap-1.5 bg-brand-secondary hover:bg-orange-600 text-white text-[10px] font-bold uppercase tracking-wider px-4 py-1 rounded transition-colors">
             🎁 Share Suggestion
           </button>

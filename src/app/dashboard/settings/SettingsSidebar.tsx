@@ -130,7 +130,7 @@ export default function SettingsSidebar() {
           <p className="mt-0.5">🔒 100% Secure • ISO Certified</p>
         </div>
         <div className="border-t border-gray-100 pt-2 flex items-center gap-1">
-          <span className="text-[9px] font-bold text-gray-400">myBillBook</span>
+          <span className="text-[9px] font-bold text-gray-400">Cloud Ledger</span>
           <span className="text-[8px] text-indigo-500 font-medium">by FloBiz</span>
         </div>
       </div>

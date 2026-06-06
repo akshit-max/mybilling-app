@@ -93,7 +93,7 @@ export default function Signup() {
           updatedAt: new Date()
         }, { merge: true });
       }
-      toast.success("Setup completed successfully! Welcome to myBillBook 🚀");
+      toast.success("Setup completed successfully! Welcome to Cloud Ledger 🚀");
       setStep(3);
     } catch (err) {
       console.error(err);
@@ -190,7 +190,7 @@ export default function Signup() {
                   </svg>
                 </div>
                 <div>
-                  <span className="text-3xl font-extrabold text-white tracking-tight">my<span className="text-brand-secondary">BillBook</span></span>
+                  <span className="text-3xl font-extrabold text-white tracking-tight">Cloud <span className="text-brand-secondary">Ledger</span></span>
                 </div>
               </div>
 
@@ -200,7 +200,7 @@ export default function Signup() {
                   Join millions of successful businesses.
                 </h1>
                 <p className="text-lg text-brand-neutral/80 font-medium">
-                  Create invoices in seconds, manage stock automatically, and accelerate your growth with myBillBook.
+                  Create invoices in seconds, manage stock automatically, and accelerate your growth with Cloud Ledger.
                 </p>
               </div>
 
@@ -227,7 +227,7 @@ export default function Signup() {
               {/* Header Title */}
               <div className="text-left space-y-4">
                 <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight leading-tight">
-                  Let&apos;s set up myBillBook<br/>for your business
+                  Let&apos;s set up Cloud Ledger<br/>for your business
                 </h2>
 
                 {/* Step indicator pipeline */}

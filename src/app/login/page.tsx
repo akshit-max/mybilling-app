@@ -104,7 +104,7 @@ export default function Login() {
               </svg>
             </div>
             <div>
-              <span className="text-3xl font-extrabold text-white tracking-tight">my<span className="text-brand-secondary">BillBook</span></span>
+              <span className="text-3xl font-extrabold text-white tracking-tight">Cloud <span className="text-brand-secondary">Ledger</span></span>
             </div>
           </div>
 
@@ -114,7 +114,7 @@ export default function Login() {
               Manage your business with absolute clarity.
             </h1>
             <p className="text-lg text-brand-neutral/80 font-medium">
-              Join millions of businesses trusting myBillBook for invoicing, inventory, and accounting.
+              Join millions of businesses trusting Cloud Ledger for invoicing, inventory, and accounting.
             </p>
           </div>
 
@@ -152,7 +152,7 @@ export default function Login() {
               <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
             </svg>
             </div>
-            <span className="text-2xl font-extrabold text-brand-primary tracking-tight">my<span className="text-brand-secondary">BillBook</span></span>
+            <span className="text-2xl font-extrabold text-brand-primary tracking-tight">Cloud <span className="text-brand-secondary">Ledger</span></span>
           </div>
 
           <div className="mb-8">
