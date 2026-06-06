@@ -25,6 +25,9 @@ import {
   Crown,
   Plus,
   Share2,
+  Building2,
+  BadgeCheck,
+  Lock,
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -61,7 +64,7 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
   const [isPaid, setIsPaid] = useState(false);
   const [planName, setPlanName] = useState("");
 
-  const { activeProfile } = useSession();
+  const { activeProfile, isSuperAdminUser } = useSession();
   const role = activeProfile.role;
 
   // RBAC Permission Helper
@@ -131,6 +134,31 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
   }, [pathname]);
 
   const navGroups: NavGroup[] = [
+    {
+      title: "PLATFORM ADMIN",
+      items: [
+        {
+          name: "Platform Dashboard",
+          href: "/dashboard/superadmin",
+          icon: ShieldCheck,
+        },
+        {
+          name: "Companies",
+          href: "/dashboard/superadmin", // Points to the same dashboard since it's an all-in-one view
+          icon: Building2,
+        },
+        {
+          name: "Subscriptions",
+          href: "/dashboard/superadmin",
+          icon: BadgeCheck,
+        },
+        {
+          name: "Security",
+          href: "/dashboard/settings/security",
+          icon: Lock,
+        }
+      ]
+    },
     {
       title: "GENERAL",
       items: [
@@ -214,9 +242,16 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
         // { name: "SMS Marketing", href: "/dashboard/sms", icon: MessageSquare },
       ],
     },
-  ].map(group => ({
+  ].filter(group => {
+    if (group.title === "PLATFORM ADMIN") return isSuperAdminUser;
+    if (pathname?.startsWith("/dashboard/superadmin")) return group.title === "PLATFORM ADMIN";
+    return true;
+  }).map(group => ({
     ...group,
-    items: group.items.filter(item => isAllowed(item.name))
+    items: group.items.filter(item => {
+      if (group.title === "PLATFORM ADMIN") return true;
+      return isAllowed(item.name);
+    })
   })).filter(group => group.items.length > 0);
 
   return (

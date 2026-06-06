@@ -13,6 +13,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
 import { sanitizeNumericInput } from "@/lib/sanitize";
+import { validateDiscount } from "@/lib/validateDiscount";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 import { v4 as uuidv4 } from "uuid";
 
@@ -263,6 +264,13 @@ export default function POSBillingPage() {
   };
 
   const handleSaveBill = async (shouldPrint: boolean) => {
+
+    // DISCOUNT & NEGATIVE TOTAL VALIDATION GATE
+    const validation = validateDiscount(activeBill.items, products, activeBill.discountType, Number(activeBill.discountValue) || 0, finalTotal, true);
+    if (!validation.isValid) {
+      return toast.error(validation.error);
+    }
+
     if (activeBill.items.length === 0) return toast.error("Please add items to the bill");
     if (!user) return toast.error("User not authenticated");
     
@@ -270,9 +278,7 @@ export default function POSBillingPage() {
       return toast.error("Discount cannot exceed the subtotal.");
     }
     
-    if (finalTotal < 0) {
-      return toast.error("Total amount cannot be negative.");
-    }
+    
     for (const item of activeBill.items) {
       if (item.productId) {
         const prod = products.find(p => p.id === item.productId);

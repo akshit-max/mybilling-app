@@ -10,6 +10,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
 import { sanitizeNumericInput } from "@/lib/sanitize";
+import { validateDiscount } from "@/lib/validateDiscount";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 
 type Item = {

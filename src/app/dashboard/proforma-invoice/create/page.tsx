@@ -10,6 +10,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
 import { sanitizeNumericInput } from "@/lib/sanitize";
+import { validateDiscount } from "@/lib/validateDiscount";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 import { v4 as uuidv4 } from "uuid";
 
@@ -166,6 +167,13 @@ export default function CreateCreditNote() {
   const removeItem = (index: number) => items.length > 1 ? setItems(items.filter((_, i) => i !== index)) : setItems([{ name: "", qty: 1, price: 0, gstRate: 18 }]);
 
   const handleSave = async () => {
+
+    // DISCOUNT & NEGATIVE TOTAL VALIDATION GATE
+    const validation = validateDiscount(validItems, products, discountType, Number(discountValue), finalTotal, true);
+    if (!validation.isValid) {
+      return toast.error(validation.error);
+    }
+
     if (!customerName) return toast.error("Please select a party first");
     if (!validItems.length) return toast.error("Please add at least one valid item");
     if (calc.discountAmount > calc.subtotal) return toast.error("Discount cannot exceed subtotal");

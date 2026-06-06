@@ -16,14 +16,16 @@ import {
   ChevronDown,
   Menu,
   Indent,
-  Lock
+  Lock,
+  ShieldCheck,
+  ShieldAlert
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSession, SessionProfile } from "@/context/SessionContext";
 import { useChat } from "@/context/ChatContext";
 import { hashPin } from "@/lib/crypto";
 import { auth, db } from "@/lib/firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 
 export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: () => void, toggleMobileMenu?: () => void }) {
   const pathname = usePathname();
@@ -33,7 +35,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
-  const { activeProfile, subUsers, switchProfile, adminPin, isSessionUnlocked, unlockSession } = useSession();
+  const { activeProfile, subUsers, switchProfile, adminPin, superAdminPin, isSessionUnlocked, unlockSession, isSuperAdminUser } = useSession();
 
   // Premium PIN Modal State
   const [pendingProfile, setPendingProfile] = useState<SessionProfile | null>(null);
@@ -82,7 +84,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
     }
 
     if (isCorrect) {
-       setPinSuccess(true);
+        setPinSuccess(true);
        
        // Log to Activity Tracker securely
        try {
@@ -146,7 +148,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
     
     // First-use Setup: If switching to Admin and no Admin PIN is set
     if (profile.id === "admin" && !adminPin) {
-       toast.error("Admin Master PIN not configured. Please setup in Manage Users first.");
+       toast.error("Admin Master PIN not configured. Please setup in Settings first.");
        return;
     }
 
@@ -282,7 +284,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
   };
 
   return (
-    <header className="h-16 bg-white border-b border-brand-primary/10 flex items-center justify-between px-4 md:px-8 flex-shrink-0 font-sans relative shadow-sm">
+    <header className={`h-16 border-b flex items-center justify-between px-4 md:px-8 flex-shrink-0 font-sans relative shadow-sm ${activeProfile.role === "SUPER_ADMIN" ? "bg-red-50/40 border-red-200" : "bg-white border-brand-primary/10"}`}>
       <div className="flex items-center gap-4">
         <button 
           onClick={toggleMobileMenu} 
@@ -297,7 +299,14 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
         >
           <Indent size={20} />
         </button>
-        <h1 className="text-xl font-bold text-brand-primary tracking-tight">{getPageTitle()}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold text-brand-primary tracking-tight">{getPageTitle()}</h1>
+          {activeProfile.role === "SUPER_ADMIN" && (
+            <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-widest shadow-sm animate-pulse flex items-center gap-1">
+               <ShieldAlert size={12} /> SUPER ADMIN
+            </span>
+          )}
+        </div>
       </div>
       
       <div className="flex items-center gap-2 md:gap-5">
@@ -470,7 +479,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
                 <X size={16} />
               </button>
               
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg mb-4 transition-transform duration-500 ${pinSuccess ? 'scale-110 bg-brand-tertiary text-white' : pendingProfile.id === 'admin' ? 'bg-indigo-600 text-white' : 'bg-amber-500 text-white'}`}>
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shadow-lg mb-4 transition-transform duration-500 ${pinSuccess ? 'scale-110 bg-brand-tertiary text-white' : pendingProfile.id === 'superadmin' ? 'bg-red-600 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]' : pendingProfile.id === 'admin' ? 'bg-indigo-600 text-white' : 'bg-amber-500 text-white'}`}>
                 {pendingProfile.name.charAt(0).toUpperCase()}
               </div>
               

@@ -583,7 +583,7 @@ export default function Dashboard() {
                       <tr className="border-b border-brand-primary/5 text-[10px] font-bold text-brand-primary/50 bg-brand-neutral/10 uppercase tracking-wider">
                          <th className="py-3 px-6">Date</th>
                          <th className="py-3 px-6">Type</th>
-                         <th className="py-3 px-6">Txn No</th>
+                         <th className="py-3 px-6">Invoice No</th>
                          <th className="py-3 px-6">Party Name</th>
                          <th className="py-3 px-6 text-right">Amount</th>
                       </tr>

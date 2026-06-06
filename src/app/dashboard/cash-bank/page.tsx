@@ -711,7 +711,7 @@ export default function CashAndBankPage() {
                   <tr className="bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wider text-gray-500 font-bold">
                     <th className="p-4">Date</th>
                     <th className="p-4">Type</th>
-                    <th className="p-4">Txn No</th>
+                    <th className="p-4">Invoice No</th>
                     <th className="p-4">Party</th>
                     <th className="p-4">Mode</th>
                     <th className="p-4 text-right text-red-500">Paid</th>

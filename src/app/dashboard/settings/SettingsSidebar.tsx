@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, FileText, Printer, Users, Bell, Share2, Tag, Gift, HelpCircle, LogOut, Package } from "lucide-react";
+import { Building2, FileText, Printer, Users, Bell, Share2, Tag, Gift, HelpCircle, LogOut, Package, Shield } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -56,6 +56,7 @@ export default function SettingsSidebar() {
     { name: "Item Settings", icon: <Package size={15} />, href: "/dashboard/settings/item" },
     { name: "Print Settings", icon: <Printer size={15} />, href: "/dashboard/settings/print" },
     { name: "Manage Users", icon: <Users size={15} />, href: "/dashboard/settings/manage-users" },
+    { name: "Security", icon: <Shield size={15} />, href: "/dashboard/settings/security" },
     { name: "Reminders", icon: <Bell size={15} />, href: "/dashboard/settings/reminders" },
     { name: "CA Reports Sharing", icon: <Share2 size={15} />, href: "/dashboard/settings/ca-reports" },
     { name: "Pricing", icon: <Tag size={15} />, href: "/dashboard/settings/pricing" },

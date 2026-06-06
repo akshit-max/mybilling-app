@@ -10,6 +10,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
 import { sanitizeNumericInput } from "@/lib/sanitize";
+import { validateDiscount } from "@/lib/validateDiscount";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 import { v4 as uuidv4 } from "uuid";
 import { INDIAN_STATES } from "@/lib/indianStates";
@@ -514,6 +515,13 @@ export default function CreateAutomatedBill() {
   };
 
   const handleSave = async () => {
+
+    // DISCOUNT & NEGATIVE TOTAL VALIDATION GATE
+    const validation = validateDiscount(validItems, products, discountType, Number(discountValue), finalTotal, true);
+    if (!validation.isValid) {
+      return toast.error(validation.error);
+    }
+
     if (!customerName) return toast.error("Please select a customer first");
     if (!validItems.length) return toast.error("Please add at least one valid item");
 

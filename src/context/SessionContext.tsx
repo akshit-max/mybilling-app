@@ -22,6 +22,7 @@ type SessionContextType = {
   unlockSession: (id: string) => void;
   isSessionUnlocked: (id: string) => boolean;
   loading: boolean;
+  isSuperAdminUser: boolean;
 };
 
 const defaultAdminProfile: SessionProfile = {
@@ -39,6 +40,7 @@ const SessionContext = createContext<SessionContextType>({
   unlockSession: () => {},
   isSessionUnlocked: () => false,
   loading: true,
+  isSuperAdminUser: false,
 });
 
 export const SessionProvider = ({ children }: { children: React.ReactNode }) => {
@@ -46,40 +48,68 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
   const [subUsers, setSubUsers] = useState<SessionProfile[]>([]);
   const [adminPin, setAdminPin] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSuperAdminUser, setIsSuperAdminUser] = useState(false);
 
   // Replaces the local state defaultAdminProfile with fetched data once loaded
   const [baseAdmin, setBaseAdmin] = useState<SessionProfile>(defaultAdminProfile);
 
   useEffect(() => {
     let unsubSubusers: (() => void) | null = null;
+    let unsubSettings: (() => void) | null = null;
 
     const unsubAuth = auth.onAuthStateChanged(async (user) => {
       if (unsubSubusers) {
         unsubSubusers();
         unsubSubusers = null;
       }
+      if (unsubSettings) {
+        unsubSettings();
+        unsubSettings = null;
+      }
 
       if (user) {
         let fetchedAdminPin = null;
+        let isSuperAdmin = false;
+        let isEligible = false;
+        let settingsExist = false;
+
         try {
-          // Fetch Admin Settings to get adminPin
+          // Fetch Admin Settings to get adminPin and SuperAdmin flag
           const settingsSnap = await getDoc(doc(db, "settings", user.uid));
           if (settingsSnap.exists()) {
+            settingsExist = true;
             fetchedAdminPin = settingsSnap.data().adminPin || null;
+            isSuperAdmin = !!settingsSnap.data().isSuperAdmin;
             setAdminPin(fetchedAdminPin);
+            setIsSuperAdminUser(isSuperAdmin);
           }
         } catch (err) {
           console.error("Failed to fetch admin settings", err);
         }
 
+        // Real-time synchronization for PIN and Super Admin status
+        unsubSettings = onSnapshot(doc(db, "settings", user.uid), (snap) => {
+          if (snap.exists()) {
+            const currentAdminPin = snap.data().adminPin || null;
+            const currentIsSuperAdmin = !!snap.data().isSuperAdmin;
+            setAdminPin(currentAdminPin);
+            setIsSuperAdminUser(currentIsSuperAdmin);
+          }
+        });
+
         // Build base admin profile based on Firebase Auth user and fetched settings
         const adminProfile: SessionProfile = {
-          id: user.uid,
+          id: "admin", // Fixed explicit ID
           name: user.displayName || "Admin",
-          role: "Admin",
-          isAdmin: true,
+          role: "Admin", // ALWAYS Admin
+          isAdmin: settingsExist, // Fail-safe: false if settings are corrupted/missing
           passcode: fetchedAdminPin || undefined,
         };
+        
+        if (!settingsExist) {
+          console.error("Fail-Safe Triggered: Unable to determine permissions. Settings doc missing.");
+        }
+
         setBaseAdmin(adminProfile);
 
         // Fetch sub-users linked to this admin in real-time
@@ -97,12 +127,16 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
 
           // Restore last active profile from localStorage if it exists
           const savedProfileId = localStorage.getItem("activeProfileId");
-          if (savedProfileId && savedProfileId !== user.uid) {
-            const found = users.find(u => u.id === savedProfileId);
-            if (found) {
-              setActiveProfile(found);
-            } else {
+          if (savedProfileId) {
+            if (savedProfileId === "admin") {
               setActiveProfile(adminProfile);
+            } else {
+              const found = users.find(u => u.id === savedProfileId);
+              if (found) {
+                setActiveProfile(found);
+              } else {
+                setActiveProfile(adminProfile);
+              }
             }
           } else {
             setActiveProfile(adminProfile);
@@ -125,6 +159,7 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
     return () => {
       unsubAuth();
       if (unsubSubusers) unsubSubusers();
+      if (unsubSettings) unsubSettings();
     };
   }, []);
 
@@ -154,7 +189,7 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
   };
 
   return (
-    <SessionContext.Provider value={{ activeProfile, subUsers, adminPin, switchProfile, unlockSession, isSessionUnlocked, loading }}>
+    <SessionContext.Provider value={{ activeProfile, subUsers, adminPin, switchProfile, unlockSession, isSessionUnlocked, loading, isSuperAdminUser }}>
       {children}
     </SessionContext.Provider>
   );
