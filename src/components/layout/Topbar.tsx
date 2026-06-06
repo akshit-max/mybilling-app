@@ -35,7 +35,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
-  const { activeProfile, subUsers, switchProfile, adminPin, superAdminPin, isSessionUnlocked, unlockSession, isSuperAdminUser } = useSession();
+  const { activeProfile, subUsers, switchProfile, adminPin, isSessionUnlocked, unlockSession } = useSession();
 
   // Premium PIN Modal State
   const [pendingProfile, setPendingProfile] = useState<SessionProfile | null>(null);
@@ -284,7 +284,7 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
   };
 
   return (
-    <header className={`h-16 border-b flex items-center justify-between px-4 md:px-8 flex-shrink-0 font-sans relative shadow-sm ${activeProfile.role === "SUPER_ADMIN" ? "bg-red-50/40 border-red-200" : "bg-white border-brand-primary/10"}`}>
+    <header className="h-16 border-b flex items-center justify-between px-4 md:px-8 flex-shrink-0 font-sans relative shadow-sm bg-white border-brand-primary/10">
       <div className="flex items-center gap-4">
         <button 
           onClick={toggleMobileMenu} 
@@ -301,11 +301,6 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
         </button>
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold text-brand-primary tracking-tight">{getPageTitle()}</h1>
-          {activeProfile.role === "SUPER_ADMIN" && (
-            <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-widest shadow-sm animate-pulse flex items-center gap-1">
-               <ShieldAlert size={12} /> SUPER ADMIN
-            </span>
-          )}
         </div>
       </div>
       

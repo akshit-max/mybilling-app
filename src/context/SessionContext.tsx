@@ -22,7 +22,6 @@ type SessionContextType = {
   unlockSession: (id: string) => void;
   isSessionUnlocked: (id: string) => boolean;
   loading: boolean;
-  isSuperAdminUser: boolean;
 };
 
 const defaultAdminProfile: SessionProfile = {
@@ -40,7 +39,6 @@ const SessionContext = createContext<SessionContextType>({
   unlockSession: () => {},
   isSessionUnlocked: () => false,
   loading: true,
-  isSuperAdminUser: false,
 });
 
 export const SessionProvider = ({ children }: { children: React.ReactNode }) => {
@@ -48,7 +46,6 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
   const [subUsers, setSubUsers] = useState<SessionProfile[]>([]);
   const [adminPin, setAdminPin] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isSuperAdminUser, setIsSuperAdminUser] = useState(false);
 
   // Replaces the local state defaultAdminProfile with fetched data once loaded
   const [baseAdmin, setBaseAdmin] = useState<SessionProfile>(defaultAdminProfile);
@@ -79,9 +76,7 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
           if (settingsSnap.exists()) {
             settingsExist = true;
             fetchedAdminPin = settingsSnap.data().adminPin || null;
-            isSuperAdmin = !!settingsSnap.data().isSuperAdmin;
             setAdminPin(fetchedAdminPin);
-            setIsSuperAdminUser(isSuperAdmin);
           }
         } catch (err) {
           console.error("Failed to fetch admin settings", err);
@@ -91,9 +86,7 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
         unsubSettings = onSnapshot(doc(db, "settings", user.uid), (snap) => {
           if (snap.exists()) {
             const currentAdminPin = snap.data().adminPin || null;
-            const currentIsSuperAdmin = !!snap.data().isSuperAdmin;
             setAdminPin(currentAdminPin);
-            setIsSuperAdminUser(currentIsSuperAdmin);
           }
         });
 
@@ -189,7 +182,7 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
   };
 
   return (
-    <SessionContext.Provider value={{ activeProfile, subUsers, adminPin, switchProfile, unlockSession, isSessionUnlocked, loading, isSuperAdminUser }}>
+    <SessionContext.Provider value={{ activeProfile, subUsers, adminPin, switchProfile, unlockSession, isSessionUnlocked, loading }}>
       {children}
     </SessionContext.Provider>
   );

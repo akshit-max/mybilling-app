@@ -234,6 +234,12 @@ export default function Login() {
                 Sign up for free
               </Link>
             </p>
+            <div className="pt-6 mt-4 border-t border-brand-primary/5">
+              <Link href="/admin" className="flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm font-bold text-slate-600 hover:text-brand-primary transition-all group">
+                <ShieldCheck size={16} className="text-brand-primary/40 group-hover:text-brand-primary transition-colors" /> 
+                <span className="tracking-wide">Platform Owner Access</span>
+              </Link>
+            </div>
           </div>
         </div>
       </div>

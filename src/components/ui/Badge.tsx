@@ -1,25 +1,33 @@
 import React from "react";
 
-interface BadgeProps {
-  children: React.ReactNode;
-  variant?: "success" | "warning" | "danger" | "info" | "neutral";
-  className?: string;
+export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
+  variant?: "primary" | "secondary" | "success" | "danger" | "warning";
+  icon?: React.ReactNode;
 }
 
-export function Badge({ children, variant = "neutral", className = "" }: BadgeProps) {
-  const getVariantStyles = () => {
-    switch (variant) {
-      case "success": return "bg-green-100 text-green-700 border-green-200";
-      case "warning": return "bg-yellow-100 text-yellow-700 border-yellow-200";
-      case "danger": return "bg-red-100 text-red-700 border-red-200";
-      case "info": return "bg-blue-100 text-blue-700 border-blue-200";
-      default: return "bg-gray-100 text-gray-700 border-gray-200";
-    }
-  };
+const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
+  ({ className = "", variant = "primary", icon, children, ...props }, ref) => {
+    
+    const baseStyles = "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold uppercase tracking-widest font-mono transition-colors";
+    
+    const variantStyles = {
+      primary: "bg-[#1F2937] text-white border border-[#1F2937]",
+      secondary: "bg-[#FFF7ED] text-[#1F2937] border border-[#1F2937]/10",
+      success: "bg-[#22C55E] text-white border border-[#22C55E]",
+      danger: "bg-red-600 text-white border border-red-600",
+      warning: "bg-[#F97316] text-white border border-[#F97316]",
+    };
 
-  return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${getVariantStyles()} ${className}`}>
-      {children}
-    </span>
-  );
-}
+    const combinedClassName = `${baseStyles} ${variantStyles[variant]} ${className}`;
+
+    return (
+      <div ref={ref} className={combinedClassName} {...props}>
+        {icon && <span className="shrink-0">{icon}</span>}
+        {children}
+      </div>
+    );
+  }
+);
+Badge.displayName = "Badge";
+
+export { Badge };
