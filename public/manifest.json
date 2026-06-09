@@ -1,7 +1,7 @@
 
 {
-  "name": "myBillBook",
-  "short_name": "myBillBook",
+  "name": "Cloud Ledger",
+  "short_name": "Cloud Ledger",
   "description": "GST Billing Software for Modern Businesses",
   "start_url": "/",
   "display": "standalone",
