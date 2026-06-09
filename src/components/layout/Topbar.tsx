@@ -219,8 +219,8 @@ export function Topbar({ toggleSidebar, toggleMobileMenu }: { toggleSidebar?: ()
     } else {
       // Fallback: Programmatically trigger the browser download of the pre-compiled native desktop application launcher
       const link = document.createElement("a");
-      link.href = "/Cloud Ledger-32-bit.exe";
-      link.download = "Cloud Ledger-32-bit.exe";
+      link.href = "/Cloud_Ledger_Setup.exe";
+      link.download = "Cloud_Ledger_Setup.exe";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
