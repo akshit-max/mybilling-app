@@ -365,6 +365,17 @@ export default function Signup() {
                       Login
                     </Link>
                   </p>
+                  
+                  <p className="text-xs font-semibold text-brand-primary/70 text-center mt-6 bg-slate-50/80 p-3 rounded-lg border border-brand-primary/10 shadow-sm">
+                    By continuing, you agree to our{" "}
+                    <Link href="/terms-and-conditions" className="text-brand-secondary hover:text-brand-secondary/80 hover:underline transition">
+                      Terms & Conditions
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy-policy" className="text-brand-secondary hover:text-brand-secondary/80 hover:underline transition">
+                      Privacy Policy
+                    </Link>.
+                  </p>
                 </form>
               ) : (
                 /* ================= STEP 2 FORM ================= */

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { ArrowLeft, CheckCircle2, ChevronUp, AlertCircle, X, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { db, auth } from "@/lib/firebase";
@@ -451,6 +452,16 @@ export default function CheckoutPage() {
                     "Submit"
                   )}
                 </button>
+                <p className="text-xs font-semibold text-gray-600 text-center mt-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                  By subscribing, you agree to our{" "}
+                  <Link href="/terms-and-conditions" target="_blank" className="text-indigo-600 hover:text-indigo-800 hover:underline transition">
+                    Terms & Conditions
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy-policy" target="_blank" className="text-indigo-600 hover:text-indigo-800 hover:underline transition">
+                    Privacy Policy
+                  </Link>.
+                </p>
               </div>
             </form>
           </div>

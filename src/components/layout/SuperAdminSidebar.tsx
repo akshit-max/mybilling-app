@@ -10,7 +10,8 @@ import {
   LogOut,
   Menu,
   Indent,
-  Lock
+  Lock,
+  FileText
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 
@@ -20,7 +21,7 @@ export function SuperAdminSidebar({ collapsed, setCollapsed, mobileOpen, setMobi
 
   const handleLogout = async () => {
     await auth.signOut();
-    router.push("/admin");
+    router.push("/login");
   };
 
   const menuItems = [
@@ -33,6 +34,11 @@ export function SuperAdminSidebar({ collapsed, setCollapsed, mobileOpen, setMobi
       name: "Settings",
       href: "/superadmin/settings",
       icon: Settings,
+    },
+    {
+      name: "Legal CMS",
+      href: "/superadmin/legal",
+      icon: FileText,
     }
   ];
 

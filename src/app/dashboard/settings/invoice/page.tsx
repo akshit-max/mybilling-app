@@ -223,7 +223,7 @@ export default function InvoiceSettingsPage() {
                      <p className="text-gray-400 uppercase text-[8px] tracking-wider font-bold mb-1">BILL TO</p>
                      <p className="font-bold text-gray-800">Sample Party</p>
                      <p className="text-gray-500 leading-normal">No F2, Outer Circle, Connaught Circus, New Delhi, DELHI, 110001</p>
-                     {showPhone && <p className="text-gray-400 font-mono mt-1">Mobile: 7400417400</p>}
+                     {showPhone && <p className="text-gray-400 font-mono mt-1">Mobile: 88911 77850</p>}
                      <p className="text-gray-400 font-mono">GSTIN: 07ABOCH2702H2ZZ</p>
                   </div>
                   <div className="text-right">

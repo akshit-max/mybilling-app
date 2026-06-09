@@ -56,7 +56,6 @@ export default function SettingsSidebar() {
     { name: "Item Settings", icon: <Package size={15} />, href: "/dashboard/settings/item" },
     { name: "Print Settings", icon: <Printer size={15} />, href: "/dashboard/settings/print" },
     { name: "Manage Users", icon: <Users size={15} />, href: "/dashboard/settings/manage-users" },
-    { name: "Security", icon: <Shield size={15} />, href: "/dashboard/settings/security" },
     { name: "Reminders", icon: <Bell size={15} />, href: "/dashboard/settings/reminders" },
     { name: "CA Reports Sharing", icon: <Share2 size={15} />, href: "/dashboard/settings/ca-reports" },
     { name: "Pricing", icon: <Tag size={15} />, href: "/dashboard/settings/pricing" },
@@ -131,7 +130,6 @@ export default function SettingsSidebar() {
         </div>
         <div className="border-t border-gray-100 pt-2 flex items-center gap-1">
           <span className="text-[9px] font-bold text-gray-400">Cloud Ledger</span>
-          <span className="text-[8px] text-indigo-500 font-medium">by FloBiz</span>
         </div>
       </div>
 

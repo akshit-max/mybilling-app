@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -30,10 +31,24 @@ export default function Login() {
     try {
       setLoading(true);
 
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
 
-      toast.success("Welcome back 👋");
-      router.push("/dashboard");
+      // Check if user is super admin
+      let savedUid = null;
+      try {
+        const platSnap = await getDoc(doc(db, "platformSettings", "security"));
+        savedUid = platSnap?.data()?.superAdminUid;
+      } catch (adminCheckError) {
+        console.error("Could not verify admin status:", adminCheckError);
+      }
+
+      if (savedUid && userCredential.user.uid === savedUid) {
+        toast.success("Welcome, Platform Owner");
+        router.push("/superadmin");
+      } else {
+        toast.success("Welcome back 👋");
+        router.push("/dashboard");
+      }
     } catch (error) {
       if (error instanceof FirebaseError) {
         if (
@@ -234,12 +249,16 @@ export default function Login() {
                 Sign up for free
               </Link>
             </p>
-            <div className="pt-6 mt-4 border-t border-brand-primary/5">
-              <Link href="/admin" className="flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm font-bold text-slate-600 hover:text-brand-primary transition-all group">
-                <ShieldCheck size={16} className="text-brand-primary/40 group-hover:text-brand-primary transition-colors" /> 
-                <span className="tracking-wide">Platform Owner Access</span>
-              </Link>
-            </div>
+            <p className="text-xs font-semibold text-brand-primary/70 text-center mt-6 bg-slate-50/80 p-3 rounded-lg border border-brand-primary/10 shadow-sm">
+              By logging in, you agree to our{" "}
+              <Link href="/terms-and-conditions" className="text-brand-secondary hover:text-brand-secondary/80 hover:underline transition">
+                Terms & Conditions
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy-policy" className="text-brand-secondary hover:text-brand-secondary/80 hover:underline transition">
+                Privacy Policy
+              </Link>.
+            </p>
           </div>
         </div>
       </div>

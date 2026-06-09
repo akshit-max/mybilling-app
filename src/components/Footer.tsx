@@ -1,6 +1,7 @@
 "use client";
 
 import { FaFacebook, FaInstagram, FaYoutube } from "react-icons/fa";
+import Link from "next/link";
 
 export default function Footer() {
   return (
@@ -63,7 +64,7 @@ export default function Footer() {
             <h4 className="font-semibold mb-4 text-white">Contact</h4>
             <ul className="space-y-2 text-sm text-white/60">
               <li>support@Cloud Ledger.com</li>
-              <li>+91 74004 17400</li>
+              <li>+91 88911 77850</li>
               <li>Mon–Sat, 9AM–9PM</li>
             </ul>
           </div>
@@ -76,14 +77,14 @@ export default function Footer() {
           </p>
 
           <div className="flex gap-6 text-sm text-white/50">
-            <span className="hover:text-white cursor-pointer transition">
+            <Link href="/privacy-policy" className="hover:text-white transition">
               Privacy Policy
-            </span>
+            </Link>
+            <Link href="/terms-and-conditions" className="hover:text-white transition">
+              Terms & Conditions
+            </Link>
             <span className="hover:text-white cursor-pointer transition">
-              Terms
-            </span>
-            <span className="hover:text-white cursor-pointer transition">
-              Refund
+              Refund Policy
             </span>
           </div>
         </div>
