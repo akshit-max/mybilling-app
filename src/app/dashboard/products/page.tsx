@@ -83,6 +83,9 @@ export default function ItemsPage() {
   const [formUnit, setFormUnit] = useState("PCS");
   const [formStock, setFormStock] = useState("0");
   const [formItemCode, setFormItemCode] = useState("");
+  const [formBatch, setFormBatch] = useState("");
+  const [formEnableBatching, setFormEnableBatching] = useState(false);
+  const [enableItemBatching, setEnableItemBatching] = useState(false);
   const [formHsnCode, setFormHsnCode] = useState("");
   const [formAsOfDate, setFormAsOfDate] = useState(new Date().toISOString().split("T")[0]);
   const [formLowStockWarning, setFormLowStockWarning] = useState(false);
@@ -194,6 +197,18 @@ export default function ItemsPage() {
     }
   };
 
+  const fetchSettings = async (userUid: string) => {
+    try {
+      const snap = await getDoc(doc(db, "settings", userUid));
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.itemSettings?.enableItemBatching || data.enableItemBatching) {
+          setEnableItemBatching(true);
+        }
+      }
+    } catch(err) { console.error(err); }
+  };
+
   const fetchCategoriesList = async (userUid: string) => {
     try {
       const q = query(
@@ -216,6 +231,7 @@ export default function ItemsPage() {
       if (u) {
         fetchProductsList();
         fetchCategoriesList(u.uid);
+        fetchSettings(u.uid);
       } else {
         setLoading(false);
       }
@@ -255,6 +271,8 @@ export default function ItemsPage() {
     setFormUnit("PCS");
     setFormStock("0");
     setFormItemCode("");
+    setFormBatch("");
+    setFormEnableBatching(false);
     setFormHsnCode("");
     setFormAsOfDate(new Date().toISOString().split("T")[0]);
     setFormLowStockWarning(false);
@@ -294,6 +312,8 @@ export default function ItemsPage() {
         setFormUnit(data.unit || "PCS");
         setFormStock(String(data.stock || "0"));
         setFormItemCode(data.itemCode || data.barcode || "");
+        setFormBatch(data.batch || "");
+        setFormEnableBatching(!!data.enableBatching);
         setFormHsnCode(data.hsnCode || "");
         setFormAsOfDate(data.asOfDate || new Date().toISOString().split("T")[0]);
         setFormLowStockWarning(!!data.lowStockWarning);
@@ -409,6 +429,8 @@ export default function ItemsPage() {
         stock: Number(formStock) || 0,
         itemCode: formItemCode.trim() || null,
         barcode: formItemCode.trim() || null,
+        batch: formBatch.trim() || null,
+        enableBatching: formEnableBatching,
         hsnCode: formHsnCode.trim() || null,
         asOfDate: formAsOfDate,
         lowStockWarning: formLowStockWarning,
@@ -1501,6 +1523,39 @@ export default function ItemsPage() {
                         <p className="text-[9px] text-gray-400 mt-1 leading-tight">
                           You can type a custom code or auto-generate. Use the × button to clear and retype.
                         </p>
+
+                        
+                        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-700 uppercase tracking-widest block mb-0.5">Enable Batch Tracking</label>
+                            <p className="text-[9px] text-gray-400 leading-tight">Track batches and expirations for this specific item.</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setFormEnableBatching(!formEnableBatching)}
+                            className={`w-9 h-5 rounded-full relative cursor-pointer flex items-center px-0.5 transition-colors ${formEnableBatching ? "bg-indigo-600 justify-end" : "bg-gray-300 justify-start"}`}
+                          >
+                            <span className="w-4 h-4 bg-white rounded-full shadow-sm block"></span>
+                          </button>
+                        </div>
+
+                        {formEnableBatching && (
+                          <div className="mt-4">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                              Item Batch Number
+                            </label>
+                            <input 
+                              type="text" 
+                              value={formBatch}
+                              onChange={(e) => setFormBatch(e.target.value)}
+                              placeholder="e.g. BATCH-001"
+                              className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-mono bg-white"
+                            />
+                            <p className="text-[9px] text-gray-400 mt-1 leading-tight">
+                              Assign a batch number for tracking in Godown.
+                            </p>
+                          </div>
+                        )}
 
                         {/* Live QR / Barcode Preview */}
                         {formItemCode.trim() && (

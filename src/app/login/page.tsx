@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -40,6 +40,15 @@ export default function Login() {
         savedUid = platSnap?.data()?.superAdminUid;
       } catch (adminCheckError) {
         console.error("Could not verify admin status:", adminCheckError);
+      }
+
+      // Non-blocking lastActive update for Super Admin health tracking
+      try {
+        setDoc(doc(db, "users", userCredential.user.uid), { 
+          lastActive: new Date().toISOString() 
+        }, { merge: true }).catch(err => console.error("Silent lastActive update failed:", err));
+      } catch (err) {
+        // Ignore errors to ensure login is never blocked
       }
 
       if (savedUid && userCredential.user.uid === savedUid) {

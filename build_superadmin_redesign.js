@@ -1,4 +1,6 @@
-"use client";
+const fs = require('fs');
+
+const content = `"use client";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { 
@@ -114,18 +116,13 @@ export default function SuperAdminDashboard() {
         usersSnap.forEach(doc => {
           const d = doc.data();
           const uid = doc.id;
+          const employees = employeesByCompany[uid] || [];
           const settings = settingsMap[uid] || {};
           
-          const bName = d.businessName || settings.businessName;
-          
-          // Completely filter out orphaned/incomplete registrations from all dashboard metrics
-          if (!bName || bName.trim() === "") {
-            return;
-          }
-
-          const employees = employeesByCompany[uid] || [];
           const rolesBreakdown: Record<string, number> = {};
           const employeesList: any[] = [];
+          
+          const bName = d.businessName || settings.businessName || "Incomplete Registration";
           
           employees.forEach(emp => {
             const role = emp.role || "Unknown";
@@ -140,10 +137,10 @@ export default function SuperAdminDashboard() {
 
             if (empDate) {
                activities.push({
-                 id: `emp_${emp.email}_${empDate.getTime()}`,
+                 id: \`emp_\${emp.email}_\${empDate.getTime()}\`,
                  type: 'New Employee',
-                 title: `New Employee (${role})`,
-                 subtitle: `Added to ${bName}`,
+                 title: \`New Employee (\${role})\`,
+                 subtitle: \`Added to \${bName}\`,
                  date: empDate,
                  icon: UserCheck,
                  color: 'text-blue-500 bg-blue-50'
@@ -169,7 +166,7 @@ export default function SuperAdminDashboard() {
 
           if (createdDate) {
              activities.push({
-               id: `reg_${uid}_${createdDate.getTime()}`,
+               id: \`reg_\${uid}_\${createdDate.getTime()}\`,
                type: 'New Registration',
                title: 'New Registration',
                subtitle: bName,
@@ -181,10 +178,10 @@ export default function SuperAdminDashboard() {
 
           if (d.isPaid && subStartDate) {
              activities.push({
-               id: `sub_${uid}_${subStartDate.getTime()}`,
+               id: \`sub_\${uid}_\${subStartDate.getTime()}\`,
                type: 'Subscription',
                title: 'Subscription Activated',
-               subtitle: `${d.plan || "Premium"} Plan • ${bName}`,
+               subtitle: \`\${d.plan || "Premium"} Plan • \${bName}\`,
                date: subStartDate,
                icon: BadgeCheck,
                color: 'text-emerald-500 bg-emerald-50'
@@ -250,7 +247,7 @@ export default function SuperAdminDashboard() {
       } else {
         XLSX.writeFile(workbook, "CloudLedger_Directory.xlsx");
       }
-      toast.success(`Exported ${filteredCompanies.length} records successfully`);
+      toast.success(\`Exported \${filteredCompanies.length} records successfully\`);
     } catch(err) {
       toast.error("Export failed");
       console.error(err);
@@ -507,8 +504,8 @@ export default function SuperAdminDashboard() {
                       <option value="All">All Status</option>
                       <option value="Paid">Paid</option>
                       <option value="Trial">Trial</option>
-                      {/* <option value="Suspended">Suspended</option>
-                      <option value="Blocked">Blocked</option> */}
+                      <option value="Suspended">Suspended</option>
+                      <option value="Blocked">Blocked</option>
                     </select>
 
                     <select 
@@ -565,7 +562,7 @@ export default function SuperAdminDashboard() {
                                   </div>
                                   <div className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
                                     <RefreshCw size={10}/> 
-                                    {c.isPaid ? `Renews ${formatDate(c.renewalDate)}` : "Renews Not Available"}
+                                    {c.isPaid ? \`Renews \${formatDate(c.renewalDate)}\` : "Renews Not Available"}
                                   </div>
                                 </div>
                               </td>
@@ -592,7 +589,7 @@ export default function SuperAdminDashboard() {
                               <td className="py-4 px-6">
                                 <div className="text-[10px] text-slate-400 font-medium mb-1">Joined: {formatDate(c.createdAt)}</div>
                                 <div className="flex items-center gap-1.5">
-                                  <div className={`w-1.5 h-1.5 rounded-full ${health.color}`}></div>
+                                  <div className={\`w-1.5 h-1.5 rounded-full \${health.color}\`}></div>
                                   <span className="text-[10px] text-slate-500 font-medium">Active: {formatDate(c.lastActive)}</span>
                                 </div>
                               </td>
@@ -709,7 +706,7 @@ export default function SuperAdminDashboard() {
                           {selectedCompany.employeeCount > 0 ? (
                             <div className="flex-1 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 divide-y divide-slate-100">
                                {selectedCompany.employeesList.map((emp, i) => (
-                                 <div key={`emp_${i}`} className="p-4 hover:bg-slate-50 transition-colors">
+                                 <div key={\`emp_\${i}\`} className="p-4 hover:bg-slate-50 transition-colors">
                                    <div className="flex items-center justify-between">
                                       <div>
                                         <p className="text-sm font-bold text-slate-800">{emp.name}</p>
@@ -759,7 +756,7 @@ export default function SuperAdminDashboard() {
                     return (
                       <div key={event.id} className="relative pl-6 group">
                         {/* Timeline dot */}
-                        <div className={`absolute -left-[13px] top-0.5 w-6 h-6 rounded-full flex items-center justify-center border-4 border-white shadow-sm ${event.color}`}>
+                        <div className={\`absolute -left-[13px] top-0.5 w-6 h-6 rounded-full flex items-center justify-center border-4 border-white shadow-sm \${event.color}\`}>
                           <Icon size={10} strokeWidth={3} />
                         </div>
                         
@@ -783,3 +780,7 @@ export default function SuperAdminDashboard() {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('src/app/superadmin/page.tsx', content, 'utf8');
+console.log('Super Admin Redesign with strict sync logic applied!');
