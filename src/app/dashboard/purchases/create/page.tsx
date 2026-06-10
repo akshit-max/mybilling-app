@@ -233,6 +233,7 @@ export default function CreateSalesInvoice() {
               barcode: data.barcode || "",
               gst: Number(data.gst !== undefined ? data.gst : 18),
               hsnCode: data.hsnCode || "",
+              costPrice: Number(data.costPrice || 0),
               stock: Number(data.stock || 0),
               unit: data.unit || "PCS",
             };

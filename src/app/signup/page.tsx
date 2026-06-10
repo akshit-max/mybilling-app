@@ -60,6 +60,16 @@ export default function Signup() {
         createdAt: new Date()
       }, { merge: true });
 
+      // Save initial Free/Trial profile to users collection to appear in Super Admin immediately
+      await setDoc(doc(db, "users", user.uid), {
+        businessName: businessName.trim(),
+        email: email.trim(),
+        plan: "Free/Trial",
+        isPaid: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }, { merge: true });
+
       toast.success("Account created 🎉 Let's complete the final details.");
       setStep(2);
     } catch (error) {
