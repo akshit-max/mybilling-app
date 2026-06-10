@@ -194,6 +194,13 @@ export default function EditCreditNote() {
   const removeItem = (index: number) => items.length > 1 ? setItems(items.filter((_, i) => i !== index)) : setItems([{ name: "", qty: 1, price: 0, gstRate: 18 }]);
 
   const handleUpdate = async () => {
+
+    // DISCOUNT & NEGATIVE TOTAL VALIDATION GATE
+    const validation = validateDiscount(validItems, products, discountType, Number(discountValue), finalTotal, false);
+    if (!validation.isValid) {
+      return toast.error(validation.error);
+    }
+
     if (!customerName) return toast.error("Please select a party first");
     if (!validItems.length) return toast.error("Please add at least one valid item");
     if (calc.discountAmount > calc.subtotal) return toast.error("Discount cannot exceed subtotal");

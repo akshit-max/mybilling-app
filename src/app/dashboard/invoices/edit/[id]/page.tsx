@@ -565,6 +565,13 @@ export default function EditSalesInvoice() {
   };
 
   const handleUpdate = async () => {
+
+    // DISCOUNT & NEGATIVE TOTAL VALIDATION GATE
+    const validation = validateDiscount(validItems, products, discountType, Number(discountValue), finalTotal, true);
+    if (!validation.isValid) {
+      return toast.error(validation.error);
+    }
+
     if (!customerName) return toast.error("Please select a customer first");
     if (!validItems.length) return toast.error("Please add at least one valid item");
 
