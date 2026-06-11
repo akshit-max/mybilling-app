@@ -43,6 +43,7 @@ export default function SettingsPage() {
   const [pincode, setPincode] = useState("");
   const [city, setCity] = useState("");
   const [gstRegistered, setGstRegistered] = useState("no");
+  const [gstin, setGstin] = useState("");
   const [pan, setPan] = useState("");
   const [businessType, setBusinessType] = useState("Select");
   const [industryType, setIndustryType] = useState("");
@@ -72,6 +73,7 @@ export default function SettingsPage() {
             setPincode(data.pincode || "");
             setCity(data.city || "");
             setGstRegistered(data.gstRegistered || "no");
+            setGstin(data.gstin || "");
             setPan(data.pan || "");
             setBusinessType(data.businessType || "Select");
             setIndustryType(data.industryType || "");
@@ -108,6 +110,7 @@ export default function SettingsPage() {
     if (phone.trim() && phone.replace(/\D/g, "").length !== 10) return toast.error("Company Phone Number must be exactly 10 digits");
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast.error("Invalid Company E-Mail address");
     if (pincode.trim() && !/^\d{6}$/.test(pincode)) return toast.error("Pincode must be exactly 6 digits");
+    if (gstin.trim() && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/i.test(gstin.trim())) return toast.error("Invalid GSTIN format (e.g. 29ABCDE1234F1Z5)");
     if (pan.trim() && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan.toUpperCase())) return toast.error("Invalid PAN format (e.g. ABCDE1234F)");
 
     try {
@@ -121,6 +124,7 @@ export default function SettingsPage() {
         pincode,
         city,
         gstRegistered,
+        gstin: gstin.trim().toUpperCase(),
         pan,
         businessType,
         industryType,
@@ -351,6 +355,17 @@ export default function SettingsPage() {
                       /> No
                     </label>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">GSTIN Number</label>
+                  <input 
+                    type="text" 
+                    placeholder="Enter 15-digit GSTIN" 
+                    value={gstin}
+                    onChange={(e) => handleChange(setGstin, e.target.value.toUpperCase())}
+                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-gray-600 font-mono uppercase" 
+                  />
                 </div>
 
                 <div>

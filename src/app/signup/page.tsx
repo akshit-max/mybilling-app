@@ -20,6 +20,7 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [city, setCity] = useState("");
+  const [gstin, setGstin] = useState("");
   const [requirement, setRequirement] = useState<"android" | "laptop">("laptop");
 
   // Step 2 States (Customer Segments)
@@ -44,6 +45,9 @@ export default function Signup() {
     if (!city.trim()) {
       return toast.error("City is a required field");
     }
+    if (gstin.trim() && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/i.test(gstin.trim())) {
+      return toast.error("Invalid GSTIN format. Please enter a valid 15-character GST Number.");
+    }
 
     try {
       setLoading(true);
@@ -55,6 +59,8 @@ export default function Signup() {
       await setDoc(doc(db, "settings", user.uid), {
         businessName: businessName.trim(),
         city: city.trim(),
+        gstin: gstin.trim() ? gstin.trim().toUpperCase() : "",
+        gstRegistered: gstin.trim() ? "yes" : "no",
         requirement,
         email: email.trim(),
         createdAt: new Date()
@@ -314,6 +320,18 @@ export default function Signup() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                     </div>
+                  </div>
+
+                  {/* GSTIN Field (Optional) */}
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[11px] font-extrabold text-brand-primary/70 uppercase tracking-wider">GST Number (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 29ABCDE1234F1Z5"
+                      value={gstin}
+                      onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                      className="w-full px-4 py-3.5 rounded-xl border border-brand-primary/10 bg-slate-50 text-sm font-bold text-brand-primary placeholder:text-brand-primary/30 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all hover:bg-white shadow-inner"
+                    />
                   </div>
 
                   {/* Billing Requirement Radio group */}

@@ -342,7 +342,7 @@ export default function CreatePaymentIn() {
             {showPartyDropdown && (
               <div onMouseDown={(e) => e.preventDefault()} className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-20">
                 {customers
-                  .filter(c => c.name.toLowerCase().includes(partyName.toLowerCase()))
+                  .filter(c => c.name.toLowerCase().includes(partyName.toLowerCase()) || (c.gstin && c.gstin.toLowerCase().includes(partyName.toLowerCase())))
                   .map(c => (
                     <button
                       key={c.id}
