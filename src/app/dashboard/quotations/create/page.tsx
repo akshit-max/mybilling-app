@@ -75,6 +75,7 @@ export default function CreateQuotation() {
   const [companyState, setCompanyState] = useState("");
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
+  const [partySearchQuery, setPartySearchQuery] = useState("");
 
   // Extended Custom States
   const [shippingAddress, setShippingAddress] = useState("");
@@ -761,8 +762,11 @@ export default function CreateQuotation() {
                       >
                         + Quick Add New Customer
                       </button>
+                      <div className="p-2 border-b border-gray-100">
+                        <input type="text" placeholder="Search by Name or GSTIN..." value={partySearchQuery} onChange={(e) => setPartySearchQuery(e.target.value)} className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 font-semibold" onClick={(e) => e.stopPropagation()} />
+                      </div>
                       <div className="divide-y divide-gray-50 border-t border-gray-100">
-                        {customers.map(c => (
+                        {customers.filter(c => c.name.toLowerCase().includes(partySearchQuery.toLowerCase()) || (c.gstin && c.gstin.toLowerCase().includes(partySearchQuery.toLowerCase()))).map(c => (
                           <button
                             key={c.id}
                             onClick={() => {

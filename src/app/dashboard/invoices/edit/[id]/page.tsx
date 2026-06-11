@@ -952,7 +952,7 @@ export default function EditSalesInvoice() {
                       <span>Add New Party</span>
                     </button>
                     {customers
-                      .filter(c => c.name.toLowerCase().includes(customerName.toLowerCase()))
+                      .filter(c => c.name.toLowerCase().includes(customerName.toLowerCase()) || (c.gstin && c.gstin.toLowerCase().includes(customerName.toLowerCase())))
                       .map(c => (
                         <button
                           key={c.id}

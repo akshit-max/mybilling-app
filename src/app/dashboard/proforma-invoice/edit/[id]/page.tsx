@@ -289,7 +289,7 @@ export default function EditCreditNote() {
                 />
                 {showPartyDropdown && (
                   <div className="absolute left-0 top-8 z-30 bg-white border border-gray-200 rounded-md shadow-lg w-80 max-h-60 overflow-y-auto p-1">
-                    {customers.filter(c => c.name.toLowerCase().includes(customerName.toLowerCase())).map(c => (
+                    {customers.filter(c => c.name.toLowerCase().includes(customerName.toLowerCase()) || (c.gstin && c.gstin.toLowerCase().includes(customerName.toLowerCase()))).map(c => (
                       <button key={c.id} onClick={() => { setCustomerName(c.name); setShowPartyDropdown(false); }} className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 rounded font-semibold">
                         {c.name}
                       </button>
