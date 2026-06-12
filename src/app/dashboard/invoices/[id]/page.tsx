@@ -354,6 +354,49 @@ export default function ViewInvoice() {
           <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">Thank you for your business with <strong>${company?.name || "us"}</strong>.</p>
         </div>
       `;
+
+      // Generate PDF attachment — uses same clone technique as Download PDF button
+      let attachments: { filename: string; content: string }[] = [];
+      try {
+        const printNode = document.querySelector(".print-only-container") as HTMLElement;
+        if (printNode) {
+          const clone = printNode.cloneNode(true) as HTMLElement;
+          clone.style.cssText = "display:block!important;visibility:visible!important;position:fixed;top:0;left:-9999px;z-index:-1;width:794px;background:white;padding:40px;box-shadow:none;border:none;";
+          clone.querySelectorAll<HTMLElement>("*").forEach((el) => {
+            el.style.removeProperty("display");
+            el.style.visibility = "visible";
+          });
+          const styleOverride = document.createElement("style");
+          styleOverride.textContent = `*{color:inherit!important;background-color:inherit!important;border-color:#e5e7eb!important;}.text-gray-900,h1,h2,h3,strong,b,td,th{color:#111827!important;}.text-gray-600{color:#4b5563!important;}.text-gray-500{color:#6b7280!important;}.bg-white{background-color:#ffffff!important;}.bg-gray-50{background-color:#f9fafb!important;}`;
+          clone.appendChild(styleOverride);
+          document.body.appendChild(clone);
+          const canvas = await html2canvas(clone, {
+            scale: 2, useCORS: true, allowTaint: true, backgroundColor: "#ffffff", logging: false,
+            width: clone.scrollWidth, height: clone.scrollHeight,
+            onclone: (clonedDoc) => {
+              clonedDoc.querySelectorAll<HTMLElement>("*").forEach((el) => {
+                const computed = window.getComputedStyle(el);
+                ["color", "background-color", "border-color"].forEach((prop) => {
+                  const val = computed.getPropertyValue(prop);
+                  if (val && (val.includes("lab(") || val.includes("oklch(") || val.includes("color("))) {
+                    (el.style as any)[prop] = "#000000";
+                  }
+                });
+              });
+            },
+          });
+          document.body.removeChild(clone);
+          const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+          pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, pdfWidth, pdfHeight);
+          const base64String = pdf.output("datauristring").split(",")[1];
+          attachments.push({ filename: `Invoice_${invoice?.invoiceNumber || "document"}.pdf`, content: base64String });
+        }
+      } catch (pdfErr) {
+        console.error("[Invoice Email] PDF generation error:", pdfErr);
+      }
+
       const response = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -361,6 +404,7 @@ export default function ViewInvoice() {
           to: trimmedEmail,
           subject: emailSubject.trim(),
           html: htmlBody,
+          attachments,
         }),
       });
       const result = await response.json();

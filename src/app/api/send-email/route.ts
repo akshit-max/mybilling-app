@@ -19,10 +19,7 @@ export async function POST(req: Request) {
     if (Array.isArray(processedAttachments)) {
       processedAttachments = processedAttachments.map((att: any) => {
         if (att.content && typeof att.content === 'string') {
-          return {
-            ...att,
-            content: Buffer.from(att.content, 'base64')
-          };
+          return { ...att, content: Buffer.from(att.content, 'base64') };
         }
         return att;
       });

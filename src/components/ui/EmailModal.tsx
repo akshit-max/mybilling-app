@@ -73,31 +73,38 @@ export default function EmailModal({
 
       let attachments: any[] = [];
       const printNode = document.querySelector(".print-only-container") as HTMLElement;
-      if (printNode) {
-        try {
-          const originalDisplay = printNode.style.display;
-          printNode.style.display = "block";
-          const canvas = await html2canvas(printNode, { scale: 2 });
-          printNode.style.display = originalDisplay;
 
-          const imgData = canvas.toDataURL("image/jpeg", 1.0);
-          const pdf = new jsPDF({
-            orientation: "portrait",
-            unit: "mm",
-            format: "a4",
-          });
-          const pdfWidth = pdf.internal.pageSize.getWidth();
-          const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-          pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
-          
-          const base64String = pdf.output("datauristring").split(",")[1];
-          attachments.push({
-            filename: `${documentType.replace(/\s+/g, "_")}_${documentNumber}.pdf`,
-            content: base64String,
-          });
-        } catch (pdfErr) {
-          console.error("Failed to generate PDF attachment:", pdfErr);
-        }
+      if (!printNode) {
+        setSending(false);
+        toast.error("Cannot send email: the printable document was not found on this page. Please open the document view page first.");
+        return;
+      }
+
+      try {
+        const originalDisplay = printNode.style.display;
+        printNode.style.display = "block";
+        const canvas = await html2canvas(printNode, { scale: 2 });
+        printNode.style.display = originalDisplay;
+
+        const imgData = canvas.toDataURL("image/jpeg", 1.0);
+        const pdf = new jsPDF({
+          orientation: "portrait",
+          unit: "mm",
+          format: "a4",
+        });
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
+
+        const filename = `${documentType.replace(/\s+/g, "_")}_${documentNumber}.pdf`;
+        const base64String = pdf.output("datauristring").split(",")[1];
+
+        attachments.push({ filename, content: base64String });
+      } catch (pdfErr) {
+        console.error("Failed to generate PDF attachment:", pdfErr);
+        toast.error("Failed to generate PDF attachment. Email not sent.");
+        setSending(false);
+        return;
       }
 
       // Add user's custom attached files
@@ -131,6 +138,13 @@ export default function EmailModal({
           <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">Thank you for your business with <strong>${companyName || "us"}</strong>.</p>
         </div>
       `;
+
+      // GUARD: block send if 0 attachments
+      if (attachments.length === 0) {
+        setSending(false);
+        toast.error("No PDF attachment generated. Email not sent.");
+        return;
+      }
 
       const response = await fetch("/api/send-email", {
         method: "POST",
