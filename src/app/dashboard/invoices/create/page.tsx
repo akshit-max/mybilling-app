@@ -417,19 +417,25 @@ export default function CreateSalesInvoice() {
   // Valid calculations
   const validItems = items
     .filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0)
-    .map((i) => ({
-      ...i,
-      qty: Number(i.qty),
-      price: Number(i.price),
-      gstRate: (i.gstRate !== undefined && i.gstRate !== null) ? Number(i.gstRate) : undefined,
-      discountType: (i as any).discountType || "percent",
-      discountValue: (i as any).discountValue !== undefined ? Number((i as any).discountValue) : undefined,
-      // keep legacy discountPct for backwards compatibility
-      discountPct: (i as any).discountType === "percent" && (i as any).discountValue !== undefined
-        ? Number((i as any).discountValue)
-        : (i as any).discountPct,
-      hsn: (i as any).hsn || "",
-    }));
+    .map((i) => {
+      const sanitized = {
+        ...i,
+        qty: Number(i.qty),
+        price: Number(i.price),
+        gstRate: (i.gstRate !== undefined && i.gstRate !== null) ? Number(i.gstRate) : undefined,
+        discountType: (i as any).discountType || "percent",
+        discountValue: (i as any).discountValue !== undefined ? Number((i as any).discountValue) : undefined,
+        // keep legacy discountPct for backwards compatibility
+        discountPct: (i as any).discountType === "percent" && (i as any).discountValue !== undefined
+          ? Number((i as any).discountValue)
+          : (i as any).discountPct,
+        hsn: (i as any).hsn || "",
+      };
+      if (sanitized.productId === "CUSTOM") {
+        delete sanitized.productId;
+      }
+      return sanitized;
+    });
 
   const selectedCustomer = customers.find((c) => c.name === customerName);
   const customerStateSanitized = (selectedCustomer?.state || "").trim().toUpperCase();
@@ -994,45 +1000,85 @@ export default function CreateSalesInvoice() {
                   <tr key={idx} className="hover:bg-gray-50/30 border-b border-gray-100">
                     <td className="px-4 py-4 text-center text-gray-400 font-mono align-top">{idx + 1}</td>
                     
-                    {/* Item Name Lookup Dropdown */}
+                    {/* Item Name Lookup / Custom Item Input */}
                     <td className="px-4 py-4 max-w-[320px] whitespace-normal">
                       <div className="flex flex-col gap-1.5">
-                        <select
-                          value={item.productId || ""}
-                          onChange={(e) => {
-                            const found = products.find(p => p.id === e.target.value);
-                            if (found) {
-                              let resolvedPrice = found.price;
-                              if (customerName && Array.isArray((found as any).partyPrices)) {
-                                const customPriceObj = (found as any).partyPrices.find(
-                                  (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
-                                );
-                                if (customPriceObj) {
-                                  resolvedPrice = Number(customPriceObj.price) || found.price;
-                                }
+                        {item.productId === "CUSTOM" ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={item.name}
+                              onChange={(e) => updateItem(idx, "name", e.target.value)}
+                              placeholder="Enter custom service/item name..."
+                              className="w-full border border-indigo-300 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-indigo-50/20 font-medium text-gray-800"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => {
+                                const updated = [...items];
+                                updated[idx] = { ...updated[idx], productId: "", name: "", price: 0, gstRate: 18, hsn: "", description: "" };
+                                setItems(updated);
+                              }}
+                              className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                              title="Cancel custom item"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <select
+                            value={item.productId || ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "CUSTOM") {
+                                const updated = [...items];
+                                updated[idx] = {
+                                  productId: "CUSTOM",
+                                  name: "",
+                                  price: 0,
+                                  qty: 1,
+                                  gstRate: 18,
+                                  hsn: "",
+                                  description: ""
+                                };
+                                setItems(updated);
+                                return;
                               }
-                              const updated = [...items];
-                              updated[idx] = {
-                                productId: found.id,
-                                name: found.name,
-                                price: resolvedPrice,
-                                qty: 1,
-                                gstRate: found.gst !== undefined && found.gst !== null ? Number(found.gst) : 18,
-                                hsn: found.hsnCode || "",
-                                description: ""
-                              };
-                              setItems(updated);
-                            }
-                          }}
-                          className="w-full border border-gray-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white font-medium text-gray-700"
-                        >
-                          <option value="">Select Item / Product...</option>
-                          {products.map(p => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} (Stock: {p.stock} {p.unit})
-                            </option>
-                          ))}
-                        </select>
+                              const found = products.find(p => p.id === val);
+                              if (found) {
+                                let resolvedPrice = found.price;
+                                if (customerName && Array.isArray((found as any).partyPrices)) {
+                                  const customPriceObj = (found as any).partyPrices.find(
+                                    (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+                                  );
+                                  if (customPriceObj) {
+                                    resolvedPrice = Number(customPriceObj.price) || found.price;
+                                  }
+                                }
+                                const updated = [...items];
+                                updated[idx] = {
+                                  productId: found.id,
+                                  name: found.name,
+                                  price: resolvedPrice,
+                                  qty: 1,
+                                  gstRate: found.gst !== undefined && found.gst !== null ? Number(found.gst) : 18,
+                                  hsn: found.hsnCode || "",
+                                  description: ""
+                                };
+                                setItems(updated);
+                              }
+                            }}
+                            className="w-full border border-gray-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white font-medium text-gray-700 cursor-pointer"
+                          >
+                            <option value="">Select Item / Product...</option>
+                            <option value="CUSTOM" className="font-bold text-indigo-600 bg-indigo-50">+ Add Custom Item (Manual Entry)</option>
+                            {products.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} (Stock: {p.stock} {p.unit})
+                              </option>
+                            ))}
+                          </select>
+                        )}
                         <input 
                           type="text"
                           value={item.description || ""}

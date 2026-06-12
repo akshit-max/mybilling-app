@@ -110,6 +110,7 @@ export default function CreateCreditNote() {
           setCompanyState((settingsSnap.data().state || "").trim());
         }
 
+        
       } catch (err) {
         toast.error("Failed to load data");
       } finally {

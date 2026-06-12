@@ -172,7 +172,10 @@ export default function EditSalesInvoice() {
 
         if (loadedInvoice) {
           setCustomerName(loadedInvoice.customerName || "");
-          const fetchedItems = loadedInvoice.items || [];
+          const fetchedItems = (loadedInvoice.items || []).map((i: any) => ({
+            ...i,
+            productId: i.productId ? i.productId : (i.name ? "CUSTOM" : "")
+          }));
           setItems(fetchedItems);
           setOriginalItems(fetchedItems);
           setDiscountType(loadedInvoice.discountType || "flat");
@@ -370,18 +373,24 @@ export default function EditSalesInvoice() {
   // Valid calculations
   const validItems = items
     .filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0)
-    .map((i) => ({
-      ...i,
-      qty: Number(i.qty),
-      price: Number(i.price),
-      gstRate: (i.gstRate !== undefined && i.gstRate !== null) ? Number(i.gstRate) : undefined,
-      discountType: (i as any).discountType || "percent",
-      discountValue: (i as any).discountValue !== undefined ? Number((i as any).discountValue) : undefined,
-      discountPct: (i as any).discountType === "percent" && (i as any).discountValue !== undefined
-        ? Number((i as any).discountValue)
-        : (i as any).discountPct,
-      hsn: (i as any).hsn || "",
-    }));
+    .map((i) => {
+      const sanitized = {
+        ...i,
+        qty: Number(i.qty),
+        price: Number(i.price),
+        gstRate: (i.gstRate !== undefined && i.gstRate !== null) ? Number(i.gstRate) : undefined,
+        discountType: (i as any).discountType || "percent",
+        discountValue: (i as any).discountValue !== undefined ? Number((i as any).discountValue) : undefined,
+        discountPct: (i as any).discountType === "percent" && (i as any).discountValue !== undefined
+          ? Number((i as any).discountValue)
+          : (i as any).discountPct,
+        hsn: (i as any).hsn || "",
+      };
+      if (sanitized.productId === "CUSTOM") {
+        delete sanitized.productId;
+      }
+      return sanitized;
+    });
 
   const selectedCustomer = customers.find((c) => c.name === customerName);
   const customerStateSanitized = (selectedCustomer?.state || "").trim().toUpperCase();
@@ -594,11 +603,11 @@ export default function EditSalesInvoice() {
       const newMap = new Map<string, number>();
 
       originalItems.forEach((item) => {
-        if (item.productId) oldMap.set(item.productId, Number(item.qty || 0));
+        if (item.productId && item.productId !== "CUSTOM") oldMap.set(item.productId, Number(item.qty || 0));
       });
 
       validItems.forEach((item) => {
-        if (item.productId) newMap.set(item.productId, Number(item.qty || 0));
+        if (item.productId && item.productId !== "CUSTOM") newMap.set(item.productId, Number(item.qty || 0));
       });
 
       const allIds = new Set([...oldMap.keys(), ...newMap.keys()]);
@@ -1116,52 +1125,100 @@ export default function EditSalesInvoice() {
                       {idx + 1}
                     </div>
 
-                    {/* Product Name Autocomplete */}
+                    {/* Product Name Select / Custom Item Input */}
                     <div className="col-span-11 md:col-span-3 relative">
-                      <input
-                        type="text"
-                        placeholder="Search or enter item name..."
-                        value={item.name}
-                        onChange={(e) => updateItem(idx, "name", e.target.value)}
-                        className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-700 bg-white"
-                      />
-
-                      {/* Optional Autocomplete match */}
-                      {item.name && !products.find(p => p.name === item.name) && (
-                        <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-32 overflow-y-auto z-10">
-                          {products
-                            .filter(p => p.name.toLowerCase().includes(item.name.toLowerCase()))
-                            .map(p => (
-                              <button
-                                key={p.id}
-                                onClick={() => {
-                                  let resolvedPrice = p.price;
-                                  if (customerName && Array.isArray((p as any).partyPrices)) {
-                                    const customPriceObj = (p as any).partyPrices.find(
-                                      (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
-                                    );
-                                    if (customPriceObj) {
-                                      resolvedPrice = Number(customPriceObj.price) || p.price;
-                                    }
+                      {item.productId === "CUSTOM" ? (
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={item.name}
+                              onChange={(e) => updateItem(idx, "name", e.target.value)}
+                              placeholder="Enter custom service/item name..."
+                              className="w-full border border-indigo-300 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-indigo-50/20 font-medium text-gray-800"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => {
+                                const updated = [...items];
+                                updated[idx] = { ...updated[idx], productId: "", name: "", price: 0, gstRate: 18, hsn: "", description: "" };
+                                setItems(updated);
+                              }}
+                              className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                              title="Cancel custom item"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                          <input 
+                            type="text"
+                            value={item.description || ""}
+                            onChange={(e) => updateItem(idx, "description", e.target.value)}
+                            placeholder="Enter Description (optional)"
+                            className="w-full text-[10px] text-gray-500 bg-transparent border-t border-dashed border-gray-200 focus:border-indigo-400 focus:ring-0 focus:outline-none py-1 px-1 mt-1 block" 
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1.5">
+                          <select
+                            value={item.productId || ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "CUSTOM") {
+                                const updated = [...items];
+                                updated[idx] = {
+                                  productId: "CUSTOM",
+                                  name: "",
+                                  price: 0,
+                                  qty: 1,
+                                  gstRate: 18,
+                                  hsn: "",
+                                  description: ""
+                                };
+                                setItems(updated);
+                                return;
+                              }
+                              const found = products.find(p => p.id === val);
+                              if (found) {
+                                let resolvedPrice = found.price;
+                                if (customerName && Array.isArray((found as any).partyPrices)) {
+                                  const customPriceObj = (found as any).partyPrices.find(
+                                    (pp: any) => pp.partyName.trim().toLowerCase() === customerName.trim().toLowerCase()
+                                  );
+                                  if (customPriceObj) {
+                                    resolvedPrice = Number(customPriceObj.price) || found.price;
                                   }
-                                  const updated = [...items];
-                                  updated[idx] = {
-                                    productId: p.id,
-                                    name: p.name,
-                                    qty: 1,
-                                    price: resolvedPrice,
-                                    gstRate: p.gst ?? 18,
-                                    hsn: p.hsnCode || "",
-                                    description: ""
-                                  };
-                                  setItems(updated);
-                                }}
-                                className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 text-gray-600 font-semibold"
-                              >
-                                {p.name} (₹{p.price})
-                              </button>
-                            ))
-                          }
+                                }
+                                const updated = [...items];
+                                updated[idx] = {
+                                  productId: found.id,
+                                  name: found.name,
+                                  price: resolvedPrice,
+                                  qty: 1,
+                                  gstRate: found.gst !== undefined && found.gst !== null ? Number(found.gst) : 18,
+                                  hsn: found.hsnCode || "",
+                                  description: ""
+                                };
+                                setItems(updated);
+                              }
+                            }}
+                            className="w-full border border-gray-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white font-medium text-gray-700 cursor-pointer"
+                          >
+                            <option value="">Select Item / Product...</option>
+                            <option value="CUSTOM" className="font-bold text-indigo-600 bg-indigo-50">+ Add Custom Item (Manual Entry)</option>
+                            {products.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} (Stock: {p.stock} {p.unit})
+                              </option>
+                            ))}
+                          </select>
+                          <input 
+                            type="text"
+                            value={item.description || ""}
+                            onChange={(e) => updateItem(idx, "description", e.target.value)}
+                            placeholder="Enter Description (optional)"
+                            className="w-full text-[10px] text-gray-500 bg-transparent border-t border-dashed border-gray-200 focus:border-indigo-400 focus:ring-0 focus:outline-none py-1 px-1 mt-1 block" 
+                          />
                         </div>
                       )}
                     </div>
