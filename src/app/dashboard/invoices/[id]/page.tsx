@@ -371,7 +371,7 @@ export default function ViewInvoice() {
           clone.appendChild(styleOverride);
           document.body.appendChild(clone);
           const canvas = await html2canvas(clone, {
-            scale: 2, useCORS: true, allowTaint: true, backgroundColor: "#ffffff", logging: false,
+            scale: 1, useCORS: true, allowTaint: true, backgroundColor: "#ffffff", logging: false,
             width: clone.scrollWidth, height: clone.scrollHeight,
             onclone: (clonedDoc) => {
               clonedDoc.querySelectorAll<HTMLElement>("*").forEach((el) => {
@@ -389,7 +389,7 @@ export default function ViewInvoice() {
           const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
           const pdfWidth = pdf.internal.pageSize.getWidth();
           const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-          pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, pdfWidth, pdfHeight);
+          pdf.addImage(canvas.toDataURL("image/jpeg", 0.7), "JPEG", 0, 0, pdfWidth, pdfHeight);
           const base64String = pdf.output("datauristring").split(",")[1];
           attachments.push({ filename: `Invoice_${invoice?.invoiceNumber || "document"}.pdf`, content: base64String });
         }
