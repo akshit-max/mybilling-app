@@ -892,10 +892,49 @@ export default function EditAutomatedBill() {
                     {/* Item Name Lookup Dropdown */}
                     <td className="px-4 py-4 max-w-[320px] whitespace-normal">
                       <div className="flex flex-col gap-1.5">
-                        <select
+                        {item.productId === "CUSTOM" ? (
+                      <div className="flex items-center gap-1 w-full">
+                        <input
+                          type="text"
+                          value={item.name}
+                          onChange={(e) => updateItem(idx, "name", e.target.value)}
+                          placeholder="Enter custom service/item name..."
+                          className="w-full border border-indigo-300 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-indigo-50/20 font-medium text-gray-800"
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], productId: "", name: "", price: 0, gstRate: 18, hsn: "", description: "" };
+                            setItems(updated);
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                          title="Cancel custom item"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <select
                           value={item.productId || ""}
                           onChange={(e) => {
-                            const found = products.find(p => p.id === e.target.value);
+                            const val = e.target.value;
+                          if (val === "CUSTOM") {
+                            const updated = [...items];
+                            updated[idx] = {
+                              ...updated[idx],
+                              productId: "CUSTOM",
+                              name: "",
+                              price: 0,
+                              qty: 1,
+                              gstRate: 18,
+                              hsn: "",
+                              description: ""
+                            };
+                            setItems(updated);
+                            return;
+                          }
+                          const found = products.find(p => p.id === val);
                             if (found) {
                               let resolvedPrice = found.price;
                               if (customerName && Array.isArray((found as any).partyPrices)) {
@@ -922,12 +961,14 @@ export default function EditAutomatedBill() {
                           className="w-full border border-gray-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white font-medium text-gray-700"
                         >
                           <option value="">Select Item / Product...</option>
+                        <option value="CUSTOM" className="font-bold text-indigo-600 bg-indigo-50">+ Add Custom Item (Manual Entry)</option>
                           {products.map(p => (
                             <option key={p.id} value={p.id}>
                               {p.name} (Stock: {p.stock} {p.unit})
                             </option>
                           ))}
                         </select>
+                    )}
                         <input 
                           type="text"
                           value={item.description || ""}
