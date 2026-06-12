@@ -207,7 +207,10 @@ export default function CreateCreditNote() {
 
   const validItems = items.filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0).map((i) => ({ ...i, qty: Number(i.qty), price: Number(i.price) }));
   const selectedCustomer = customers.find((c) => c.name === customerName);
-  const isInterstate = !!selectedCustomer?.state && !!companyState && selectedCustomer.state.trim().toUpperCase() !== companyState.trim().toUpperCase();
+  
+  const customerStateSanitized = (selectedCustomer?.state || "").trim().toUpperCase();
+  const companyStateSanitized = companyState.trim().toUpperCase();
+  const isInterstate = !!customerStateSanitized && !!companyStateSanitized && customerStateSanitized !== companyStateSanitized;
 
   const calc = calculateInvoice(validItems, discountType, Number(discountValue), gstEnabled, isInterstate);
   const rawTotal = calc.total + Number(additionalChargeValue || 0);
