@@ -11,7 +11,7 @@ import toast from "react-hot-toast";
 
 import { sanitizeNumericInput } from "@/lib/sanitize";
 import { validateDiscount } from "@/lib/validateDiscount";
-import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
+import { calculateInvoice, DiscountType, getItemBaseAmount } from "@/lib/calcInvoice";
 import { v4 as uuidv4 } from "uuid";
 import { INDIAN_STATES } from "@/lib/indianStates";
 
@@ -1008,10 +1008,11 @@ export default function EditQuotation() {
             {/* Table Header labels */}
             <div className="grid grid-cols-12 gap-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider pb-1.5 border-b border-gray-100 hidden md:grid">
               <span className="col-span-1 text-center">NO.</span>
-              <span className="col-span-4">ITEMS / SERVICES</span>
-              <span className="col-span-2 text-center">HSN / SAC</span>
+              <span className="col-span-3">ITEMS / SERVICES</span>
+              <span className="col-span-1 text-center">HSN / SAC</span>
               <span className="col-span-1 text-center">QTY</span>
               <span className="col-span-2 text-right">PRICE/ITEM (₹)</span>
+              <span className="col-span-2 text-center">DISCOUNT</span>
               <span className="col-span-1 text-center">TAX</span>
               <span className="col-span-1 text-right">AMOUNT (₹)</span>
             </div>
@@ -1028,7 +1029,7 @@ export default function EditQuotation() {
                     </div>
 
                     {/* Product Name Autocomplete */}
-                    <div className="col-span-11 md:col-span-4 relative">
+                    <div className="col-span-11 md:col-span-3 relative">
                       <input
                         type="text"
                         placeholder="Search or enter item name..."
@@ -1083,7 +1084,7 @@ export default function EditQuotation() {
                     </div>
 
                     {/* HSN Code */}
-                    <div className="col-span-4 md:col-span-2">
+                    <div className="col-span-4 md:col-span-1">
                       <input
                         type="text"
                         placeholder="HSN (Optional)"
@@ -1115,6 +1116,36 @@ export default function EditQuotation() {
                       />
                     </div>
 
+                    {/* Per-item Discount (₹ or %) */}
+                    <div className="col-span-3 md:col-span-2">
+                      <div className="flex items-center border border-gray-200 rounded overflow-hidden bg-white mt-0.5 w-full">
+                        <select
+                          value={(item as any).discountType ?? "percent"}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountType: e.target.value } as any;
+                            setItems(updated);
+                          }}
+                          className="px-1 py-1 text-[10px] font-bold text-gray-500 bg-transparent border-r border-gray-200 focus:outline-none cursor-pointer"
+                        >
+                          <option value="percent">%</option>
+                          <option value="flat">₹</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          value={(item as any).discountValue ?? ""}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountValue: e.target.value === "" ? undefined : Number(e.target.value) } as any;
+                            setItems(updated);
+                          }}
+                          placeholder="0"
+                          className="w-full px-2 py-1.5 text-xs focus:outline-none font-mono text-right bg-transparent"
+                        />
+                      </div>
+                    </div>
+
                     {/* GST Rate */}
                     <div className="col-span-2 md:col-span-1">
                       <select
@@ -1133,7 +1164,7 @@ export default function EditQuotation() {
                     {/* Dynamic Amount and Delete */}
                     <div className="col-span-1 flex items-center justify-end gap-2 text-right">
                       <span className="font-bold font-mono text-xs text-gray-700">
-                        ₹{((Number(item.qty || 0)) * (Number(item.price || 0))).toFixed(2)}
+                        ₹{getItemBaseAmount(item).toFixed(2)}
                       </span>
                       <button 
                         onClick={() => removeItem(idx)}

@@ -8,6 +8,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { ArrowLeft, Printer } from "lucide-react";
 import toast from "react-hot-toast";
 import { QRCodeSVG } from "qrcode.react";
+import { getItemBaseAmount } from "@/lib/calcInvoice";
 
 export default function EInvoicePrint() {
   const { id } = useParams() as { id: string };
@@ -231,7 +232,7 @@ export default function EInvoicePrint() {
                     if (pct > 0) discountDisplay = `${pct}%`;
                   }
                   
-                  const taxableAmt = Math.max(0, baseAmt - discountAmt);
+                  const taxableAmt = getItemBaseAmount(item);
                   const taxRate = item.gstRate !== undefined && item.gstRate !== null ? Number(item.gstRate) : (invoice.gstEnabled ? 18 : 0);
                   const taxAmt = taxableAmt * (taxRate/100);
                   const totalAmt = taxableAmt + taxAmt;

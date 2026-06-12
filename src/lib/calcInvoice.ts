@@ -81,4 +81,16 @@ export function calculateInvoice(
     igst,
     total,
   };
+}
+
+export function getItemBaseAmount(item: Item | any): number {
+  const rawAmount = (Number(item.qty) || 0) * (Number(item.price) || 0);
+  let itemDiscountAmt = 0;
+  if (item.discountType === "flat") {
+    itemDiscountAmt = Number(item.discountValue) || 0;
+  } else if (item.discountType === "percent" || item.discountPct !== undefined) {
+    const pct = Number(item.discountValue ?? item.discountPct ?? 0);
+    itemDiscountAmt = rawAmount * (pct / 100);
+  }
+  return Math.max(0, rawAmount - itemDiscountAmt);
 }

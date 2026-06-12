@@ -12,7 +12,7 @@ import { useSession } from "@/context/SessionContext";
 
 import { sanitizeNumericInput, cleanUndefined } from "@/lib/sanitize";
 import { validateDiscount } from "@/lib/validateDiscount";
-import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
+import { calculateInvoice, DiscountType, getItemBaseAmount } from "@/lib/calcInvoice";
 import { syncInventory } from "@/lib/inventorySync";
 import { v4 as uuidv4 } from "uuid";
 import { INDIAN_STATES } from "@/lib/indianStates";
@@ -1173,7 +1173,7 @@ export default function CreateSalesInvoice() {
                         </select>
                         {gstEnabled && item.gstRate !== undefined && item.gstRate !== null && (
                           <span className="text-[10px] text-gray-400 block font-mono">
-                            (₹ {(((Number(item.qty) || 0) * (Number(item.price) || 0)) * ((item.gstRate) / 100)).toFixed(2)})
+                            (₹ {(getItemBaseAmount(item) * ((item.gstRate) / 100)).toFixed(2)})
                           </span>
                         )}
                       </div>
@@ -1181,7 +1181,7 @@ export default function CreateSalesInvoice() {
 
                     {/* Amount — subtract per-item discount */}
                     <td className="px-4 py-4 text-right font-bold font-mono text-gray-800 align-top">
-                      <span className="block mt-1">₹ {Math.max(0, ((Number(item.qty) || 0) * (Number(item.price) || 0)) * (1 - ((item as any).discountPct || 0) / 100)).toFixed(2)}</span>
+                      <span className="block mt-1">₹ {getItemBaseAmount(item).toFixed(2)}</span>
                     </td>
 
                     {/* Delete action */}
@@ -1225,7 +1225,7 @@ export default function CreateSalesInvoice() {
                 {/* Subtotals Row */}
                 <tr className="bg-gray-50/30 border-t border-gray-100 font-semibold text-gray-700">
                   <td colSpan={5} className="px-4 py-2.5 text-right text-[10px] text-gray-400 uppercase tracking-wider">Subtotal</td>
-                  <td className="px-4 py-2.5">₹ 0.00</td>
+                  <td className="px-4 py-2.5">₹ {items.reduce((sum, item) => sum + (((Number(item.qty) || 0) * (Number(item.price) || 0)) - getItemBaseAmount(item)), 0).toFixed(2)}</td>
                   <td className="px-4 py-2.5 font-mono">₹ {calc.totalGst.toFixed(2)}</td>
                   <td className="px-4 py-2.5 text-right font-mono">₹ {calc.subtotal.toFixed(2)}</td>
                   <td></td>

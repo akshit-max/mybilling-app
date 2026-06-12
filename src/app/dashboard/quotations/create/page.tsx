@@ -11,7 +11,7 @@ import toast from "react-hot-toast";
 
 import { sanitizeNumericInput } from "@/lib/sanitize";
 import { validateDiscount } from "@/lib/validateDiscount";
-import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
+import { calculateInvoice, DiscountType, getItemBaseAmount } from "@/lib/calcInvoice";
 import { v4 as uuidv4 } from "uuid";
 import { INDIAN_STATES } from "@/lib/indianStates";
 
@@ -929,10 +929,48 @@ export default function CreateQuotation() {
                     {/* Item Name Lookup Dropdown */}
                     <td className="px-4 py-4 max-w-[320px] whitespace-normal">
                       <div className="flex flex-col gap-1.5">
-                        <select
-                          value={item.productId || ""}
+                        {item.productId === "CUSTOM" ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={item.name}
+                              onChange={(e) => updateItem(idx, "name", e.target.value)}
+                              placeholder="Enter custom item name..."
+                              className="w-full border border-indigo-300 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-indigo-50/20 font-medium text-gray-800"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => {
+                                const updated = [...items];
+                                updated[idx] = { ...updated[idx], productId: "", name: "", price: 0, gstRate: 18, hsn: "", description: "" };
+                                setItems(updated);
+                              }}
+                              className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                              title="Cancel custom item"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <select
+                            value={item.productId || ""}
                           onChange={(e) => {
-                            const found = products.find(p => p.id === e.target.value);
+                            const val = e.target.value;
+                            if (val === "CUSTOM") {
+                              const updated = [...items];
+                              updated[idx] = {
+                                productId: "CUSTOM",
+                                name: "",
+                                price: 0,
+                                qty: 1,
+                                gstRate: 18,
+                                hsn: "",
+                                description: ""
+                              };
+                              setItems(updated);
+                              return;
+                            }
+                            const found = products.find(p => p.id === val);
                             if (found) {
                               let resolvedPrice = found.price;
                               if (customerName && Array.isArray((found as any).partyPrices)) {
@@ -959,12 +997,14 @@ export default function CreateQuotation() {
                           className="w-full border border-gray-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 bg-white font-medium text-gray-700"
                         >
                           <option value="">Select Item / Product...</option>
+                          <option value="CUSTOM" className="font-bold text-indigo-600 bg-indigo-50">+ Add Custom Item (Manual Entry)</option>
                           {products.map(p => (
                             <option key={p.id} value={p.id}>
                               {p.name} (Stock: {p.stock} {p.unit})
                             </option>
                           ))}
                         </select>
+                        )}
                         <input 
                           type="text"
                           value={item.description || ""}
@@ -977,7 +1017,13 @@ export default function CreateQuotation() {
 
                     {/* HSN Code */}
                     <td className="px-4 py-4 align-top">
-                      <span className="text-gray-600 font-mono font-medium block mt-1">{item.hsn || "-"}</span>
+                      <input
+                        type="text"
+                        value={item.hsn || ""}
+                        onChange={(e) => updateItem(idx, "hsn", e.target.value)}
+                        placeholder="HSN/SAC"
+                        className="w-20 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 font-mono bg-white block mt-0.5"
+                      />
                     </td>
 
                     {/* Quantity */}
@@ -1004,16 +1050,51 @@ export default function CreateQuotation() {
 
                     {/* Discount */}
                     <td className="px-4 py-4 align-top">
-                      <span className="text-gray-400 block mt-1">-</span>
+                      <div className="flex items-center border border-gray-200 rounded overflow-hidden bg-white mt-0.5 w-28">
+                        <select
+                          value={(item as any).discountType ?? "percent"}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountType: e.target.value } as any;
+                            setItems(updated);
+                          }}
+                          className="px-1 py-1 text-[10px] font-bold text-gray-500 bg-transparent border-r border-gray-200 focus:outline-none cursor-pointer"
+                        >
+                          <option value="percent">%</option>
+                          <option value="flat">₹</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          value={(item as any).discountValue ?? ""}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountValue: e.target.value === "" ? undefined : Number(e.target.value) } as any;
+                            setItems(updated);
+                          }}
+                          placeholder="0"
+                          className="w-full px-2 py-1 text-xs focus:outline-none font-mono text-right bg-transparent"
+                        />
+                      </div>
                     </td>
 
                     {/* Tax rate displaying absolute calculations */}
                     <td className="px-4 py-4 align-top">
                       <div className="space-y-0.5 mt-0.5">
-                        <span className="text-xs font-semibold text-gray-700 font-mono">{item.gstRate ?? 18}%</span>
+                        <select
+                          value={item.gstRate ?? 18}
+                          onChange={(e) => updateItem(idx, "gstRate", Number(e.target.value))}
+                          className="border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-600 bg-white"
+                        >
+                          <option value={0}>0%</option>
+                          <option value={5}>5%</option>
+                          <option value={12}>12%</option>
+                          <option value={18}>18%</option>
+                          <option value={28}>28%</option>
+                        </select>
                         {gstEnabled && (
-                          <span className="text-[10px] text-gray-400 block font-mono">
-                            (₹ {(((Number(item.qty) || 0) * (Number(item.price) || 0)) * ((item.gstRate ?? 18) / 100)).toFixed(2)})
+                          <span className="text-[10px] text-gray-400 block font-mono mt-1">
+                            (₹ {(getItemBaseAmount(item) * ((item.gstRate ?? 18) / 100)).toFixed(2)})
                           </span>
                         )}
                       </div>
@@ -1021,7 +1102,7 @@ export default function CreateQuotation() {
 
                     {/* Amount */}
                     <td className="px-4 py-4 text-right font-bold font-mono text-gray-800 align-top">
-                      <span className="block mt-1">₹ {((Number(item.qty) || 0) * (Number(item.price) || 0)).toFixed(2)}</span>
+                      <span className="block mt-1">₹ {getItemBaseAmount(item).toFixed(2)}</span>
                     </td>
 
                     {/* Delete action */}
@@ -1065,7 +1146,7 @@ export default function CreateQuotation() {
                 {/* Subtotals Row */}
                 <tr className="bg-gray-50/30 border-t border-gray-100 font-semibold text-gray-700">
                   <td colSpan={5} className="px-4 py-2.5 text-right text-[10px] text-gray-400 uppercase tracking-wider">Subtotal</td>
-                  <td className="px-4 py-2.5">₹ 0.00</td>
+                  <td className="px-4 py-2.5">₹ {items.reduce((sum, item) => sum + (((Number(item.qty) || 0) * (Number(item.price) || 0)) - getItemBaseAmount(item)), 0).toFixed(2)}</td>
                   <td className="px-4 py-2.5 font-mono">₹ {calc.totalGst.toFixed(2)}</td>
                   <td className="px-4 py-2.5 text-right font-mono">₹ {calc.subtotal.toFixed(2)}</td>
                   <td></td>

@@ -11,7 +11,7 @@ import toast from "react-hot-toast";
 
 import { sanitizeNumericInput, cleanUndefined } from "@/lib/sanitize";
 import { validateDiscount } from "@/lib/validateDiscount";
-import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
+import { calculateInvoice, DiscountType, getItemBaseAmount } from "@/lib/calcInvoice";
 import { v4 as uuidv4 } from "uuid";
 import { INDIAN_STATES } from "@/lib/indianStates";
 
@@ -1304,7 +1304,7 @@ export default function EditSalesInvoice() {
                     {/* Dynamic Amount and Delete */}
                     <div className="col-span-1 flex items-center justify-end gap-2 text-right">
                       <span className="font-bold font-mono text-xs text-gray-700">
-                        ₹{Math.max(0, ((Number(item.qty) || 0) * (Number(item.price) || 0)) - ((item as any).discountType === "flat" ? (Number((item as any).discountValue) || 0) : ((Number(item.qty) || 0) * (Number(item.price) || 0)) * (Number((item as any).discountValue ?? item.discountPct ?? 0) / 100))).toFixed(2)}
+                        ₹{getItemBaseAmount(item).toFixed(2)}
                       </span>
                       <button 
                         onClick={() => removeItem(idx)}

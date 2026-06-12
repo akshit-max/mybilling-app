@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { getItemBaseAmount } from "@/lib/calcInvoice";
 import { syncInventory } from "@/lib/inventorySync";
 import WhatsAppModal from "@/components/ui/WhatsAppModal";
 import SMSModal from "@/components/ui/SMSModal";
@@ -295,8 +296,7 @@ export default function ViewInvoice() {
         const taxRate = item.gstRate !== undefined ? item.gstRate
                       : item.tax !== undefined ? item.tax
                       : 0;
-        const baseAmount = (Number(item.qty) || 0) * (Number(item.price) || 0);
-        const afterItemDiscount = baseAmount * (1 - ((item.discountPct || 0) / 100));
+        const afterItemDiscount = getItemBaseAmount(item);
         return acc + afterItemDiscount * (taxRate / 100);
       }, 0)
     : 0;
@@ -941,7 +941,7 @@ export default function ViewInvoice() {
                                 discDisplay = pct > 0 ? `${pct}%` : "—";
                               }
                               
-                              const afterDiscount = Math.max(0, baseAmount - itemDiscVal);
+                              const afterDiscount = getItemBaseAmount(item);
                               return (
                                 <tr key={idx} className="hover:bg-gray-50/30">
                                    <td className="py-2 px-3">
@@ -1244,8 +1244,7 @@ export default function ViewInvoice() {
                          {invoice.items && invoice.items.map((item, idx) => {
                               const taxRate = item.gstRate !== undefined ? item.gstRate
                                             : item.tax !== undefined ? item.tax : 0;
-                              const baseAmount = (Number(item.qty) || 0) * (Number(item.price) || 0);
-                              const afterDiscount = baseAmount * (1 - ((item.discountPct || 0) / 100));
+                              const afterDiscount = getItemBaseAmount(item);
                               return (
                                 <tr key={idx} className="hover:bg-gray-50/30">
                                    <td className="py-2 px-3">

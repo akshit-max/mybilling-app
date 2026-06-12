@@ -11,6 +11,7 @@ import {
   Receipt,
 } from "lucide-react";
 import Link from "next/link";
+import { getItemBaseAmount } from "@/lib/calcInvoice";
 
 /* TYPES */
 type Item = {
@@ -289,7 +290,7 @@ export default function ThermalReceipt() {
                 if (pct > 0) discDisplay = `${pct}%`;
               }
               
-              const afterDiscount = Math.max(0, baseAmount - itemDiscVal);
+              const afterDiscount = getItemBaseAmount(item);
               
               return (
                 <div

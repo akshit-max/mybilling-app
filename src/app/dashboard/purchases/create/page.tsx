@@ -10,7 +10,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
 import { sanitizeNumericInput } from "@/lib/sanitize";
-import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
+import { calculateInvoice, DiscountType, getItemBaseAmount } from "@/lib/calcInvoice";
 import { syncInventory } from "@/lib/inventorySync";
 import { v4 as uuidv4 } from "uuid";
 import { INDIAN_STATES } from "@/lib/indianStates";
@@ -1027,7 +1027,32 @@ export default function CreateSalesInvoice() {
 
                     {/* Discount */}
                     <td className="px-4 py-4 align-top">
-                      <span className="text-gray-400 block mt-1">-</span>
+                      <div className="flex items-center border border-gray-200 rounded overflow-hidden bg-white mt-0.5 w-28">
+                        <select
+                          value={(item as any).discountType ?? "percent"}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountType: e.target.value } as any;
+                            setItems(updated);
+                          }}
+                          className="px-1 py-1 text-[10px] font-bold text-gray-500 bg-transparent border-r border-gray-200 focus:outline-none cursor-pointer"
+                        >
+                          <option value="percent">%</option>
+                          <option value="flat">₹</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          value={(item as any).discountValue ?? ""}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountValue: e.target.value === "" ? undefined : Number(e.target.value) } as any;
+                            setItems(updated);
+                          }}
+                          placeholder="0"
+                          className="w-full px-2 py-1 text-xs focus:outline-none font-mono text-right bg-transparent"
+                        />
+                      </div>
                     </td>
 
                     {/* Tax rate displaying absolute calculations - editable select */}
@@ -1046,7 +1071,7 @@ export default function CreateSalesInvoice() {
                         </select>
                         {gstEnabled && (
                           <span className="text-[10px] text-gray-400 block font-mono">
-                            (₹ {(((Number(item.qty) || 0) * (Number(item.price) || 0)) * ((item.gstRate ?? 18) / 100)).toFixed(2)})
+                            (₹ {(getItemBaseAmount(item) * ((item.gstRate ?? 18) / 100)).toFixed(2)})
                           </span>
                         )}
                       </div>
@@ -1054,7 +1079,7 @@ export default function CreateSalesInvoice() {
 
                     {/* Amount */}
                     <td className="px-4 py-4 text-right font-bold font-mono text-gray-800 align-top">
-                      <span className="block mt-1">₹ {((Number(item.qty) || 0) * (Number(item.price) || 0)).toFixed(2)}</span>
+                      <span className="block mt-1">₹ {getItemBaseAmount(item).toFixed(2)}</span>
                     </td>
 
                     {/* Delete action */}
@@ -1098,7 +1123,7 @@ export default function CreateSalesInvoice() {
                 {/* Subtotals Row */}
                 <tr className="bg-gray-50/30 border-t border-gray-100 font-semibold text-gray-700">
                   <td colSpan={5} className="px-4 py-2.5 text-right text-[10px] text-gray-400 uppercase tracking-wider">Subtotal</td>
-                  <td className="px-4 py-2.5">₹ 0.00</td>
+                  <td className="px-4 py-2.5">₹ {items.reduce((sum, item) => sum + (((Number(item.qty) || 0) * (Number(item.price) || 0)) - getItemBaseAmount(item)), 0).toFixed(2)}</td>
                   <td className="px-4 py-2.5 font-mono">₹ {calc.totalGst.toFixed(2)}</td>
                   <td className="px-4 py-2.5 text-right font-mono">₹ {calc.subtotal.toFixed(2)}</td>
                   <td></td>

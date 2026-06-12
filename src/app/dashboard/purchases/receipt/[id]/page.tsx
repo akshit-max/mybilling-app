@@ -29,6 +29,7 @@ import { syncInventory } from "@/lib/inventorySync";
 import WhatsAppModal from "@/components/ui/WhatsAppModal";
 import EmailModal from "@/components/ui/EmailModal";
 import SMSModal from "@/components/ui/SMSModal";
+import { getItemBaseAmount } from "@/lib/calcInvoice";
 
 /* TYPES */
 type Item = {
@@ -670,7 +671,7 @@ export default function ViewInvoice() {
                                   </td>
                                   <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
                                   <td className="py-2 px-3 text-center font-mono text-gray-500">{taxRate}%</td>
-                                  <td className="py-2 px-3 text-right font-bold font-mono text-gray-900">₹{(item.qty * item.price).toFixed(2)}</td>
+                                  <td className="py-2 px-3 text-right font-bold font-mono text-gray-900">₹{getItemBaseAmount(item).toFixed(2)}</td>
                                </tr>
                              );
                            })}
@@ -970,7 +971,7 @@ export default function ViewInvoice() {
                                 </td>
                                 <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
                                 <td className="py-2 px-3 text-center font-mono text-gray-500">{taxRate}%</td>
-                                <td className="py-2 px-3 text-right font-bold font-mono text-gray-900">₹{(item.qty * item.price).toFixed(2)}</td>
+                                <td className="py-2 px-3 text-right font-bold font-mono text-gray-900">₹{getItemBaseAmount(item).toFixed(2)}</td>
                              </tr>
                            );
                          })}

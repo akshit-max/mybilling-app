@@ -11,7 +11,7 @@ import toast from "react-hot-toast";
 
 import { sanitizeNumericInput } from "@/lib/sanitize";
 import { validateDiscount } from "@/lib/validateDiscount";
-import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
+import { calculateInvoice, DiscountType, getItemBaseAmount } from "@/lib/calcInvoice";
 import { v4 as uuidv4 } from "uuid";
 import { INDIAN_STATES } from "@/lib/indianStates";
 
@@ -1069,7 +1069,7 @@ export default function EditAutomatedBill() {
                 {/* Subtotals Row */}
                 <tr className="bg-gray-50/30 border-t border-gray-100 font-semibold text-gray-700">
                   <td colSpan={5} className="px-4 py-2.5 text-right text-[10px] text-gray-400 uppercase tracking-wider">Subtotal</td>
-                  <td className="px-4 py-2.5">₹ 0.00</td>
+                  <td className="px-4 py-2.5">₹ {items.reduce((sum, item) => sum + (((Number(item.qty) || 0) * (Number(item.price) || 0)) - getItemBaseAmount(item)), 0).toFixed(2)}</td>
                   <td className="px-4 py-2.5 font-mono">₹ {calc.totalGst.toFixed(2)}</td>
                   <td className="px-4 py-2.5 text-right font-mono">₹ {calc.subtotal.toFixed(2)}</td>
                   <td></td>
