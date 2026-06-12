@@ -17,6 +17,7 @@ type Invoice = {
   total: number;
   amountReceived: number;
   status: string;
+  creditNoteAdjusted?: number;
   allocatedAmount?: number; // Temporary UI state
 };
 
@@ -115,11 +116,12 @@ export default function CreatePaymentIn() {
               dueDate: data.dueDate || "",
               total: Number(data.total || 0),
               amountReceived: Number(data.amountReceived || 0),
+              creditNoteAdjusted: Number(data.creditNoteAdjusted || 0),
               status: data.status || "pending",
               allocatedAmount: 0,
             };
           })
-          .filter(inv => inv.status !== "paid" && (inv.total - inv.amountReceived) > 0);
+          .filter(inv => inv.status !== "paid" && (inv.total - inv.amountReceived - Number(inv.creditNoteAdjusted || 0)) > 0);
           
         setUnsettledInvoices(list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
       } catch (err) {
@@ -140,7 +142,7 @@ export default function CreatePaymentIn() {
     if (unsettledInvoices.length > 0) {
       let remaining = totalToAllocate;
       const updated = unsettledInvoices.map(inv => {
-        const maxAllowed = inv.total - inv.amountReceived;
+        const maxAllowed = inv.total - inv.amountReceived - (inv.creditNoteAdjusted || 0);
         if (remaining >= maxAllowed) {
           remaining -= maxAllowed;
           return { ...inv, allocatedAmount: maxAllowed };
@@ -491,7 +493,7 @@ export default function CreatePaymentIn() {
                      <td className="p-4 text-sm font-bold text-gray-800">{inv.invoiceNumber}</td>
                      <td className="p-4 text-sm font-bold text-gray-800">
                         ₹{inv.total.toLocaleString()} 
-                        <span className="text-red-500 font-semibold text-xs ml-1">(₹{(inv.total - inv.amountReceived).toLocaleString()} pending)</span>
+                        <span className="text-red-500 font-semibold text-xs ml-1">(₹{(inv.total - inv.amountReceived - (inv.creditNoteAdjusted || 0)).toLocaleString()} pending)</span>
                      </td>
                      <td className="p-4">
                         <input

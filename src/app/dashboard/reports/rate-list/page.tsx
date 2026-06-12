@@ -173,7 +173,13 @@ export default function RateListReport() {
         body: JSON.stringify({
           to: emails,
           subject: "Rate List Report",
-          html: tableHTML
+          html: "<p>Please find the attached " + "Rate List Report" + " Excel report.</p>",
+          attachments: [
+            {
+              filename: "Rate List Report".replace(/\s+/g, '_') + ".xls",
+              content: btoa(unescape(encodeURIComponent(tableHTML)))
+            }
+          ]
         })
       }).then(async (res) => {
         const data = await res.json();

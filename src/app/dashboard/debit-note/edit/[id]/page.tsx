@@ -13,6 +13,7 @@ import { sanitizeNumericInput } from "@/lib/sanitize";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 
 type Item = {
+  unit?: string;
   productId?: string;
   name: string;
   qty: number | "";
@@ -39,6 +40,7 @@ type Product = {
   gst?: number;
   hsnCode?: string;
   stock?: number;
+  unit?: string;
 };
 
 export default function EditCreditNote() {
@@ -160,7 +162,10 @@ export default function EditCreditNote() {
   }, [customerName, products]);
 
   const validItems = items.filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0).map((i) => {
-    const sanitized = { ...i, qty: Number(i.qty), price: Number(i.price) };
+      const prod = products.find(p => p.id === i.productId);
+      const sanitized = { ...i, qty: Number(i.qty), price: Number(i.price),
+        unit: (i as any).unit || prod?.unit || "PCS",
+      };
     if (sanitized.productId === "CUSTOM") delete sanitized.productId;
     return sanitized;
   });

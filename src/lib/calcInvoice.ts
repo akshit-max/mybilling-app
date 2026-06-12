@@ -24,7 +24,7 @@ export function calculateInvoice(
     let itemDiscountAmt = 0;
     if ((item as any).discountType === "flat") {
       itemDiscountAmt = Number((item as any).discountValue) || 0;
-    } else if ((item as any).discountType === "percent" || item.discountPct !== undefined) {
+    } else if ((item as any).discountType === "percent" || (item as any).discountType === undefined || item.discountPct !== undefined) {
       const pct = Number((item as any).discountValue ?? item.discountPct ?? 0);
       itemDiscountAmt = rawAmount * (pct / 100);
     }
@@ -88,7 +88,7 @@ export function getItemBaseAmount(item: Item | any): number {
   let itemDiscountAmt = 0;
   if (item.discountType === "flat") {
     itemDiscountAmt = Number(item.discountValue) || 0;
-  } else if (item.discountType === "percent" || item.discountPct !== undefined) {
+  } else if (item.discountType === "percent" || item.discountType === undefined || item.discountPct !== undefined) {
     const pct = Number(item.discountValue ?? item.discountPct ?? 0);
     itemDiscountAmt = rawAmount * (pct / 100);
   }

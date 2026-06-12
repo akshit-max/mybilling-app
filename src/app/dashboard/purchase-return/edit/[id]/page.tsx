@@ -14,6 +14,7 @@ import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 import { v4 as uuidv4 } from "uuid";
 
 type Item = {
+  unit?: string;
   productId?: string;
   name: string;
   qty: number | "";
@@ -40,6 +41,7 @@ type Product = {
   gst?: number;
   hsnCode?: string;
   stock?: number;
+  unit?: string;
 };
 
 export default function EditCreditNote() {
@@ -219,7 +221,10 @@ export default function EditCreditNote() {
   };
 
   const validItems = items.filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0).map((i) => {
-    const sanitized = { ...i, qty: Number(i.qty), price: Number(i.price) };
+      const prod = products.find(p => p.id === i.productId);
+      const sanitized = { ...i, qty: Number(i.qty), price: Number(i.price),
+        unit: (i as any).unit || prod?.unit || "PCS",
+      };
     if (sanitized.productId === "CUSTOM") delete sanitized.productId;
     return sanitized;
   });

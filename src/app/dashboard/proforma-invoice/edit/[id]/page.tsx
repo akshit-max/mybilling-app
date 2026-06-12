@@ -11,9 +11,10 @@ import toast from "react-hot-toast";
 
 import { sanitizeNumericInput } from "@/lib/sanitize";
 import { validateDiscount } from "@/lib/validateDiscount";
-import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
+import { calculateInvoice, DiscountType, getItemBaseAmount } from "@/lib/calcInvoice";
 
 type Item = {
+  unit?: string;
   productId?: string;
   name: string;
   qty: number | "";
@@ -40,6 +41,7 @@ type Product = {
   gst?: number;
   hsnCode?: string;
   stock?: number;
+  unit?: string;
 };
 
 export default function EditCreditNote() {
@@ -166,7 +168,10 @@ export default function EditCreditNote() {
   }, [customerName, products]);
 
   const validItems = items.filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0).map((i) => {
-    const sanitized = { ...i, qty: Number(i.qty), price: Number(i.price) };
+      const prod = products.find(p => p.id === i.productId);
+      const sanitized = { ...i, qty: Number(i.qty), price: Number(i.price),
+        unit: (i as any).unit || prod?.unit || "PCS",
+      };
     if (sanitized.productId === "CUSTOM") delete sanitized.productId;
     return sanitized;
   });
@@ -453,7 +458,7 @@ export default function EditCreditNote() {
                         className="w-full text-[10px] text-gray-500 bg-transparent border-t border-dashed border-gray-200 focus:border-indigo-400 focus:ring-0 focus:outline-none py-1 px-1 mt-1 block" 
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1">
                       <input type="text" placeholder="HSN" value={item.hsn || ""} onChange={(e) => updateItem(idx, "hsn", e.target.value)} className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-600 bg-white text-center" />
                     </div>
                     <div className="col-span-1">
@@ -462,13 +467,39 @@ export default function EditCreditNote() {
                     <div className="col-span-2">
                       <input type="text" placeholder="Price" value={item.price} onChange={(e) => updateItem(idx, "price", e.target.value)} className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-right text-gray-700 bg-white" />
                     </div>
+                    <div className="col-span-2 flex items-center border border-gray-200 rounded overflow-hidden bg-white mt-0.5 w-full">
+                      <select
+                        value={(item as any).discountType ?? "percent"}
+                        onChange={(e) => {
+                          const updated = [...items];
+                          updated[idx] = { ...updated[idx], discountType: e.target.value } as any;
+                          setItems(updated);
+                        }}
+                        className="px-1 py-1.5 text-[10px] font-bold text-gray-500 bg-transparent border-r border-gray-200 focus:outline-none cursor-pointer"
+                      >
+                        <option value="percent">%</option>
+                        <option value="flat">₹</option>
+                      </select>
+                      <input
+                        type="number"
+                        min="0"
+                        value={(item as any).discountValue ?? ""}
+                        onChange={(e) => {
+                          const updated = [...items];
+                          updated[idx] = { ...updated[idx], discountValue: e.target.value === "" ? undefined : Number(e.target.value) } as any;
+                          setItems(updated);
+                        }}
+                        placeholder="0"
+                        className="w-full px-2 py-1.5 text-xs focus:outline-none font-mono text-right bg-transparent"
+                      />
+                    </div>
                     <div className="col-span-1">
                       <select value={item.gstRate ?? 18} onChange={(e) => updateItem(idx, "gstRate", Number(e.target.value))} className="w-full border border-gray-200 rounded px-1.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-600 bg-white">
                         <option value={0}>0%</option><option value={5}>5%</option><option value={12}>12%</option><option value={18}>18%</option><option value={28}>28%</option>
                       </select>
                     </div>
                     <div className="col-span-1 flex items-center justify-end gap-2 text-right">
-                      <span className="font-bold font-mono text-xs text-gray-700">₹{((Number(item.qty || 0)) * (Number(item.price || 0))).toFixed(2)}</span>
+                      <span className="font-bold font-mono text-xs text-gray-700">₹{getItemBaseAmount(item).toFixed(2)}</span>
                       <button onClick={() => removeItem(idx)} className="p-1 text-gray-400 hover:text-red-500 rounded"><Trash2 size={13} /></button>
                     </div>
                   </div>

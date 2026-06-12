@@ -193,7 +193,7 @@ export default function EWayBillPrint() {
                           <td className="py-4 px-2 text-left">
                              <p className="font-bold text-gray-900 uppercase">{item.name}</p>
                           </td>
-                          <td className="py-4 px-2 text-center font-mono text-gray-800 font-bold">{item.qty} PCS</td>
+                          <td className="py-4 px-2 text-center font-mono text-gray-800 font-bold">{item.qty} {item.unit || "PCS"}</td>
                           <td className="py-4 px-2 text-right font-mono text-gray-800">{Number(item.price).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
                           <td className="py-4 px-2 text-right font-mono text-gray-800">
                             {taxAmt.toLocaleString('en-IN', {minimumFractionDigits:2})} <br/>

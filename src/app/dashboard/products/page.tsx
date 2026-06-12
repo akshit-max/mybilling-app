@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { useSession } from "@/context/SessionContext";
 import * as XLSX from "xlsx";
-import QRCode from "react-qr-code";
+import Barcode from "react-barcode";
 
 type Product = {
   id: string;
@@ -800,9 +800,9 @@ export default function ItemsPage() {
           <h1 className="text-lg font-semibold text-gray-800">Items</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-indigo-50 transition-all">
+          {/* <button className="flex items-center gap-2 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-indigo-50 transition-all">
             <span>Manage Offer</span>
-          </button>
+          </button> */}
           <div className="relative">
             <button 
               onClick={() => setShowReportsDropdown(!showReportsDropdown)}
@@ -845,7 +845,7 @@ export default function ItemsPage() {
       </div>
 
       {/* Promos Banner */}
-      {showBanner && (
+      {/* {showBanner && (
         <div className="mx-6 mt-4 bg-amber-500/10 text-amber-800 px-6 py-2.5 rounded-lg flex items-center justify-between border border-amber-500/20 shadow-sm transition-all duration-300">
           <div className="flex items-center gap-3">
             <span className="text-xl">🏷️</span>
@@ -861,7 +861,7 @@ export default function ItemsPage() {
             <button onClick={() => setShowBanner(false)} className="text-amber-500 hover:text-amber-800 text-lg leading-none p-1 font-light">&times;</button>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Modern Stats Cards Navigation */}
       <div className="grid grid-cols-4 gap-4 px-6 pt-4">
@@ -919,7 +919,7 @@ export default function ItemsPage() {
       <div className="mx-6 mt-4 bg-indigo-50/70 border border-indigo-100 text-indigo-900 px-4 py-2.5 rounded-lg flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2.5 text-xs font-semibold">
           <span className="text-base">💡</span>
-          <span>To view or print the scannable barcode or QR label for any item, click on the <strong className="font-bold text-indigo-700">"View"</strong> option in the three-dots menu <strong className="font-mono font-bold">(⋮)</strong> on the item row.</span>
+          <span>To view or print the scannable barcode label for any item, click on the <strong className="font-bold text-indigo-700">"View"</strong> option in the three-dots menu <strong className="font-mono font-bold">(⋮)</strong> on the item row.</span>
         </div>
         {/* <Link href="/dashboard" className="text-[11px] font-bold text-indigo-600 hover:underline bg-white border border-indigo-200 px-2.5 py-1 rounded shadow-xs shrink-0">
           Go to Dashboard
@@ -1557,18 +1557,18 @@ export default function ItemsPage() {
                           </div>
                         )}
 
-                        {/* Live QR / Barcode Preview */}
+                        {/* Live Barcode Preview */}
                         {formItemCode.trim() && (
                           <div className="mt-3 flex flex-col items-center bg-gray-50 border border-gray-200 rounded-lg py-4 px-4 gap-2">
-                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1">Barcode / QR Preview</p>
-                            <QRCode
+                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1">Barcode Preview</p>
+                            <Barcode
                               value={formItemCode.trim()}
-                              size={100}
-                              level="M"
-                              fgColor="#1e1b4b"
+                              width={1.5}
+                              height={40}
+                              displayValue={false}
                             />
                             <p className="text-[10px] font-mono font-bold text-gray-700 mt-1 tracking-widest uppercase">{formItemCode.trim()}</p>
-                            <p className="text-[9px] text-gray-400">To view or print full scannable barcode/QR label, go to View Details of this item.</p>
+                            <p className="text-[9px] text-gray-400">To view or print full scannable barcode label, go to View Details of this item.</p>
                           </div>
                         )}
                       </div>

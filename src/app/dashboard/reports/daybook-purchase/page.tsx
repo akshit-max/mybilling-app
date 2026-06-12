@@ -220,7 +220,13 @@ export default function DaybookPurchaseReport() {
         body: JSON.stringify({
           to: emails,
           subject: "Purchase Daybook Report",
-          html: tableHTML
+          html: "<p>Please find the attached " + "Purchase Daybook Report" + " Excel report.</p>",
+          attachments: [
+            {
+              filename: "Purchase Daybook Report".replace(/\s+/g, '_') + ".xls",
+              content: btoa(unescape(encodeURIComponent(tableHTML)))
+            }
+          ]
         })
       }).then(async (res) => {
         const data = await res.json();

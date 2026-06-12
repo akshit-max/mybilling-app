@@ -295,7 +295,13 @@ export default function GSTR1ReportPage() {
         body: JSON.stringify({
           to: emails,
           subject: `GSTR-1 Report - ${activeTab}`,
-          html: tableHTML
+          html: "<p>Please find the attached " + `GSTR-1 Report - ${activeTab}` + " Excel report.</p>",
+          attachments: [
+            {
+              filename: `GSTR-1 Report - ${activeTab}`.replace(/\s+/g, '_') + ".xls",
+              content: btoa(unescape(encodeURIComponent(tableHTML)))
+            }
+          ]
         })
       }).then(async (res) => {
         const data = await res.json();

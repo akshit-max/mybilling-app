@@ -19,7 +19,7 @@ export function validateDiscount(
     let itemDiscountAmt = 0;
     if (item.discountType === "flat") {
       itemDiscountAmt = Number(item.discountValue) || 0;
-    } else if (item.discountType === "percent" || item.discountPct !== undefined) {
+    } else if (item.discountType === "percent" || item.discountType === undefined || item.discountPct !== undefined) {
       const pct = Number(item.discountValue ?? item.discountPct ?? 0);
       itemDiscountAmt = rawAmount * (pct / 100);
     }

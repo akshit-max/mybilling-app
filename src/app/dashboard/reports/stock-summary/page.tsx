@@ -16,6 +16,8 @@ type StockItem = {
   stock: number;
   purchasePrice: number;
   stockValue: number;
+  salesReturnQty: number;
+  purchaseReturnQty: number;
 };
 
 export default function StockSummaryReport() {
@@ -34,19 +36,55 @@ export default function StockSummaryReport() {
       }
 
       try {
-        const snap = await getDocs(query(collection(db, "products"), where("userId", "==", user.uid)));
-        const data = snap.docs.map(doc => {
+        const [pSnap, srSnap, prSnap] = await Promise.all([
+          getDocs(query(collection(db, "products"), where("userId", "==", user.uid))),
+          getDocs(query(collection(db, "salesReturns"), where("userId", "==", user.uid))),
+          getDocs(query(collection(db, "purchaseReturns"), where("userId", "==", user.uid)))
+        ]);
+
+        const salesReturnAdjustments = new Map<string, number>();
+        const purchaseReturnAdjustments = new Map<string, number>();
+
+        // Sales Returns bring stock back IN (+)
+        srSnap.docs.forEach(doc => {
+          const d = doc.data();
+          if (d.status === "cancelled") return;
+          (d.items || []).forEach((item: any) => {
+             const name = item.name || "Unknown";
+             const qty = Number(item.qty || item.quantity || 0);
+             salesReturnAdjustments.set(name, (salesReturnAdjustments.get(name) || 0) + qty);
+          });
+        });
+
+        // Purchase Returns send stock OUT (-)
+        prSnap.docs.forEach(doc => {
+          const d = doc.data();
+          if (d.status === "cancelled") return;
+          (d.items || []).forEach((item: any) => {
+             const name = item.name || "Unknown";
+             const qty = Number(item.qty || item.quantity || 0);
+             purchaseReturnAdjustments.set(name, (purchaseReturnAdjustments.get(name) || 0) + qty);
+          });
+        });
+
+        const data = pSnap.docs.map(doc => {
           const p = doc.data();
-          const stock = Number(p.stock || 0);
+          const baseStock = Number(p.stock || 0);
+          const srQty = salesReturnAdjustments.get(p.name || "Unknown") || 0;
+          const prQty = purchaseReturnAdjustments.get(p.name || "Unknown") || 0;
+          const trueStock = baseStock + srQty - prQty;
+
           const purchasePrice = Number(p.costPrice || 0);
           return {
             id: doc.id,
             name: p.name || "Unknown",
             itemCode: p.itemCode || p.barcode || "-",
             category: p.category || "-",
-            stock: stock,
+            stock: trueStock,
             purchasePrice: purchasePrice,
-            stockValue: stock * purchasePrice
+            stockValue: trueStock * purchasePrice,
+            salesReturnQty: srQty,
+            purchaseReturnQty: prQty
           };
         });
 
@@ -74,18 +112,20 @@ export default function StockSummaryReport() {
   const handleExportExcel = () => {
     if (filteredItems.length === 0) return toast.error("No data to export");
 
-    const headers = ["Item Name", "Item Code", "Category", "Current Stock", "Purchase Price", "Stock Value"];
+    const headers = ["Item Name", "Item Code", "Category", "Current Stock", "Sales Ret", "Purchase Ret", "Purchase Price", "Stock Value"];
     const rows = filteredItems.map(p => [
       p.name,
       p.itemCode,
       p.category,
       p.stock.toString(),
+      p.salesReturnQty.toString(),
+      p.purchaseReturnQty.toString(),
       p.purchasePrice.toString(),
       p.stockValue.toString()
     ]);
 
     // Add total row
-    rows.push(["Total", "", "", "", "", totalStockValue.toString()]);
+    rows.push(["Total", "", "", "", "", "", "", totalStockValue.toString()]);
 
     const tableHTML = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -143,18 +183,20 @@ export default function StockSummaryReport() {
       return;
     }
 
-    const headers = ["Item Name", "Item Code", "Category", "Current Stock", "Purchase Price", "Stock Value"];
+    const headers = ["Item Name", "Item Code", "Category", "Current Stock", "Sales Ret", "Purchase Ret", "Purchase Price", "Stock Value"];
     const rows = filteredItems.map(p => [
       p.name,
       p.itemCode,
       p.category,
       p.stock.toString(),
+      p.salesReturnQty.toString(),
+      p.purchaseReturnQty.toString(),
       p.purchasePrice.toString(),
       p.stockValue.toString()
     ]);
 
     // Add total row
-    rows.push(["Total", "", "", "", "", totalStockValue.toString()]);
+    rows.push(["Total", "", "", "", "", "", "", totalStockValue.toString()]);
 
     const tableHTML = `
       <div style="font-family: Arial, sans-serif; padding: 20px;">
@@ -182,7 +224,13 @@ export default function StockSummaryReport() {
         body: JSON.stringify({
           to: emails,
           subject: "Stock Summary Report",
-          html: tableHTML
+          html: "<p>Please find the attached " + "Stock Summary Report" + " Excel report.</p>",
+          attachments: [
+            {
+              filename: "Stock Summary Report".replace(/\s+/g, '_') + ".xls",
+              content: btoa(unescape(encodeURIComponent(tableHTML)))
+            }
+          ]
         })
       }).then(async (res) => {
         const data = await res.json();
@@ -284,6 +332,8 @@ export default function StockSummaryReport() {
                   <th className="px-4 py-3 border-r border-gray-100 print:border-gray-300">Item Code</th>
                   <th className="px-4 py-3 border-r border-gray-100 print:border-gray-300">Category</th>
                   <th className="px-4 py-3 border-r border-gray-100 print:border-gray-300 text-center">Current Stock</th>
+                  <th className="px-4 py-3 border-r border-gray-100 print:border-gray-300 text-center">Sales Returns (+)</th>
+                  <th className="px-4 py-3 border-r border-gray-100 print:border-gray-300 text-center">Purchase Returns (-)</th>
                   <th className="px-4 py-3 border-r border-gray-100 print:border-gray-300 text-right">Purchase Price</th>
                   <th className="px-4 py-3 text-right print:border-gray-300">Stock Value</th>
                 </tr>
@@ -303,6 +353,12 @@ export default function StockSummaryReport() {
                     <td className="px-4 py-3 font-mono font-semibold text-gray-800 text-center border-r border-gray-50 print:border-gray-300">
                       {p.stock}
                     </td>
+                    <td className="px-4 py-3 font-mono font-semibold text-green-600 text-center border-r border-gray-50 print:border-gray-300">
+                      {p.salesReturnQty > 0 ? `+${p.salesReturnQty}` : "-"}
+                    </td>
+                    <td className="px-4 py-3 font-mono font-semibold text-red-500 text-center border-r border-gray-50 print:border-gray-300">
+                      {p.purchaseReturnQty > 0 ? `-${p.purchaseReturnQty}` : "-"}
+                    </td>
                     <td className="px-4 py-3 font-mono font-semibold text-gray-500 text-right border-r border-gray-50 print:border-gray-300">
                       ₹ {p.purchasePrice.toLocaleString('en-IN', { minimumFractionDigits: 0 })}
                     </td>
@@ -313,7 +369,7 @@ export default function StockSummaryReport() {
                 ))}
                 {/* Total Row */}
                 <tr className="bg-gray-50 print:bg-gray-100 border-t border-gray-200">
-                  <td colSpan={5} className="px-4 py-3 text-right font-bold text-gray-800 print:border-gray-300">
+                  <td colSpan={7} className="px-4 py-3 text-right font-bold text-gray-800 print:border-gray-300">
                     Total Stock Value
                   </td>
                   <td className="px-4 py-3 font-mono font-bold text-indigo-700 text-right print:border-gray-300 print:text-gray-800">

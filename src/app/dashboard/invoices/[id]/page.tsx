@@ -35,6 +35,7 @@ import { jsPDF } from "jspdf";
 
 /* TYPES */
 type Item = {
+  unit?: string;
   productId?: string;
   name: string;
   qty: number;
@@ -69,6 +70,8 @@ type Invoice = {
   signatureType?: "upload" | "empty" | "";
   signatureImage?: string;
   amountReceived?: number;
+  creditNoteAdjusted?: number;
+  userId?: string;
   // e-Invoice & e-Way Bill tracking
   eInvoiceGenerated?: boolean;
   irn?: string;
@@ -304,7 +307,8 @@ export default function ViewInvoice() {
   const receivedAmount = typeof invoice.amountReceived === "number" 
     ? invoice.amountReceived 
     : (invoice.status === "paid" ? invoice.total : 0);
-  const balanceAmount = Math.max(0, invoice.total - receivedAmount);
+  const adjustedAmount = Number(invoice.creditNoteAdjusted || 0);
+  const balanceAmount = Math.max(0, invoice.total - receivedAmount - adjustedAmount);
 
   const handleWhatsAppShare = () => {
     setShowWhatsAppModal(true);
@@ -949,7 +953,7 @@ export default function ViewInvoice() {
                                       {item.description && <p className="text-[9px] text-gray-400 font-normal mt-0.5">{item.description}</p>}
                                    </td>
                                    <td className="py-2 px-3 text-center font-mono text-gray-900">
-                                     <span>{item.qty} PCS</span>
+                                     <span>{item.qty} {item.unit || "PCS"}</span>
                                      {freeItemQty && <span className="text-brand-tertiary font-bold block text-[9px]">(+0 Free)</span>}
                                    </td>
                                    <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
@@ -962,7 +966,7 @@ export default function ViewInvoice() {
                            {/* SUBTOTAL ROW */}
                            <tr className="bg-gray-50/50 font-bold border-y-2 border-gray-300 text-gray-900 text-[10px]">
                                <td className="py-2 px-3 text-left uppercase">SUBTOTAL</td>
-                               <td className="py-2 px-3 text-center font-mono">{totalQty} PCS</td>
+                               <td className="py-2 px-3 text-center font-mono">{totalQty}</td>
                                <td className="py-2 px-3 text-right">-</td>
                               <td className="py-2 px-3 text-center font-mono">{invoice.gstEnabled ? `₹${totalTaxAmount.toFixed(2)}` : "-"}</td>
                               <td className="py-2 px-3 text-right font-mono">₹{invoice.subtotal.toFixed(2)}</td>
@@ -1032,10 +1036,16 @@ export default function ViewInvoice() {
                            <span className="font-extrabold text-black">₹{invoice.total.toFixed(2)}</span>
                         </div>
 
-                        <div className="flex justify-between text-gray-500">
+                        <div className="flex justify-between text-gray-600 mb-0.5">
                            <span>Received Amount</span>
                            <span>₹{receivedAmount.toFixed(2)}</span>
                         </div>
+                        {adjustedAmount > 0 && (
+                          <div className="flex justify-between text-gray-600 mb-0.5">
+                             <span>Credit Note Adj.</span>
+                             <span>₹{adjustedAmount.toFixed(2)}</span>
+                          </div>
+                        )}
 
                         <div className="flex justify-between font-bold text-red-500">
                            <span>Balance</span>
@@ -1137,6 +1147,12 @@ export default function ViewInvoice() {
                      ₹{receivedAmount.toFixed(2)}
                    </span>
                 </div>
+                {adjustedAmount > 0 && (
+                  <p className="flex justify-between text-[11px] font-semibold text-gray-500">
+                    <span>Credit Note Adj.</span>
+                    <span className="font-bold text-gray-700 font-mono">₹{adjustedAmount.toFixed(2)}</span>
+                  </p>
+                )}
                 <div className="flex justify-between text-[11px] font-bold text-gray-800 border-t border-gray-100 pt-2">
                    <span>Balance Amount</span>
                    <span className={`font-mono ${balanceAmount === 0 ? "text-brand-tertiary" : "text-red-500"}`}>
@@ -1252,7 +1268,7 @@ export default function ViewInvoice() {
                                       {item.description && <p className="text-[9px] text-gray-400 font-normal mt-0.5">{item.description}</p>}
                                    </td>
                                    <td className="py-2 px-3 text-center font-mono text-gray-900">
-                                     <span>{item.qty} PCS</span>
+                                     <span>{item.qty} {item.unit || "PCS"}</span>
                                      {freeItemQty && <span className="text-brand-tertiary font-bold block text-[9px]">(+0 Free)</span>}
                                    </td>
                                    <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
@@ -1265,7 +1281,7 @@ export default function ViewInvoice() {
                          {/* SUBTOTAL ROW AT THE BOTTOM OF TABLE */}
                          <tr className="bg-gray-50/50 font-bold border-y-2 border-gray-300 text-gray-900 text-[10px]">
                             <td className="py-2 px-3 text-left uppercase">SUBTOTAL</td>
-                            <td className="py-2 px-3 text-center font-mono">{totalQty} PCS</td>
+                            <td className="py-2 px-3 text-center font-mono">{totalQty}</td>
                             <td className="py-2 px-3 text-right">-</td>
                             <td className="py-2 px-3 text-center font-mono">₹{totalTaxAmount.toFixed(2)}</td>
                             <td className="py-2 px-3 text-right font-mono">₹{invoice.subtotal.toFixed(2)}</td>
@@ -1338,6 +1354,12 @@ export default function ViewInvoice() {
                          <span>Received Amount</span>
                          <span>₹{receivedAmount.toFixed(2)}</span>
                       </div>
+                      {adjustedAmount > 0 && (
+                        <div className="flex justify-between text-gray-500">
+                          <span>Credit Note Adj.</span>
+                          <span>₹{adjustedAmount.toFixed(2)}</span>
+                        </div>
+                      )}
 
                       <div className="flex justify-between font-bold text-red-500">
                          <span>Balance</span>
@@ -1422,7 +1444,7 @@ export default function ViewInvoice() {
                    <div key={idx} className="space-y-0.5">
                      <div className="grid grid-cols-5">
                        <span className="col-span-2 font-bold text-black uppercase truncate">{item.name}</span>
-                       <span className="text-right">{item.qty} PCS</span>
+                       <span className="text-right">{item.qty} {item.unit || "PCS"}</span>
                        <span className="text-right">{item.price.toFixed(2)}</span>
                        <span className="text-right font-bold">{(item.qty * item.price).toFixed(2)}</span>
                      </div>

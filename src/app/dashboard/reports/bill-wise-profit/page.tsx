@@ -238,7 +238,13 @@ export default function BillWiseProfitReport() {
         body: JSON.stringify({
           to: emails,
           subject: "Bill Wise Profit Report",
-          html: tableHTML
+          html: "<p>Please find the attached " + "Bill Wise Profit Report" + " Excel report.</p>",
+          attachments: [
+            {
+              filename: "Bill Wise Profit Report".replace(/\s+/g, '_') + ".xls",
+              content: btoa(unescape(encodeURIComponent(tableHTML)))
+            }
+          ]
         })
       }).then(async (res) => {
         const data = await res.json();

@@ -61,7 +61,8 @@ export default function AgeingReport() {
 
           const total = Number(inv.total || 0);
           const received = typeof inv.amountReceived === "number" ? inv.amountReceived : (inv.status === "paid" ? total : 0);
-          const unpaid = Math.max(0, total - received);
+          const adjusted = Number(inv.creditNoteAdjusted || 0);
+          const unpaid = Math.max(0, total - received - adjusted);
 
           if (unpaid > 0) {
             const partyName = inv.customerName || "Cash Sale";

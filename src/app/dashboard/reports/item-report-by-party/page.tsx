@@ -285,7 +285,13 @@ export default function ItemReportByParty() {
         body: JSON.stringify({
           to: emails,
           subject: `Item Report By Party - ${selectedParty || "All"}`,
-          html: tableHTML
+          html: "<p>Please find the attached " + `Item Report By Party - ${selectedParty || "All"}` + " Excel report.</p>",
+          attachments: [
+            {
+              filename: `Item Report By Party - ${selectedParty || "All"}`.replace(/\s+/g, '_') + ".xls",
+              content: btoa(unescape(encodeURIComponent(tableHTML)))
+            }
+          ]
         })
       }).then(async (res) => {
         const data = await res.json();

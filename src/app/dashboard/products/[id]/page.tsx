@@ -7,8 +7,9 @@ import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Trash2, Search, Plus, Package, FileText, ChevronDown, Check, AlertTriangle, X, Landmark, QrCode, Printer } from "lucide-react";
-import QRCode from "react-qr-code";
+import { ArrowLeft, Pencil, Trash2, Search, Plus, Package, FileText, ChevronDown, Check, AlertTriangle, X, Landmark, QrCode, Printer, Download } from "lucide-react";
+
+import Barcode from "react-barcode";
 
 type Product = {
   id: string;
@@ -458,7 +459,7 @@ export default function ItemDetailsPage() {
             }`}
           >
             <QrCode size={13} />
-            <span>Barcode / QR</span>
+            <span>Barcode Label</span>
           </button>
         </div>
 
@@ -637,7 +638,7 @@ export default function ItemDetailsPage() {
                   {partyReports.map((rpt, idx) => (
                     <tr key={idx} className="hover:bg-gray-50/50">
                       <td className="px-4 py-2.5 font-semibold text-gray-800">{rpt.partyName}</td>
-                      <td className="px-4 py-2.5 font-bold font-mono text-gray-700">{rpt.salesQty} PCS</td>
+                      <td className="px-4 py-2.5 font-bold font-mono text-gray-700">{rpt.salesQty} {product.unit || "PCS"}</td>
                       <td className="px-4 py-2.5 font-bold font-mono text-indigo-600">₹ {rpt.salesAmt.toLocaleString("en-IN")}</td>
                       <td className="px-4 py-2.5 font-mono text-gray-400">{rpt.purchaseQty}</td>
                       <td className="px-4 py-2.5 font-mono text-gray-400">{rpt.purchaseAmt}</td>
@@ -688,75 +689,104 @@ export default function ItemDetailsPage() {
           </div>
         )}
 
-        {/* View Tab: Barcode / QR */}
+        {/* View Tab: Barcode Label */}
         {activeSubTab === "qr" && (
-          <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-sm flex flex-col items-center justify-center max-w-lg mx-auto mt-4 space-y-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm flex flex-col items-center max-w-sm mx-auto mt-4 space-y-8">
             <div className="text-center space-y-1">
-              <h3 className="text-sm font-bold text-gray-800">Item Label & QR Code</h3>
-              <p className="text-xs text-gray-500">Scan this code using the Webcam Barcode Scanner in Sales to quickly add this item.</p>
-            </div>
-            
-            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
-              <QRCode 
-                id="product-qr-code"
-                value={product.barcode || product.itemCode || product.name} 
-                size={180}
-                level="H"
-                fgColor="#1e1b4b"
-              />
-            </div>
-            
-            <div className="text-center">
-              <p className="text-xs font-bold text-gray-800">{product.name}</p>
-              <p className="text-[10px] font-mono text-gray-500 mt-1 uppercase tracking-widest">{product.barcode || product.itemCode || product.name}</p>
+              <h3 className="text-sm font-bold text-gray-800">Product Barcode Label</h3>
+              <p className="text-xs text-gray-500">Scan using the Webcam Scanner or print physical retail stickers.</p>
             </div>
 
-            <button 
-              onClick={() => {
-                const qrValue = product.barcode || product.itemCode || product.name;
-                const printWindow = window.open('', '', 'width=400,height=500');
-                if (!printWindow) return toast.error("Pop-up blocked. Please allow pop-ups to print.");
+            <div className="flex flex-col w-full justify-center">
+              {/* RETAIL BARCODE SECTION */}
+              <div className="flex flex-col items-center p-6 border border-gray-100 rounded-xl bg-white shadow-sm w-full">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Retail Barcode (1D)</p>
+                <div id="product-print-barcode" className="bg-gray-50 py-6 px-4 rounded-lg border border-gray-200 shadow-inner flex justify-center mb-4 w-full">
+                  <Barcode 
+                    value={product.barcode || product.itemCode || product.id.substring(0, 8)} 
+                    width={1.8}
+                    height={45}
+                    format="CODE128"
+                    displayValue={false}
+                  />
+                </div>
                 
-                const svgElement = document.getElementById('product-qr-code');
-                const svgHtml = svgElement ? svgElement.outerHTML : '';
+                <div className="text-center mb-6">
+                  <p className="text-xs font-bold text-gray-800">{product.name}</p>
+                  <p className="text-[10px] font-mono text-gray-500 mt-1 uppercase tracking-widest">{product.barcode || product.itemCode || product.id.substring(0, 8)}</p>
+                </div>
 
-                printWindow.document.write(`
-                  <html>
-                    <head>
-                      <title>Print QR Code - ${product.name}</title>
-                      <style>
-                        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-                        h2 { font-size: 18px; font-weight: bold; margin-bottom: 5px; color: #111827; }
-                        p { font-size: 12px; color: #6b7280; margin-bottom: 20px; font-family: monospace; }
-                        .qr-container { padding: 20px; border: 2px dashed #e5e7eb; border-radius: 8px; }
-                        @media print {
-                          @page { size: auto; margin: 0mm; }
-                          body { height: auto; padding: 20px; }
-                        }
-                      </style>
-                    </head>
-                    <body>
-                      <h2>${product.name}</h2>
-                      <p>${qrValue}</p>
-                      <div class="qr-container">
-                        ${svgHtml}
-                      </div>
-                      <script>
-                        window.onload = () => {
-                          window.print();
-                          setTimeout(() => window.close(), 500);
-                        };
-                      </script>
-                    </body>
-                  </html>
-                `);
-                printWindow.document.close();
-              }}
-              className="flex items-center justify-center gap-2 w-full max-w-xs bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded text-xs font-bold transition-colors shadow-sm"
-            >
-              <Printer size={14} />
-              <span>Print Label</span>
-            </button>
+                <div className="flex gap-2 w-full max-w-[200px]">
+                  <button 
+                    onClick={() => {
+                      const qrValue = product.barcode || product.itemCode || product.id.substring(0, 8);
+                      const printWindow = window.open('', '', 'width=400,height=500');
+                      if (!printWindow) return toast.error("Pop-up blocked.");
+                      
+                      const svgElement = document.getElementById('product-print-barcode')?.querySelector('svg');
+                      const svgHtml = svgElement ? svgElement.outerHTML : '';
+
+                      printWindow.document.write(`
+                        <html>
+                          <head>
+                            <title>Print Label - ${product.name}</title>
+                            <style>
+                              @page { size: 50mm 25mm; margin: 0; }
+                              body { 
+                                font-family: Arial, sans-serif; 
+                                width: 50mm; height: 25mm; 
+                                margin: 0; padding: 2mm; 
+                                display: flex; flex-direction: column; 
+                                align-items: center; justify-content: center;
+                                box-sizing: border-box;
+                              }
+                              .product-name { font-size: 10px; font-weight: bold; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-bottom: 2px; }
+                              .price { font-size: 10px; font-weight: bold; margin-bottom: 2px; }
+                              .barcode-container { width: 100%; display: flex; justify-content: center; }
+                              .barcode-container svg { width: 40mm; height: 10mm; }
+                              .qr-value { font-size: 8px; font-family: monospace; text-align: center; margin-top: 1px; }
+                              @media print { body { -webkit-print-color-adjust: exact; } }
+                            </style>
+                          </head>
+                          <body>
+                            <div class="product-name">${product.name}</div>
+                            <div class="price">MRP: ₹${product.price || 0}</div>
+                            <div class="barcode-container">${svgHtml}</div>
+                            <div class="qr-value">${qrValue}</div>
+                            <script>
+                              window.onload = () => { window.print(); setTimeout(() => window.close(), 500); };
+                            </script>
+                          </body>
+                        </html>
+                      `);
+                      printWindow.document.close();
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded text-xs font-bold transition-colors shadow-sm"
+                  >
+                    <Printer size={13} /> Label
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const svgElement = document.getElementById('product-print-barcode')?.querySelector('svg');
+                      if (!svgElement) return toast.error("Barcode not found");
+                      const svgData = new XMLSerializer().serializeToString(svgElement);
+                      const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.download = `Barcode_${product.name.replace(/\s+/g, '_')}.svg`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 py-2 rounded text-xs font-bold transition-colors border border-gray-200"
+                  >
+                    <Download size={13} /> SVG
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

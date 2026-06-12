@@ -14,6 +14,7 @@ import { validateDiscount } from "@/lib/validateDiscount";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 
 type Item = {
+  unit?: string;
   productId?: string;
   name: string;
   qty: number | "";
@@ -40,6 +41,7 @@ type Product = {
   gst?: number;
   hsnCode?: string;
   stock?: number;
+  unit?: string;
 };
 
 export default function EditCreditNote() {
@@ -161,7 +163,10 @@ export default function EditCreditNote() {
   }, [customerName, products]);
 
   const validItems = items.filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0).map((i) => {
-    const sanitized = { ...i, qty: Number(i.qty), price: Number(i.price) };
+      const prod = products.find(p => p.id === i.productId);
+      const sanitized = { ...i, qty: Number(i.qty), price: Number(i.price),
+        unit: (i as any).unit || prod?.unit || "PCS",
+      };
     if (sanitized.productId === "CUSTOM") delete sanitized.productId;
     return sanitized;
   });
@@ -210,6 +215,30 @@ export default function EditCreditNote() {
     if (!user) return toast.error("Access denied");
 
     try {
+      const oldSnap = await getDoc(doc(db, "creditNotes", id));
+      const oldData = oldSnap.exists() ? oldSnap.data() : null;
+      const oldInvNum = oldData ? oldData.linkedInvoiceNumber : "";
+      const oldTotal = oldData ? Number(oldData.total || 0) : 0;
+
+      if (linkedInvoiceNumber) {
+        const iq = query(collection(db, "invoices"), where("userId", "==", user.uid), where("invoiceNumber", "==", linkedInvoiceNumber));
+        const isnap = await getDocs(iq);
+        if (!isnap.empty) {
+          const invData = isnap.docs[0].data();
+          const total = Number(invData.total || 0);
+          const received = typeof invData.amountReceived === "number" ? invData.amountReceived : (invData.status === "paid" ? total : 0);
+          const adjusted = Number(invData.creditNoteAdjusted || 0);
+          let pendingAmount = Math.max(0, total - received - adjusted);
+          
+          if (oldInvNum === linkedInvoiceNumber) {
+            pendingAmount += oldTotal;
+          }
+          
+          if (finalTotal > pendingAmount) {
+            return toast.error(`Over-adjustment error: Credit Note amount (₹${finalTotal}) cannot exceed the pending balance of Invoice ${linkedInvoiceNumber} (₹${pendingAmount}).`);
+          }
+        }
+      }
       setSaving(true);
       const data = {
         total: finalTotal,
@@ -239,7 +268,46 @@ export default function EditCreditNote() {
         signatureImage
       };
 
+
       await updateDoc(doc(db, "creditNotes", id), data);
+
+      if (oldData) {
+
+        if (oldInvNum === linkedInvoiceNumber && linkedInvoiceNumber) {
+          const iq = query(collection(db, "invoices"), where("userId", "==", user.uid), where("invoiceNumber", "==", linkedInvoiceNumber));
+          const isnap = await getDocs(iq);
+          if (!isnap.empty) {
+            const invDoc = isnap.docs[0];
+            const currentAdjusted = Number(invDoc.data().creditNoteAdjusted || 0);
+            await updateDoc(doc(db, "invoices", invDoc.id), {
+              creditNoteAdjusted: Math.max(0, currentAdjusted - oldTotal + finalTotal)
+            });
+          }
+        } else {
+          if (oldInvNum) {
+            const iqOld = query(collection(db, "invoices"), where("userId", "==", user.uid), where("invoiceNumber", "==", oldInvNum));
+            const isnapOld = await getDocs(iqOld);
+            if (!isnapOld.empty) {
+              const invDoc = isnapOld.docs[0];
+              const currentAdjusted = Number(invDoc.data().creditNoteAdjusted || 0);
+              await updateDoc(doc(db, "invoices", invDoc.id), {
+                creditNoteAdjusted: Math.max(0, currentAdjusted - oldTotal)
+              });
+            }
+          }
+          if (linkedInvoiceNumber) {
+            const iqNew = query(collection(db, "invoices"), where("userId", "==", user.uid), where("invoiceNumber", "==", linkedInvoiceNumber));
+            const isnapNew = await getDocs(iqNew);
+            if (!isnapNew.empty) {
+              const invDoc = isnapNew.docs[0];
+              const currentAdjusted = Number(invDoc.data().creditNoteAdjusted || 0);
+              await updateDoc(doc(db, "invoices", invDoc.id), {
+                creditNoteAdjusted: currentAdjusted + finalTotal
+              });
+            }
+          }
+        }
+      }
       toast.success("Credit Note updated successfully!");
       router.push("/dashboard/credit-note");
     } catch (err) {

@@ -465,7 +465,10 @@ export default function EditSalesReturn() {
   const validItems = items
     .filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0)
     .map((i) => {
-      const sanitized = { ...i, qty: Number(i.qty), price: Number(i.price) };
+      const prod = products.find(p => p.id === i.productId);
+      const sanitized = { ...i, qty: Number(i.qty), price: Number(i.price),
+        unit: (i as any).unit || prod?.unit || "PCS",
+      };
       if (sanitized.productId === "CUSTOM") delete sanitized.productId;
       return sanitized;
     });
@@ -1221,16 +1224,51 @@ export default function EditSalesReturn() {
 
                     {/* Discount */}
                     <td className="px-4 py-4 align-top">
-                      <span className="text-gray-400 block mt-1">-</span>
+                      <div className="flex items-center border border-gray-200 rounded overflow-hidden bg-white mt-0.5 w-28">
+                        <select
+                          value={(item as any).discountType ?? "percent"}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountType: e.target.value } as any;
+                            setItems(updated);
+                          }}
+                          className="px-1 py-1 text-[10px] font-bold text-gray-500 bg-transparent border-r border-gray-200 focus:outline-none cursor-pointer"
+                        >
+                          <option value="percent">%</option>
+                          <option value="flat">₹</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          value={(item as any).discountValue ?? ""}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountValue: e.target.value === "" ? undefined : Number(e.target.value) } as any;
+                            setItems(updated);
+                          }}
+                          placeholder="0"
+                          className="w-full px-2 py-1 text-xs focus:outline-none font-mono text-right bg-transparent"
+                        />
+                      </div>
                     </td>
 
                     {/* Tax rate displaying absolute calculations */}
                     <td className="px-4 py-4 align-top">
                       <div className="space-y-0.5 mt-0.5">
-                        <span className="text-xs font-semibold text-gray-700 font-mono">{item.gstRate ?? 18}%</span>
+                        <select
+                          value={item.gstRate ?? 18}
+                          onChange={(e) => updateItem(idx, "gstRate", Number(e.target.value))}
+                          className="border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-indigo-500 font-semibold text-gray-600 bg-white"
+                        >
+                          <option value={0}>0%</option>
+                          <option value={5}>5%</option>
+                          <option value={12}>12%</option>
+                          <option value={18}>18%</option>
+                          <option value={28}>28%</option>
+                        </select>
                         {gstEnabled && (
-                          <span className="text-[10px] text-gray-400 block font-mono">
-                            (₹ {(((Number(item.qty) || 0) * (Number(item.price) || 0)) * ((item.gstRate ?? 18) / 100)).toFixed(2)})
+                          <span className="text-[10px] text-gray-400 block font-mono mt-1">
+                            (₹ {(getItemBaseAmount(item) * ((item.gstRate ?? 18) / 100)).toFixed(2)})
                           </span>
                         )}
                       </div>
@@ -1238,7 +1276,7 @@ export default function EditSalesReturn() {
 
                     {/* Amount */}
                     <td className="px-4 py-4 text-right font-bold font-mono text-gray-800 align-top">
-                      <span className="block mt-1">₹ {((Number(item.qty) || 0) * (Number(item.price) || 0)).toFixed(2)}</span>
+                      <span className="block mt-1">₹ {getItemBaseAmount(item).toFixed(2)}</span>
                     </td>
 
                     {/* Delete action */}

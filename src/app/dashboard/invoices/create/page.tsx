@@ -418,6 +418,7 @@ export default function CreateSalesInvoice() {
   const validItems = items
     .filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0)
     .map((i) => {
+      const prod = products.find(p => p.id === i.productId);
       const sanitized = {
         ...i,
         qty: Number(i.qty),
@@ -430,6 +431,7 @@ export default function CreateSalesInvoice() {
           ? Number((i as any).discountValue)
           : (i as any).discountPct,
         hsn: (i as any).hsn || "",
+        unit: (i as any).unit || prod?.unit || "PCS",
       };
       if (sanitized.productId === "CUSTOM") {
         delete sanitized.productId;

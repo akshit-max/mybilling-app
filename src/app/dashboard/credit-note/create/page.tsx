@@ -18,6 +18,7 @@ import dynamic from "next/dynamic";
 const BarcodeScanner = dynamic(() => import("react-qr-barcode-scanner"), { ssr: false });
 
 type Item = {
+  unit?: string;
   productId?: string;
   name: string;
   qty: number | "";
@@ -44,6 +45,7 @@ type Product = {
   gst?: number;
   hsnCode?: string;
   stock?: number;
+  unit?: string;
 };
 
 export default function CreateCreditNote() {
@@ -206,7 +208,10 @@ export default function CreateCreditNote() {
   }, [customerName, products]);
 
   const validItems = items.filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0).map((i) => {
-    const sanitized = { ...i, qty: Number(i.qty), price: Number(i.price) };
+      const prod = products.find(p => p.id === i.productId);
+      const sanitized = { ...i, qty: Number(i.qty), price: Number(i.price),
+        unit: (i as any).unit || prod?.unit || "PCS",
+      };
     if (sanitized.productId === "CUSTOM") delete sanitized.productId;
     return sanitized;
   });
@@ -251,6 +256,21 @@ export default function CreateCreditNote() {
     if (!user) return toast.error("Access denied");
 
     try {
+      if (linkedInvoiceNumber) {
+        const iq = query(collection(db, "invoices"), where("userId", "==", user.uid), where("invoiceNumber", "==", linkedInvoiceNumber));
+        const isnap = await getDocs(iq);
+        if (!isnap.empty) {
+          const invData = isnap.docs[0].data();
+          const total = Number(invData.total || 0);
+          const received = typeof invData.amountReceived === "number" ? invData.amountReceived : (invData.status === "paid" ? total : 0);
+          const adjusted = Number(invData.creditNoteAdjusted || 0);
+          const pendingAmount = Math.max(0, total - received - adjusted);
+          
+          if (finalTotal > pendingAmount) {
+            return toast.error(`Over-adjustment error: Credit Note amount (₹${finalTotal}) cannot exceed the pending balance of Invoice ${linkedInvoiceNumber} (₹${pendingAmount}).`);
+          }
+        }
+      }
       setSaving(true);
       const data = {
         userId: user.uid,
@@ -285,6 +305,18 @@ export default function CreateCreditNote() {
       };
 
       await addDoc(collection(db, "creditNotes"), data);
+
+      if (linkedInvoiceNumber) {
+        const iq = query(collection(db, "invoices"), where("userId", "==", user.uid), where("invoiceNumber", "==", linkedInvoiceNumber));
+        const isnap = await getDocs(iq);
+        if (!isnap.empty) {
+          const invDoc = isnap.docs[0];
+          const currentAdjusted = Number(invDoc.data().creditNoteAdjusted || 0);
+          await updateDoc(doc(db, "invoices", invDoc.id), {
+            creditNoteAdjusted: currentAdjusted + finalTotal
+          });
+        }
+      }
 
       // Sync Cash & Bank ledger — Credit Note = refund to customer = money OUT
       const amountNum = Number(amountReceived);

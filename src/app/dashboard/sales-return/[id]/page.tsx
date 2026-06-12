@@ -32,6 +32,7 @@ import { syncInventory } from "@/lib/inventorySync";
 
 /* TYPES */
 type Item = {
+  unit?: string;
   productId?: string;
   name: string;
   qty: number;
@@ -690,7 +691,7 @@ export default function ViewInvoice() {
                                      {showDescription && <p className="text-[9px] text-gray-400 font-normal mt-0.5">Custom Item Description</p>}
                                   </td>
                                   <td className="py-2 px-3 text-center font-mono text-gray-900">
-                                    <span>{item.qty} PCS</span>
+                                    <span>{item.qty} {item.unit || "PCS"}</span>
                                     {freeItemQty && <span className="text-brand-tertiary font-bold block text-[9px]">(+0 Free)</span>}
                                   </td>
                                   <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
@@ -703,7 +704,7 @@ export default function ViewInvoice() {
                            {/* SUBTOTAL ROW AT THE BOTTOM OF TABLE */}
                            <tr className="bg-gray-50/50 font-bold border-y-2 border-gray-300 text-gray-900 text-[10px]">
                               <td className="py-2 px-3 text-left uppercase">SUBTOTAL</td>
-                              <td className="py-2 px-3 text-center font-mono">{totalQty} PCS</td>
+                              <td className="py-2 px-3 text-center font-mono">{totalQty}</td>
                               <td className="py-2 px-3 text-right">-</td>
                               <td className="py-2 px-3 text-center font-mono">₹{totalTaxAmount.toFixed(2)}</td>
                               <td className="py-2 px-3 text-right font-mono">₹{invoice.subtotal.toFixed(2)}</td>
@@ -990,7 +991,7 @@ export default function ViewInvoice() {
                                    {showDescription && <p className="text-[9px] text-gray-400 font-normal mt-0.5">Custom Item Description</p>}
                                 </td>
                                 <td className="py-2 px-3 text-center font-mono text-gray-900">
-                                  <span>{item.qty} PCS</span>
+                                  <span>{item.qty} {item.unit || "PCS"}</span>
                                   {freeItemQty && <span className="text-brand-tertiary font-bold block text-[9px]">(+0 Free)</span>}
                                 </td>
                                 <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
@@ -1003,7 +1004,7 @@ export default function ViewInvoice() {
                          {/* SUBTOTAL ROW AT THE BOTTOM OF TABLE */}
                          <tr className="bg-gray-50/50 font-bold border-y-2 border-gray-300 text-gray-900 text-[10px]">
                             <td className="py-2 px-3 text-left uppercase">SUBTOTAL</td>
-                            <td className="py-2 px-3 text-center font-mono">{totalQty} PCS</td>
+                            <td className="py-2 px-3 text-center font-mono">{totalQty}</td>
                             <td className="py-2 px-3 text-right">-</td>
                             <td className="py-2 px-3 text-center font-mono">₹{totalTaxAmount.toFixed(2)}</td>
                             <td className="py-2 px-3 text-right font-mono">₹{invoice.subtotal.toFixed(2)}</td>
@@ -1160,7 +1161,7 @@ export default function ViewInvoice() {
                    <div key={idx} className="space-y-0.5">
                      <div className="grid grid-cols-5">
                        <span className="col-span-2 font-bold text-black uppercase truncate">{item.name}</span>
-                       <span className="text-right">{item.qty} PCS</span>
+                       <span className="text-right">{item.qty} {item.unit || "PCS"}</span>
                        <span className="text-right">{item.price.toFixed(2)}</span>
                        <span className="text-right font-bold">{(item.qty * item.price).toFixed(2)}</span>
                      </div>

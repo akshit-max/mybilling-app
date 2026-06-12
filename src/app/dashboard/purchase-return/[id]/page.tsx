@@ -26,6 +26,7 @@ import SMSModal from "@/components/ui/SMSModal";
 import { syncInventory } from "@/lib/inventorySync";
 
 type Item = {
+  unit?: string;
   productId?: string;
   name: string;
   qty: number;
@@ -427,7 +428,7 @@ export default function ViewCreditNote() {
                            return (
                              <tr key={idx} className="hover:bg-gray-50/30">
                                 <td className="py-2 px-3"><p className="font-bold text-gray-900 uppercase">{item.name}</p></td>
-                                <td className="py-2 px-3 text-center font-mono text-gray-900">{item.qty} PCS</td>
+                                <td className="py-2 px-3 text-center font-mono text-gray-900">{item.qty} {item.unit || "PCS"}</td>
                                 <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
                                 <td className="py-2 px-3 text-center font-mono text-gray-500">{taxRate}%</td>
                                 <td className="py-2 px-3 text-right font-bold font-mono text-gray-900">₹{(item.qty * item.price).toFixed(2)}</td>
@@ -436,7 +437,7 @@ export default function ViewCreditNote() {
                          })}
                          <tr className="bg-gray-50/50 font-bold border-y-2 border-gray-300 text-gray-900 text-[10px]">
                             <td className="py-2 px-3 text-left uppercase">SUBTOTAL</td>
-                            <td className="py-2 px-3 text-center font-mono">{totalQty} PCS</td>
+                            <td className="py-2 px-3 text-center font-mono">{totalQty}</td>
                             <td className="py-2 px-3 text-right">-</td>
                             <td className="py-2 px-3 text-center font-mono">₹{totalTaxAmount.toFixed(2)}</td>
                             <td className="py-2 px-3 text-right font-mono">₹{purchaseReturn.subtotal.toFixed(2)}</td>
@@ -588,7 +589,7 @@ export default function ViewCreditNote() {
                            return (
                              <tr key={idx} className="hover:bg-gray-50/30">
                                 <td className="py-2 px-3"><p className="font-bold text-gray-900 uppercase">{item.name}</p></td>
-                                <td className="py-2 px-3 text-center font-mono text-gray-900">{item.qty} PCS</td>
+                                <td className="py-2 px-3 text-center font-mono text-gray-900">{item.qty} {item.unit || "PCS"}</td>
                                 <td className="py-2 px-3 text-right font-mono text-gray-900">₹{item.price.toFixed(2)}</td>
                                 <td className="py-2 px-3 text-center font-mono text-gray-500">{taxRate}%</td>
                                 <td className="py-2 px-3 text-right font-bold font-mono text-gray-900">₹{(item.qty * item.price).toFixed(2)}</td>
@@ -597,7 +598,7 @@ export default function ViewCreditNote() {
                          })}
                          <tr className="bg-gray-50/50 font-bold border-y-2 border-gray-300 text-gray-900 text-[10px]">
                             <td className="py-2 px-3 text-left uppercase">SUBTOTAL</td>
-                            <td className="py-2 px-3 text-center font-mono">{totalQty} PCS</td>
+                            <td className="py-2 px-3 text-center font-mono">{totalQty}</td>
                             <td className="py-2 px-3 text-right">-</td>
                             <td className="py-2 px-3 text-center font-mono">₹{totalTaxAmount.toFixed(2)}</td>
                             <td className="py-2 px-3 text-right font-mono">₹{purchaseReturn.subtotal.toFixed(2)}</td>

@@ -25,6 +25,7 @@ import EmailModal from "@/components/ui/EmailModal";
 import SMSModal from "@/components/ui/SMSModal";
 
 type Item = {
+  unit?: string;
   productId?: string;
   name: string;
   qty: number;
@@ -407,13 +408,13 @@ export default function ViewCreditNote() {
                            return (
                              <tr key={idx} className="hover:bg-gray-50/30">
                                 <td className="py-2 px-3"><p className="font-bold text-gray-900 uppercase">{item.name}</p></td>
-                                <td className="py-2 px-3 text-right font-mono text-gray-900">{item.qty} PCS</td>
+                                <td className="py-2 px-3 text-right font-mono text-gray-900">{item.qty} {item.unit || "PCS"}</td>
                              </tr>
                            );
                          })}
                          <tr className="bg-gray-50/50 font-bold border-y-2 border-gray-300 text-gray-900 text-[10px]">
                             <td className="py-2 px-3 text-left uppercase">TOTAL QUANTITY</td>
-                            <td className="py-2 px-3 text-right font-mono">{totalQty} PCS</td>
+                            <td className="py-2 px-3 text-right font-mono">{totalQty}</td>
                          </tr>
                       </tbody>
                    </table>
@@ -442,7 +443,7 @@ export default function ViewCreditNote() {
                       </div>
                       <div className="flex justify-between">
                          <span className="uppercase text-gray-500 tracking-wider">Total Quantity</span>
-                         <span className="text-gray-900 text-right">{totalQty} PCS</span>
+                         <span className="text-gray-900 text-right">{totalQty}</span>
                       </div>
                    </div>
                 </div>
@@ -533,13 +534,13 @@ export default function ViewCreditNote() {
                            return (
                              <tr key={idx} className="hover:bg-gray-50/30">
                                 <td className="py-2 px-3"><p className="font-bold text-gray-900 uppercase">{item.name}</p></td>
-                                <td className="py-2 px-3 text-right font-mono text-gray-900">{item.qty} PCS</td>
+                                <td className="py-2 px-3 text-right font-mono text-gray-900">{item.qty} {item.unit || "PCS"}</td>
                              </tr>
                            );
                          })}
                          <tr className="bg-gray-50/50 font-bold border-y-2 border-gray-300 text-gray-900 text-[10px]">
                             <td className="py-2 px-3 text-left uppercase">TOTAL QUANTITY</td>
-                            <td className="py-2 px-3 text-right font-mono">{totalQty} PCS</td>
+                            <td className="py-2 px-3 text-right font-mono">{totalQty}</td>
                          </tr>
                       </tbody>
                    </table>
@@ -568,7 +569,7 @@ export default function ViewCreditNote() {
                       </div>
                       <div className="flex justify-between">
                          <span className="uppercase text-gray-500 tracking-wider">Total Quantity</span>
-                         <span className="text-gray-900 text-right">{totalQty} PCS</span>
+                         <span className="text-gray-900 text-right">{totalQty}</span>
                       </div>
                    </div>
                 </div>

@@ -339,11 +339,15 @@ export default function EditSalesInvoice() {
   // Valid calculations
   const validItems = items
     .filter((i) => i.name && Number(i.qty) > 0 && Number(i.price) > 0)
-    .map((i) => ({
-      ...i,
-      qty: Number(i.qty),
-      price: Number(i.price),
-    }));
+    .map((i) => {
+      const prod = products.find(p => p.id === i.productId);
+      return {
+        ...i,
+        qty: Number(i.qty),
+        price: Number(i.price),
+        unit: (i as any).unit || prod?.unit || "PCS"
+      };
+    });
 
   const selectedCustomer = customers.find((c) => c.name === customerName);
   const customerStateSanitized = (selectedCustomer?.state || "").trim().toUpperCase();

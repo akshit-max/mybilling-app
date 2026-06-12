@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { db, auth } from "@/lib/firebase";
-import { doc, getDoc, Timestamp, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, Timestamp, deleteDoc, collection, getDocs, query, where, updateDoc } from "firebase/firestore";
 import { useParams, useRouter } from "next/navigation";
 import { FaWhatsapp } from "react-icons/fa";
 import {
@@ -206,6 +206,22 @@ export default function ViewCreditNote() {
   const handleDelete = async () => {
     if (confirm("Are you sure you want to delete this credit note?")) {
       try {
+        const cnSnap = await getDoc(doc(db, "creditNotes", id));
+        if (cnSnap.exists()) {
+          const cnData = cnSnap.data();
+          const user = auth.currentUser;
+          if (user && cnData.linkedInvoiceNumber) {
+            const iq = query(collection(db, "invoices"), where("userId", "==", user.uid), where("invoiceNumber", "==", cnData.linkedInvoiceNumber));
+            const isnap = await getDocs(iq);
+            if (!isnap.empty) {
+              const invDoc = isnap.docs[0];
+              const currentAdjusted = Number(invDoc.data().creditNoteAdjusted || 0);
+              await updateDoc(doc(db, "invoices", invDoc.id), {
+                creditNoteAdjusted: Math.max(0, currentAdjusted - Number(cnData.total || 0))
+              });
+            }
+          }
+        }
         await deleteDoc(doc(db, "creditNotes", id));
         toast.success("Credit Note deleted successfully");
         router.push("/dashboard/credit-note");

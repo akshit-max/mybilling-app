@@ -36,6 +36,7 @@ type Product = {
   price?: number;
   gst?: number;
   stock?: number;
+  unit?: string;
 };
 
 type Invoice = {

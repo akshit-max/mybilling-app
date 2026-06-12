@@ -291,7 +291,13 @@ export default function GenericReportPage({ params }: { params: { slug: string }
         body: JSON.stringify({
           to: emails,
           subject: `${reportName} - Excel Report`,
-          html: tableHTML
+          html: "<p>Please find the attached " + `${reportName} - Excel Report` + " Excel report.</p>",
+          attachments: [
+            {
+              filename: `${reportName} - Excel Report`.replace(/\s+/g, '_') + ".xls",
+              content: btoa(unescape(encodeURIComponent(tableHTML)))
+            }
+          ]
         })
       }).then(async (res) => {
         const data = await res.json();

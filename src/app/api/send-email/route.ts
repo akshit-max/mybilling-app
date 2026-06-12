@@ -14,6 +14,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required fields: to, subject' }, { status: 400 });
     }
 
+    // Convert base64 string attachments to Buffers for Resend SDK
+    let processedAttachments = attachments || [];
+    if (Array.isArray(processedAttachments)) {
+      processedAttachments = processedAttachments.map((att: any) => {
+        if (att.content && typeof att.content === 'string') {
+          return {
+            ...att,
+            content: Buffer.from(att.content, 'base64')
+          };
+        }
+        return att;
+      });
+    }
+
     if (!process.env.RESEND_API_KEY) {
       console.warn('RESEND_API_KEY is missing. Simulating email send.');
       return NextResponse.json({ success: true, simulated: true, message: 'Email simulation successful' });
@@ -24,7 +38,7 @@ export async function POST(req: Request) {
       to: typeof to === 'string' ? [to] : to,
       subject: subject,
       html: html || '<p>Sent from Billing App</p>',
-      attachments: attachments || [],
+      attachments: processedAttachments,
     });
 
     if (error) {

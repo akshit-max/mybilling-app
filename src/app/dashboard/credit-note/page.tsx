@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Search, Plus, FileText, Pencil, Eye, Trash2 } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, deleteDoc, doc, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, where, deleteDoc, doc, getDoc, updateDoc, orderBy } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -72,6 +72,22 @@ export default function CreditNotePage() {
   const handleDelete = async (id: string, noteNumber: string) => {
     if (!confirm(`Delete Credit Note ${noteNumber}? This cannot be undone.`)) return;
     try {
+      const cnSnap = await getDoc(doc(db, "creditNotes", id));
+      if (cnSnap.exists()) {
+        const cnData = cnSnap.data();
+        const user = auth.currentUser;
+        if (user && cnData.linkedInvoiceNumber) {
+          const iq = query(collection(db, "invoices"), where("userId", "==", user.uid), where("invoiceNumber", "==", cnData.linkedInvoiceNumber));
+          const isnap = await getDocs(iq);
+          if (!isnap.empty) {
+            const invDoc = isnap.docs[0];
+            const currentAdjusted = Number(invDoc.data().creditNoteAdjusted || 0);
+            await updateDoc(doc(db, "invoices", invDoc.id), {
+              creditNoteAdjusted: Math.max(0, currentAdjusted - Number(cnData.total || 0))
+            });
+          }
+        }
+      }
       await deleteDoc(doc(db, "creditNotes", id));
       toast.success("Credit note deleted");
       setCreditNotes((prev) => prev.filter((c) => c.id !== id));

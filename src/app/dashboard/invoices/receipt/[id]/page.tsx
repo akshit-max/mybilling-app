@@ -15,6 +15,7 @@ import { getItemBaseAmount } from "@/lib/calcInvoice";
 
 /* TYPES */
 type Item = {
+  unit?: string;
   name: string;
   qty: number;
   price: number;

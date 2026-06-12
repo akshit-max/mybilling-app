@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
 import toast from "react-hot-toast";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 type EmailModalProps = {
   onClose: () => void;
@@ -26,6 +28,27 @@ export default function EmailModal({
   const [to, setTo] = useState(defaultEmail);
   const [subject, setSubject] = useState(`${documentType} #${documentNumber} from ${companyName || "us"}`);
   const [sending, setSending] = useState(false);
+  const [customFiles, setCustomFiles] = useState<{name: string, content: string}[]>([]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.length) return;
+    const files = Array.from(e.target.files);
+    
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64String = (event.target?.result as string).split(',')[1];
+        if (base64String) {
+          setCustomFiles(prev => [...prev, { name: file.name, content: base64String }]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeCustomFile = (index: number) => {
+    setCustomFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSend = async () => {
     const trimmedTo = to.trim();
@@ -47,6 +70,40 @@ export default function EmailModal({
 
     try {
       setSending(true);
+
+      let attachments: any[] = [];
+      const printNode = document.querySelector(".print-only-container") as HTMLElement;
+      if (printNode) {
+        try {
+          const originalDisplay = printNode.style.display;
+          printNode.style.display = "block";
+          const canvas = await html2canvas(printNode, { scale: 2 });
+          printNode.style.display = originalDisplay;
+
+          const imgData = canvas.toDataURL("image/jpeg", 1.0);
+          const pdf = new jsPDF({
+            orientation: "portrait",
+            unit: "mm",
+            format: "a4",
+          });
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+          pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
+          
+          const base64String = pdf.output("datauristring").split(",")[1];
+          attachments.push({
+            filename: `${documentType.replace(/\s+/g, "_")}_${documentNumber}.pdf`,
+            content: base64String,
+          });
+        } catch (pdfErr) {
+          console.error("Failed to generate PDF attachment:", pdfErr);
+        }
+      }
+
+      // Add user's custom attached files
+      if (customFiles.length > 0) {
+        attachments = [...attachments, ...customFiles];
+      }
 
       const htmlBody = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
@@ -82,6 +139,7 @@ export default function EmailModal({
           to: trimmedTo,
           subject: subject.trim(),
           html: htmlBody,
+          attachments,
         }),
       });
 
@@ -144,6 +202,28 @@ export default function EmailModal({
           </div>
           <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-[10px] text-indigo-700 leading-relaxed">
             📄 {documentType} <strong>#{documentNumber}</strong> · Customer: <strong>{customerName}</strong> · Total: <strong>₹{totalAmount.toFixed(2)}</strong>
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex justify-between items-center">
+              <span>Attach Additional Files</span>
+              <span className="text-gray-400 text-[9px] lowercase font-normal">(Optional)</span>
+            </label>
+            <input
+              type="file"
+              multiple
+              onChange={handleFileChange}
+              className="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition cursor-pointer"
+            />
+            {customFiles.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {customFiles.map((file, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-gray-50 border border-gray-150 px-2 py-1.5 rounded text-xs">
+                    <span className="truncate text-gray-600 max-w-[250px] font-medium" title={file.name}>{file.name}</span>
+                    <button onClick={() => removeCustomFile(idx)} className="text-gray-400 hover:text-red-500"><X size={14} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="px-5 py-3 bg-gray-50 border-t border-gray-200 flex justify-end gap-2">

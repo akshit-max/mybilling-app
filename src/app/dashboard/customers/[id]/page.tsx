@@ -163,7 +163,8 @@ export default function CustomerDetailsPage() {
             const receivedVal = typeof docData.amountReceived === "number"
               ? docData.amountReceived
               : (docData.status === "paid" ? totalVal : 0);
-            const balAmount = Math.max(0, totalVal - receivedVal);
+            const adjustedVal = Number(docData.creditNoteAdjusted || 0);
+            const balAmount = Math.max(0, totalVal - receivedVal - adjustedVal);
             return {
               id: docSnap.id,
               invoiceNumber: docData.invoiceNumber || "N/A",

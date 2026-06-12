@@ -86,7 +86,8 @@ export default function PartywiseOutstandingReport() {
           const unpaidSalesSum = custInvoices.reduce((sum, inv) => {
             const total = Number(inv.total || 0);
             const received = Number(inv.amountReceived) || Number(inv.amountPaid) || (inv.status === "paid" ? total : 0);
-            return sum + Math.max(0, total - received);
+            const adjusted = Number(inv.creditNoteAdjusted || 0);
+            return sum + Math.max(0, total - received - adjusted);
           }, 0);
 
           // Sum unpaid purchases

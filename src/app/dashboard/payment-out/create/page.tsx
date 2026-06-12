@@ -221,12 +221,20 @@ export default function CreatePaymentOut() {
         const sRef = doc(db, "settings", user.uid);
         const sSnap = await getDoc(sRef);
         const current = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+        if (rcv > current) {
+          setSaving(false);
+          return toast.error(`Insufficient Cash in Hand. Available: ₹${current}`);
+        }
         newBalance = current - rcv;
         await updateDoc(sRef, { cashInHand: newBalance });
       } else if (selectedBankId) {
         const bRef = doc(db, "bankAccounts", selectedBankId);
         const bSnap = await getDoc(bRef);
         const current = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+        if (rcv > current) {
+          setSaving(false);
+          return toast.error(`Insufficient Bank Balance. Available: ₹${current}`);
+        }
         newBalance = current - rcv;
         await updateDoc(bRef, { balance: newBalance });
       }
