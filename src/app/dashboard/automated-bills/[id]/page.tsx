@@ -1233,6 +1233,17 @@ export default function ViewAutomatedBill() {
         />
       )}
 
+      
+      {/* SMS Modal */}
+      {showSMSModal && (
+        <SMSModal
+          customerName={invoice?.customerName || "Customer"}
+          existingPhone={invoice?.customerPhone}
+          message={`Dear ${invoice?.customerName},\n\nYour ${(invoice as any)?.invoiceType === 'estimate' ? 'Estimate' : 'Invoice'} has been generated.\n\nTotal Amount: *₹${invoice?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
+          onClose={() => setShowSMSModal(false)}
+        />
+      )}
+
       {showEmailModal && (
         <EmailModal
           onClose={() => setShowEmailModal(false)}

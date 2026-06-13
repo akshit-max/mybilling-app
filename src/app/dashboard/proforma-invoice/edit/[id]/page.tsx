@@ -332,7 +332,7 @@ export default function EditCreditNote() {
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Proforma Invoice Date:</label>
                 <input type="date" value={proformaInvoiceDate} onChange={(e) => setCreditNoteDate(e.target.value)} className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-gray-700 bg-white" />
               </div>
-              <div className="space-y-1.5 col-span-2">
+              <div className="hidden space-y-1.5 col-span-2">
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Reference Invoice No. (Optional):</label>
                 <div className="relative">
                   <input
@@ -360,8 +360,8 @@ export default function EditCreditNote() {
           <div className="p-4 space-y-3">
             <div className="grid grid-cols-12 gap-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider pb-1.5 border-b border-gray-100 hidden md:grid">
               <span className="col-span-1 text-center">NO.</span>
-              <span className="col-span-4">ITEMS / SERVICES</span>
-              <span className="col-span-2 text-center">HSN / SAC</span>
+              <span className="col-span-3">ITEMS / SERVICES</span>
+              <span className="col-span-1 text-center">HSN / SAC</span>
               <span className="col-span-1 text-center">QTY</span>
               <span className="col-span-2 text-right">PRICE/ITEM (₹)</span>
               <span className="col-span-1 text-center">TAX</span>
@@ -577,7 +577,7 @@ export default function EditCreditNote() {
               <span className="font-extrabold text-indigo-700 text-xl font-mono">₹{finalTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
             </div>
 
-            <div className="space-y-2 pt-2 border-t border-gray-100">
+            <div className="hidden space-y-2 pt-2 border-t border-gray-100">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Amount Received / Adjusted</span>
                 <label className="flex items-center gap-1 text-[10px] font-bold text-gray-500"><input type="checkbox" checked={Number(amountReceived) >= finalTotal} onChange={(e) => handleMarkFullyPaid(e.target.checked)} /> Mark as fully paid</label>

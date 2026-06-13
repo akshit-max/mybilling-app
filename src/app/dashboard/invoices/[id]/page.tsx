@@ -1587,6 +1587,17 @@ export default function ViewInvoice() {
       )}
 
       {/* Email Modal */}
+      
+      {/* SMS Modal */}
+      {showSMSModal && (
+        <SMSModal
+          customerName={invoice?.customerName || "Customer"}
+          existingPhone={invoice?.customerPhone}
+          message={`Dear ${invoice?.customerName},\n\nYour ${(invoice as any)?.invoiceType === 'estimate' ? 'Estimate' : 'Invoice'} has been generated.\n\nTotal Amount: *₹${invoice?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
+          onClose={() => setShowSMSModal(false)}
+        />
+      )}
+
       {showEmailModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">

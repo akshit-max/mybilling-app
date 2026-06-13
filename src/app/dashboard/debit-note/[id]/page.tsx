@@ -673,6 +673,17 @@ export default function ViewCreditNote() {
         />
       )}
 
+      
+      {/* SMS Modal */}
+      {showSMSModal && (
+        <SMSModal
+          customerName={debitNote?.customerName || "Customer"}
+          existingPhone={debitNote?.customerPhone}
+          message={`Dear ${debitNote?.customerName},\n\nYour ${(debitNote as any)?.invoiceType === 'estimate' ? 'Estimate' : 'Invoice'} has been generated.\n\nTotal Amount: *₹${debitNote?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
+          onClose={() => setShowSMSModal(false)}
+        />
+      )}
+
       {showEmailModal && (
         <EmailModal
           onClose={() => setShowEmailModal(false)}

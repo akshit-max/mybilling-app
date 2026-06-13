@@ -72,7 +72,7 @@ export default function SMSModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to: cleaned,
+          phone: cleaned,
           message: message,
         }),
       });
@@ -88,6 +88,19 @@ export default function SMSModal({
         status: "Sent",
         createdAt: serverTimestamp(),
         createdBy: "Admin"
+      });
+
+      // Also log to smsLogs for the tracking dashboard
+      await addDoc(collection(db, "smsLogs"), {
+        userId: user.uid,
+        customerName: customerName || "Unknown",
+        phoneNumber: cleaned || "N/A",
+        invoiceNumber: "Manual SMS",
+        message: message,
+        status: "Sent",
+        scheduledDate: new Date(),
+        createdAt: new Date(),
+        type: "Manual SMS"
       });
 
       toast.success("SMS Sent Successfully! 💬");

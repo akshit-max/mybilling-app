@@ -77,6 +77,30 @@ export default function SMSMarketingPage() {
     try {
       setSending(true);
       const templateName = selectedTemplate === "festival" ? "Festival Offer" : "Discount Offer";
+      const messageText = selectedTemplate === "festival" 
+        ? "🎉 Festive Sale is live! Visit our store to get exclusive discounts on your favorite items. Valid till stocks last."
+        : selectedTemplate === "discount" 
+        ? "🔥 Special 50% OFF just for you! Drop by our store and claim your discount today. Thank you for shopping with us!"
+        : "Start your custom SMS campaign message here...";
+
+      // Extract valid phone numbers
+      const phoneNumbers = selectedCustomers
+        .map(id => customers.find(c => c.id === id)?.phone)
+        .filter(p => p && p.replace(/\\D/g, "").length >= 10)
+        .map(p => p.replace(/\\D/g, ""));
+
+      if (phoneNumbers.length > 0) {
+        // Hit the unified SMS API endpoint
+        await fetch("/api/send-sms", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone: phoneNumbers.join(","),
+            message: messageText,
+            customerName: "Bulk Campaign"
+          }),
+        });
+      }
       
       const campaignData = {
         userId: user.uid,

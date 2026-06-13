@@ -691,6 +691,17 @@ export default function ViewCreditNote() {
         />
       )}
 
+      
+      {/* SMS Modal */}
+      {showSMSModal && (
+        <SMSModal
+          customerName={purchaseReturn?.customerName || "Customer"}
+          existingPhone={purchaseReturn?.customerPhone}
+          message={`Dear ${purchaseReturn?.customerName},\n\nYour ${(purchaseReturn as any)?.invoiceType === 'estimate' ? 'Estimate' : 'Invoice'} has been generated.\n\nTotal Amount: *₹${purchaseReturn?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
+          onClose={() => setShowSMSModal(false)}
+        />
+      )}
+
       {showEmailModal && (
         <EmailModal
           onClose={() => setShowEmailModal(false)}
