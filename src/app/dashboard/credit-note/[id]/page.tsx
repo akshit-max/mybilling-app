@@ -693,6 +693,8 @@ export default function ViewCreditNote() {
       {showSMSModal && (
         <SMSModal
           customerName={creditNote?.customerName || "Customer"}
+          invoiceNumber={(creditNote as any)?.invoiceNumber || (creditNote as any)?.quotationNumber || (creditNote as any)?.challanNumber || (creditNote as any)?.proformaInvoiceNumber || (creditNote as any)?.orderNumber || (creditNote as any)?.returnNumber || (creditNote as any)?.debitNoteNumber || (creditNote as any)?.creditNoteNumber || (creditNote as any)?.receiptNumber || (creditNote as any)?.id || "N/A"}
+          moduleName="Credit Note"
           existingPhone={creditNote?.customerPhone}
           message={`Dear ${creditNote?.customerName},\n\nYour ${(creditNote as any)?.invoiceType === 'estimate' ? 'Estimate' : 'Invoice'} has been generated.\n\nTotal Amount: *₹${creditNote?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
           onClose={() => setShowSMSModal(false)}

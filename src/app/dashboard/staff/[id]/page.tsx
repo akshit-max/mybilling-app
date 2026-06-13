@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Plus, ChevronLeft, ChevronRight, MoreVertical, Download, CreditCard, ChevronDown, ChevronUp, X, Calendar as CalendarIcon } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, doc, updateDoc, addDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, updateDoc, addDoc, writeBatch, getDoc, runTransaction } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -37,6 +37,11 @@ type Transaction = {
   paymentType: string;
   amount: number;
   paymentMode: string;
+  bankAccountId?: string;
+  expenseId?: string;
+  cashTransactionId?: string;
+  isReversed?: boolean;
+  reversedById?: string;
   remarks: string;
 };
 
@@ -63,12 +68,15 @@ export default function StaffDetailView() {
   const [showCollectModal, setShowCollectModal] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
 
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+
   // Forms
   const [paymentForm, setPaymentForm] = useState({
     paymentType: "Salary",
     date: new Date().toISOString().split("T")[0],
     amount: "",
     paymentMode: "Cash",
+    bankAccountId: "",
     remarks: ""
   });
   
@@ -76,6 +84,7 @@ export default function StaffDetailView() {
     date: new Date().toISOString().split("T")[0],
     amount: "",
     paymentMode: "Cash",
+    bankAccountId: "",
     remarks: ""
   });
   
@@ -86,11 +95,15 @@ export default function StaffDetailView() {
   const [expandedPayments, setExpandedPayments] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
         fetchStaffList(user.uid);
         fetchAttendanceData(user.uid, currentMonth);
         fetchTransactions(user.uid);
+
+        const bq = query(collection(db, "bankAccounts"), where("userId", "==", user.uid));
+        const bSnap = await getDocs(bq);
+        setBankAccounts(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       } else {
         router.push("/login");
       }
@@ -132,7 +145,7 @@ export default function StaffDetailView() {
         let totalCollections = 0;
         tSnapAll.docs.forEach(d => {
           const data = d.data();
-          if (data.staffId === s.id) {
+          if (data.staffId === s.id && !data.isReversed && !data.paymentType?.includes("Reversal")) {
             if (data.paymentType === "Collection") totalCollections += data.amount;
             else totalPayments += data.amount;
           }
@@ -238,40 +251,111 @@ export default function StaffDetailView() {
 
     try {
       const amount = Number(paymentForm.amount);
-      const transData = {
-        userId: user.uid,
-        staffId: currentStaffId,
-        date: paymentForm.date,
-        paymentType: paymentForm.paymentType,
-        amount: amount,
-        paymentMode: paymentForm.paymentMode,
-        remarks: paymentForm.remarks,
-        createdAt: new Date().toISOString()
-      };
+      const isCash = paymentForm.paymentMode === "Cash";
       
-      const tDocRef = await addDoc(collection(db, "staffTransactions"), transData);
-      setTransactions([{ id: tDocRef.id, ...transData }, ...transactions]);
+      let selectedBank = null;
+      if (!isCash) {
+        if (!paymentForm.bankAccountId) return toast.error("Please select a bank account");
+        selectedBank = bankAccounts.find(b => b.id === paymentForm.bankAccountId);
+        if (!selectedBank) return toast.error("Bank account not found");
+      }
 
-      await addDoc(collection(db, "expenses"), {
-        userId: user.uid,
-        date: paymentForm.date,
-        amount: amount,
-        category: "Employee Salaries & Advances",
-        paymentMode: paymentForm.paymentMode,
-        items: [{
-          name: "Payment to " + currentStaff.name + " (" + paymentForm.paymentType + ")",
-          amount: amount
-        }],
-        total: amount,
-        status: "Paid",
-        notes: paymentForm.remarks,
-        createdAt: new Date().toISOString()
+      const sRef = isCash ? doc(db, "settings", user.uid) : null;
+      const bRef = (!isCash && selectedBank) ? doc(db, "bankAccounts", paymentForm.bankAccountId) : null;
+      const staffProfileRef = doc(db, "staffProfiles", currentStaffId);
+
+      const staffTransRef = doc(collection(db, "staffTransactions"));
+      const expenseRef = doc(collection(db, "expenses"));
+      const cashTransRef = doc(collection(db, "cashBankTransactions"));
+
+      let newStaffBalance = 0;
+      let transData: any = null;
+
+      await runTransaction(db, async (transaction) => {
+        let currentCash = 0;
+        let newCashBalance = 0;
+        let currentBankBalance = 0;
+        let newBankBalance = 0;
+
+        if (isCash && sRef) {
+          const sSnap = await transaction.get(sRef);
+          currentCash = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+          if (amount > currentCash) throw new Error("Insufficient Cash Balance");
+          newCashBalance = currentCash - amount;
+        } else if (bRef) {
+          const bSnap = await transaction.get(bRef);
+          currentBankBalance = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+          if (amount > currentBankBalance) throw new Error("Insufficient Bank Balance");
+          newBankBalance = currentBankBalance - amount;
+        }
+
+        const staffSnap = await transaction.get(staffProfileRef);
+        const currentStaffBal = staffSnap.exists() ? Number(staffSnap.data().balance || 0) : 0;
+        newStaffBalance = currentStaffBal - amount;
+
+        // Perform Writes
+        if (isCash && sRef) {
+          transaction.update(sRef, { cashInHand: newCashBalance });
+        } else if (bRef) {
+          transaction.update(bRef, { balance: newBankBalance });
+        }
+        transaction.update(staffProfileRef, { balance: newStaffBalance });
+
+        transData = {
+          userId: user.uid,
+          staffId: currentStaffId,
+          date: paymentForm.date,
+          paymentType: paymentForm.paymentType,
+          amount: amount,
+          paymentMode: paymentForm.paymentMode,
+          bankAccountId: paymentForm.bankAccountId,
+          remarks: paymentForm.remarks,
+          expenseId: expenseRef.id,
+          cashTransactionId: cashTransRef.id,
+          createdAt: new Date().toISOString()
+        };
+        transaction.set(staffTransRef, transData);
+
+        transaction.set(expenseRef, {
+          userId: user.uid,
+          date: paymentForm.date,
+          amount: amount,
+          category: "Employee Salaries & Advances",
+          paymentMode: paymentForm.paymentMode,
+          items: [{
+            name: "Payment to " + currentStaff.name + " (" + paymentForm.paymentType + ")",
+            amount: amount
+          }],
+          total: amount,
+          status: "Paid",
+          notes: paymentForm.remarks || `Salary payment for ${currentStaff.name}`,
+          partyName: currentStaff.name,
+          staffTransactionId: staffTransRef.id,
+          generatedFrom: "salary",
+          createdAt: new Date().toISOString()
+        });
+
+        transaction.set(cashTransRef, {
+          userId: user.uid,
+          accountId: isCash ? "cash" : paymentForm.bankAccountId,
+          type: "Staff Salary",
+          txnNo: staffTransRef.id,
+          date: paymentForm.date,
+          party: currentStaff.name,
+          mode: paymentForm.paymentMode,
+          paid: amount,
+          received: 0,
+          balanceAfter: isCash ? newCashBalance : newBankBalance, 
+          remarks: `Paid ${paymentForm.paymentType} to ${currentStaff.name}`,
+          sourceType: "salary",
+          sourceId: staffTransRef.id,
+          createdAt: new Date()
+        });
       });
 
-      // Decrease balance when business pays staff
-      const newBalance = currentStaff.balance - amount;
-      await updateDoc(doc(db, "staffProfiles", currentStaffId), { balance: newBalance });
-      setCurrentStaff({ ...currentStaff, balance: newBalance });
+      setTransactions([{ id: staffTransRef.id, ...transData }, ...transactions]);
+      setCurrentStaff({ ...currentStaff, balance: newStaffBalance });
+      setStaffList(prev => prev.map(s => s.id === currentStaffId ? { ...s, computedBalance: (s.computedBalance || 0) - amount } : s));
       
       toast.success("Payment recorded successfully");
       setShowPaymentModal(false);
@@ -280,11 +364,12 @@ export default function StaffDetailView() {
         date: new Date().toISOString().split("T")[0],
         amount: "",
         paymentMode: "Cash",
+        bankAccountId: "",
         remarks: ""
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to record payment");
+      toast.error(err.message || "Failed to record payment");
     }
   };
 
@@ -297,24 +382,88 @@ export default function StaffDetailView() {
 
     try {
       const amount = Number(collectForm.amount);
-      const transData = {
-        userId: user.uid,
-        staffId: currentStaffId,
-        date: collectForm.date,
-        paymentType: "Collection",
-        amount: amount,
-        paymentMode: collectForm.paymentMode,
-        remarks: collectForm.remarks,
-        createdAt: new Date().toISOString()
-      };
+      const isCash = collectForm.paymentMode === "Cash";
       
-      const tDocRef = await addDoc(collection(db, "staffTransactions"), transData);
-      setTransactions([{ id: tDocRef.id, ...transData }, ...transactions]);
+      let selectedBank = null;
+      if (!isCash) {
+        if (!collectForm.bankAccountId) return toast.error("Please select a bank account");
+        selectedBank = bankAccounts.find(b => b.id === collectForm.bankAccountId);
+        if (!selectedBank) return toast.error("Bank account not found");
+      }
 
-      // Increase balance when staff pays back business
-      const newBalance = currentStaff.balance + amount;
-      await updateDoc(doc(db, "staffProfiles", currentStaffId), { balance: newBalance });
-      setCurrentStaff({ ...currentStaff, balance: newBalance });
+      const sRef = isCash ? doc(db, "settings", user.uid) : null;
+      const bRef = (!isCash && selectedBank) ? doc(db, "bankAccounts", collectForm.bankAccountId) : null;
+      const staffProfileRef = doc(db, "staffProfiles", currentStaffId);
+
+      const staffTransRef = doc(collection(db, "staffTransactions"));
+      const cashTransRef = doc(collection(db, "cashBankTransactions"));
+
+      let newStaffBalance = 0;
+      let transData: any = null;
+
+      await runTransaction(db, async (transaction) => {
+        let currentCash = 0;
+        let newCashBalance = 0;
+        let currentBankBalance = 0;
+        let newBankBalance = 0;
+
+        if (isCash && sRef) {
+          const sSnap = await transaction.get(sRef);
+          currentCash = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+          newCashBalance = currentCash + amount;
+        } else if (bRef) {
+          const bSnap = await transaction.get(bRef);
+          currentBankBalance = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+          newBankBalance = currentBankBalance + amount;
+        }
+
+        const staffSnap = await transaction.get(staffProfileRef);
+        const currentStaffBal = staffSnap.exists() ? Number(staffSnap.data().balance || 0) : 0;
+        newStaffBalance = currentStaffBal + amount;
+
+        // Perform Writes
+        if (isCash && sRef) {
+          transaction.update(sRef, { cashInHand: newCashBalance });
+        } else if (bRef) {
+          transaction.update(bRef, { balance: newBankBalance });
+        }
+        transaction.update(staffProfileRef, { balance: newStaffBalance });
+
+        transData = {
+          userId: user.uid,
+          staffId: currentStaffId,
+          date: collectForm.date,
+          paymentType: "Collection",
+          amount: amount,
+          paymentMode: collectForm.paymentMode,
+          bankAccountId: collectForm.bankAccountId,
+          remarks: collectForm.remarks,
+          cashTransactionId: cashTransRef.id,
+          createdAt: new Date().toISOString()
+        };
+        transaction.set(staffTransRef, transData);
+
+        transaction.set(cashTransRef, {
+          userId: user.uid,
+          accountId: isCash ? "cash" : collectForm.bankAccountId,
+          type: "Staff Collection",
+          txnNo: staffTransRef.id,
+          date: collectForm.date,
+          party: currentStaff.name,
+          mode: collectForm.paymentMode,
+          paid: 0,
+          received: amount,
+          balanceAfter: isCash ? newCashBalance : newBankBalance, 
+          remarks: `Collected from ${currentStaff.name}`,
+          sourceType: "collection",
+          sourceId: staffTransRef.id,
+          createdAt: new Date()
+        });
+      });
+
+      setTransactions([{ id: staffTransRef.id, ...transData }, ...transactions]);
+      setCurrentStaff({ ...currentStaff, balance: newStaffBalance });
+      setStaffList(prev => prev.map(s => s.id === currentStaffId ? { ...s, computedBalance: (s.computedBalance || 0) + amount } : s));
       
       toast.success("Payment collected successfully");
       setShowCollectModal(false);
@@ -322,11 +471,113 @@ export default function StaffDetailView() {
         date: new Date().toISOString().split("T")[0],
         amount: "",
         paymentMode: "Cash",
+        bankAccountId: "",
         remarks: ""
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to collect payment");
+      toast.error(err.message || "Failed to collect payment");
+    }
+  };
+
+  const handleReverseTransaction = async (t: Transaction) => {
+    if (t.isReversed) return toast.error("Already reversed");
+    if (!confirm("Are you sure you want to reverse this transaction? This will restore balances and create a reversal record.")) return;
+    const user = auth.currentUser;
+    if (!user || !currentStaff) return;
+
+    try {
+      const isCollection = t.paymentType === "Collection";
+      const amount = t.amount;
+      const isCash = t.paymentMode === "Cash";
+      
+      const sRef = isCash ? doc(db, "settings", user.uid) : null;
+      const bRef = (!isCash && t.bankAccountId) ? doc(db, "bankAccounts", t.bankAccountId) : null;
+      const staffProfileRef = doc(db, "staffProfiles", currentStaffId);
+
+      const staffTransRef = doc(collection(db, "staffTransactions"));
+      const cashTransRef = doc(collection(db, "cashBankTransactions"));
+
+      let newStaffBalance = 0;
+      let transData: any = null;
+
+      await runTransaction(db, async (transaction) => {
+        let currentCash = 0;
+        let newCashBalance = 0;
+        let currentBankBalance = 0;
+        let newBankBalance = 0;
+
+        if (isCash && sRef) {
+          const sSnap = await transaction.get(sRef);
+          currentCash = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+          if (isCollection && amount > currentCash) throw new Error("Insufficient Cash Balance to reverse collection");
+          newCashBalance = isCollection ? currentCash - amount : currentCash + amount;
+        } else if (bRef) {
+          const bSnap = await transaction.get(bRef);
+          currentBankBalance = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+          if (isCollection && amount > currentBankBalance) throw new Error("Insufficient Bank Balance to reverse collection");
+          newBankBalance = isCollection ? currentBankBalance - amount : currentBankBalance + amount;
+        }
+
+        const staffSnap = await transaction.get(staffProfileRef);
+        const currentStaffBal = staffSnap.exists() ? Number(staffSnap.data().balance || 0) : 0;
+        newStaffBalance = isCollection ? currentStaffBal - amount : currentStaffBal + amount;
+
+        // Perform Writes
+        if (isCash && sRef) {
+          transaction.update(sRef, { cashInHand: newCashBalance });
+        } else if (bRef) {
+          transaction.update(bRef, { balance: newBankBalance });
+        }
+        transaction.update(staffProfileRef, { balance: newStaffBalance });
+
+        transData = {
+          userId: user.uid,
+          staffId: currentStaffId,
+          date: new Date().toISOString().split("T")[0],
+          paymentType: isCollection ? "Collection Reversal" : "Salary Reversal",
+          amount: amount,
+          paymentMode: t.paymentMode,
+          bankAccountId: t.bankAccountId || "",
+          remarks: `Reversal of ${t.paymentType} on ${t.date}`,
+          reversedFromId: t.id,
+          cashTransactionId: cashTransRef.id,
+          createdAt: new Date().toISOString()
+        };
+        transaction.set(staffTransRef, transData);
+
+        transaction.set(cashTransRef, {
+          userId: user.uid,
+          accountId: isCash ? "cash" : (t.bankAccountId || "bank"),
+          type: isCollection ? "Staff Collection Reversal" : "Staff Salary Reversal",
+          txnNo: staffTransRef.id,
+          date: new Date().toISOString().split("T")[0],
+          party: currentStaff.name,
+          mode: t.paymentMode,
+          paid: isCollection ? amount : 0,
+          received: isCollection ? 0 : amount,
+          balanceAfter: isCash ? newCashBalance : newBankBalance,
+          remarks: `Reversal of ${t.paymentType}`,
+          sourceType: "reversal",
+          sourceId: staffTransRef.id,
+          createdAt: new Date()
+        });
+
+        if (!isCollection && t.expenseId) {
+           transaction.update(doc(db, "expenses", t.expenseId), { status: "Reversed", notes: "Reversed on " + new Date().toISOString().split("T")[0] });
+        }
+
+        transaction.update(doc(db, "staffTransactions", t.id), { isReversed: true, reversedById: staffTransRef.id });
+      });
+
+      setTransactions([{ id: staffTransRef.id, ...transData }, ...transactions.map(tr => tr.id === t.id ? { ...tr, isReversed: true } : tr)]);
+      setCurrentStaff({ ...currentStaff, balance: newStaffBalance });
+      const adjustment = isCollection ? -amount : amount;
+      setStaffList(prev => prev.map(s => s.id === currentStaffId ? { ...s, computedBalance: (s.computedBalance || 0) + adjustment } : s));
+      toast.success("Transaction reversed successfully");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to reverse transaction");
     }
   };
 
@@ -379,12 +630,15 @@ export default function StaffDetailView() {
   }
 
   const earningsP = summary.P * dailyWage;
+  const earningsHD = summary.HD * (dailyWage / 2);
   const earningsPL = summary.PL * dailyWage;
   const earningsWO = summary.WO * dailyWage;
-  const totalEarnings = earningsP + earningsPL + earningsWO;
+  const totalEarnings = earningsP + earningsHD + earningsPL + earningsWO;
 
+  const validTransactions = transactions.filter(t => !t.isReversed && !t.paymentType?.includes("Reversal"));
+  
   const currentMonthPrefix = currentMonth.getFullYear() + "-" + (currentMonth.getMonth() + 1).toString().padStart(2, "0");
-  const currentMonthTransactions = transactions.filter(t => t.date.startsWith(currentMonthPrefix));
+  const currentMonthTransactions = validTransactions.filter(t => t.date.startsWith(currentMonthPrefix));
   // Total Payments out (exclude collections for net earnings payment display)
   const totalPayments = currentMonthTransactions.filter(t => t.paymentType !== "Collection").reduce((acc, t) => acc + t.amount, 0);
   const totalCollections = currentMonthTransactions.filter(t => t.paymentType === "Collection").reduce((acc, t) => acc + t.amount, 0);
@@ -408,10 +662,10 @@ export default function StaffDetailView() {
   // --- Payroll Calculations (correct approach) ---
   // previousMonthBalance = what was owed to the staff BEFORE the current month started
   // = sum of earnings from all months before this one, minus all payments before this month
-  const prevMonthPayments = transactions
+  const prevMonthPayments = validTransactions
     .filter(t => t.date < currentMonthStartStr && t.paymentType !== "Collection")
     .reduce((acc, t) => acc + t.amount, 0);
-  const prevMonthCollections = transactions
+  const prevMonthCollections = validTransactions
     .filter(t => t.date < currentMonthStartStr && t.paymentType === "Collection")
     .reduce((acc, t) => acc + t.amount, 0);
   // Previous month closing balance = prior earnings - prior payments + prior collections
@@ -750,6 +1004,10 @@ export default function StaffDetailView() {
                         <span className="text-xs font-semibold text-gray-800">₹{earningsP.toFixed(2)}</span>
                       </div>
                       <div className="flex items-center justify-between px-10 py-3 border-b border-gray-50">
+                        <span className="text-xs font-semibold text-gray-600">Half Day ({summary.HD} Days)</span>
+                        <span className="text-xs font-semibold text-gray-800">₹{earningsHD.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between px-10 py-3 border-b border-gray-50">
                         <span className="text-xs font-semibold text-gray-600">Weekly off ({summary.WO} Days)</span>
                         <span className="text-xs font-semibold text-gray-800">₹{earningsWO.toFixed(2)}</span>
                       </div>
@@ -834,23 +1092,32 @@ export default function StaffDetailView() {
                   <tbody className="divide-y divide-gray-100">
                     {transactions.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="py-12 text-center text-gray-400 text-sm">
+                        <td colSpan={5} className="py-12 text-center text-gray-400 text-sm">
                           No transactions found
                         </td>
                       </tr>
                     ) : (
                       transactions.map(t => (
-                        <tr key={t.id} className="hover:bg-gray-50/50 transition">
+                        <tr key={t.id} className={`hover:bg-gray-50/50 transition ${t.isReversed ? 'opacity-50' : ''}`}>
                           <td className="px-6 py-3.5 text-xs font-bold text-gray-700">
                             {new Date(t.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-")}
                           </td>
-                          <td className="px-6 py-3.5 text-xs font-semibold text-gray-600">{t.paymentType}</td>
+                          <td className="px-6 py-3.5 text-xs font-semibold text-gray-600">
+                            {t.paymentType} {t.isReversed && <span className="ml-1 text-[9px] bg-red-100 text-red-700 px-1 rounded uppercase">Reversed</span>}
+                          </td>
                           <td className="px-6 py-3.5">
-                            <span className={"text-xs font-bold " + (t.paymentType === "Collection" ? "text-red-500" : "text-brand-tertiary")}>
-                              {t.paymentType === "Collection" ? "↓" : "↑"} ₹{t.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                            <span className={"text-xs font-bold " + (t.paymentType.includes("Collection") ? "text-red-500" : "text-brand-tertiary")}>
+                              {t.paymentType.includes("Collection") ? "↓" : "↑"} ₹{t.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                             </span>
                           </td>
                           <td className="px-6 py-3.5 text-xs text-gray-500">{t.remarks || "-"}</td>
+                          <td className="px-6 py-3.5 text-right">
+                            {(!t.isReversed && !t.paymentType.includes("Reversal")) && (
+                              <button onClick={() => handleReverseTransaction(t)} className="text-[10px] bg-white border border-gray-200 text-red-600 px-2 py-1 rounded hover:bg-red-50 font-bold transition">
+                                Reverse
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       ))
                     )}
@@ -973,6 +1240,22 @@ export default function StaffDetailView() {
                 </div>
               </div>
 
+              {paymentForm.paymentMode === "Bank" && (
+                <div>
+                  <label className="text-[11px] font-bold text-red-500 block mb-1">Select Bank Account *</label>
+                  <select
+                    value={paymentForm.bankAccountId}
+                    onChange={e => setPaymentForm({...paymentForm, bankAccountId: e.target.value})}
+                    className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 bg-gray-50 focus:bg-white"
+                  >
+                    <option value="">Select Account</option>
+                    {bankAccounts.filter(b => b.status !== "inactive").map(bank => (
+                      <option key={bank.id} value={bank.id}>{bank.bankName} - {bank.accountNumber?.slice(-4)}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="text-[11px] font-bold text-gray-500 block mb-1">Remarks (Optional)</label>
                 <input 
@@ -1057,6 +1340,22 @@ export default function StaffDetailView() {
                   </select>
                 </div>
               </div>
+
+              {collectForm.paymentMode === "Bank" && (
+                <div>
+                  <label className="text-[11px] font-bold text-red-500 block mb-1">Select Bank Account *</label>
+                  <select
+                    value={collectForm.bankAccountId}
+                    onChange={e => setCollectForm({...collectForm, bankAccountId: e.target.value})}
+                    className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 bg-gray-50 focus:bg-white"
+                  >
+                    <option value="">Select Account</option>
+                    {bankAccounts.filter(b => b.status !== "inactive").map(bank => (
+                      <option key={bank.id} value={bank.id}>{bank.bankName} - {bank.accountNumber?.slice(-4)}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="text-[11px] font-bold text-gray-500 block mb-1">Remarks (Optional)</label>

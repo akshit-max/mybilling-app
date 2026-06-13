@@ -17,6 +17,7 @@ type SMSLog = {
   scheduledDate: any;
   createdAt: any;
   type: string;
+  moduleName?: string;
 };
 
 export default function SMSTrackingPage() {
@@ -163,7 +164,7 @@ export default function SMSTrackingPage() {
                   <th className="px-6 py-4 uppercase">Scheduled Date</th>
                   <th className="px-6 py-4 uppercase">Party Name</th>
                   <th className="px-6 py-4 uppercase">Phone Number</th>
-                  <th className="px-6 py-4 uppercase">Invoice No.</th>
+                  <th className="px-6 py-4 uppercase">Document No.</th>
                   <th className="px-6 py-4 uppercase w-1/3">Message Content</th>
                   <th className="px-6 py-4 uppercase text-center">Status</th>
                   <th className="px-6 py-4"></th>
@@ -180,7 +181,10 @@ export default function SMSTrackingPage() {
                       <td className="px-6 py-4 text-gray-600 font-semibold">{formatDate(log.scheduledDate)}</td>
                       <td className="px-6 py-4 font-bold text-gray-800">{log.customerName}</td>
                       <td className="px-6 py-4 font-mono text-gray-600">{log.phoneNumber}</td>
-                      <td className="px-6 py-4 font-mono font-bold text-indigo-600">#{log.invoiceNumber}</td>
+                      <td className="px-6 py-4">
+                        <div className="font-mono font-bold text-indigo-600">#{log.invoiceNumber}</div>
+                        <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mt-0.5">{log.moduleName || "General"}</div>
+                      </td>
                       <td className="px-6 py-4 text-gray-600 truncate max-w-xs" title={log.message}>
                         <div className="flex items-center gap-2">
                            <MessageCircle size={14} className="text-gray-400 shrink-0"/>

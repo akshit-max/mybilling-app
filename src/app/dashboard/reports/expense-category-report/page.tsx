@@ -32,14 +32,16 @@ export default function ExpenseCategoryReport() {
       if (!user) { setLoading(false); return; }
       try {
         const snap = await getDocs(query(collection(db, "expenses"), where("userId", "==", user.uid)));
-        const data = snap.docs.map(doc => {
-          const d = doc.data();
-          return {
-            category: d.category || "General",
-            amount: Number(d.amount || 0),
-            date: d.date || (d.createdAt?.toDate ? d.createdAt.toDate().toISOString().split("T")[0] : new Date().toISOString().split("T")[0]),
-          };
-        });
+        const data = snap.docs
+          .filter(doc => doc.data().status !== "Reversed")
+          .map(doc => {
+            const d = doc.data();
+            return {
+              category: d.category || "General",
+              amount: Number(d.amount || 0),
+              date: d.date || (d.createdAt?.toDate ? d.createdAt.toDate().toISOString().split("T")[0] : new Date().toISOString().split("T")[0]),
+            };
+          });
         setRawEntries(data);
       } catch (err) {
         toast.error("Failed to load expense categories.");

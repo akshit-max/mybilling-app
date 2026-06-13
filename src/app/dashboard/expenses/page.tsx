@@ -37,10 +37,12 @@ export default function ExpensesPage() {
           where("userId", "==", user.uid)
         );
         const snap = await getDocs(q);
-        const data = snap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Expense[];
+        const data = snap.docs
+          .filter(doc => doc.data().status !== "Reversed")
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Expense[];
         
         // Sort descending by createdAt or date
         data.sort((a: any, b: any) => {

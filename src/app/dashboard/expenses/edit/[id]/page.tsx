@@ -74,6 +74,13 @@ export default function EditExpensePage() {
         
         if (docSnap.exists()) {
           const data = docSnap.data();
+
+          if (data.category === "Employee Salaries & Advances" || data.generatedFrom === "salary") {
+            toast.error("Salary expenses must be managed from the Staff module");
+            router.push("/dashboard/staff");
+            return;
+          }
+
           setWithGst(data.withGst || false);
           setPartyId(data.partyId || "");
           setCategory(data.category || "");

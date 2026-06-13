@@ -10,6 +10,8 @@ interface SMSModalProps {
   customerName: string;
   existingPhone?: string;
   message: string;
+  invoiceNumber?: string;
+  moduleName?: string;
   onClose: () => void;
 }
 
@@ -17,6 +19,8 @@ export default function SMSModal({
   customerName,
   existingPhone,
   message,
+  invoiceNumber,
+  moduleName,
   onClose,
 }: SMSModalProps) {
   const [phone, setPhone] = useState(existingPhone || "");
@@ -95,12 +99,13 @@ export default function SMSModal({
         userId: user.uid,
         customerName: customerName || "Unknown",
         phoneNumber: cleaned || "N/A",
-        invoiceNumber: "Manual SMS",
+        invoiceNumber: invoiceNumber || "N/A",
+        moduleName: moduleName || "General",
         message: message,
         status: "Sent",
         scheduledDate: new Date(),
         createdAt: new Date(),
-        type: "Manual SMS"
+        type: moduleName ? `${moduleName} SMS` : "Manual SMS"
       });
 
       toast.success("SMS Sent Successfully! 💬");

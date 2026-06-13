@@ -696,6 +696,8 @@ export default function ViewCreditNote() {
       {showSMSModal && (
         <SMSModal
           customerName={purchaseReturn?.customerName || "Customer"}
+          invoiceNumber={(purchaseReturn as any)?.invoiceNumber || (purchaseReturn as any)?.quotationNumber || (purchaseReturn as any)?.challanNumber || (purchaseReturn as any)?.proformaInvoiceNumber || (purchaseReturn as any)?.orderNumber || (purchaseReturn as any)?.returnNumber || (purchaseReturn as any)?.debitNoteNumber || (purchaseReturn as any)?.creditNoteNumber || (purchaseReturn as any)?.receiptNumber || (purchaseReturn as any)?.id || "N/A"}
+          moduleName="Purchase Return"
           existingPhone={purchaseReturn?.customerPhone}
           message={`Dear ${purchaseReturn?.customerName},\n\nYour ${(purchaseReturn as any)?.invoiceType === 'estimate' ? 'Estimate' : 'Invoice'} has been generated.\n\nTotal Amount: *₹${purchaseReturn?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
           onClose={() => setShowSMSModal(false)}

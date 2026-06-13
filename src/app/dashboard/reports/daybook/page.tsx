@@ -75,6 +75,7 @@ export default function DaybookReport() {
           const expSnap = await getDocs(query(collection(db, "expenses"), where("userId", "==", user.uid)));
           expSnap.docs.forEach(doc => {
             const d = doc.data();
+            if (d.status === "Reversed") return;
             data.push({
               id: doc.id,
               date: d.date || (d.createdAt?.toDate ? d.createdAt.toDate().toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),

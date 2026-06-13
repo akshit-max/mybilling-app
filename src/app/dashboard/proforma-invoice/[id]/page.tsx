@@ -679,6 +679,8 @@ export default function ViewProformaInvoice() {
       {showSMSModal && (
         <SMSModal
           customerName={proformaInvoice?.customerName || "Customer"}
+          invoiceNumber={(proformaInvoice as any)?.invoiceNumber || (proformaInvoice as any)?.quotationNumber || (proformaInvoice as any)?.challanNumber || (proformaInvoice as any)?.proformaInvoiceNumber || (proformaInvoice as any)?.orderNumber || (proformaInvoice as any)?.returnNumber || (proformaInvoice as any)?.debitNoteNumber || (proformaInvoice as any)?.creditNoteNumber || (proformaInvoice as any)?.receiptNumber || (proformaInvoice as any)?.id || "N/A"}
+          moduleName="Proforma Invoice"
           existingPhone={proformaInvoice?.customerPhone}
           message={`Dear ${proformaInvoice?.customerName},\n\nYour ${(proformaInvoice as any)?.invoiceType === 'estimate' ? 'Estimate' : 'Invoice'} has been generated.\n\nTotal Amount: *₹${proformaInvoice?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
           onClose={() => setShowSMSModal(false)}

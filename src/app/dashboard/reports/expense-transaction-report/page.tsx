@@ -35,17 +35,19 @@ export default function ExpenseTransactionReport() {
       if (!user) { setLoading(false); return; }
       try {
         const snap = await getDocs(query(collection(db, "expenses"), where("userId", "==", user.uid)));
-        const data: ExpenseEntry[] = snap.docs.map(doc => {
-          const d = doc.data();
-          return {
-            id: doc.id,
-            date: d.date || (d.createdAt?.toDate ? d.createdAt.toDate().toISOString().split("T")[0] : new Date().toISOString().split("T")[0]),
-            expenseNumber: d.expenseNumber || "-",
-            partyName: d.partyName || "-",
-            category: d.category || "General",
-            amount: Number(d.amount || 0),
-          };
-        });
+        const data: ExpenseEntry[] = snap.docs
+          .filter(doc => doc.data().status !== "Reversed")
+          .map(doc => {
+            const d = doc.data();
+            return {
+              id: doc.id,
+              date: d.date || (d.createdAt?.toDate ? d.createdAt.toDate().toISOString().split("T")[0] : new Date().toISOString().split("T")[0]),
+              expenseNumber: d.expenseNumber || "-",
+              partyName: d.partyName || "-",
+              category: d.category || "General",
+              amount: Number(d.amount || 0),
+            };
+          });
         data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setEntries(data);
       } catch (err) {

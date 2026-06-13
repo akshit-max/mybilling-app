@@ -208,8 +208,8 @@ export default function ExpenseDetailPage() {
                           <td className="px-4 py-3 text-center text-gray-500 font-semibold">{index + 1}</td>
                           <td className="px-4 py-3 font-semibold text-gray-800">{item.name}</td>
                           <td className="px-4 py-3 text-gray-600">{item.hsn || "-"}</td>
-                          <td className="px-4 py-3 text-center text-gray-600">{item.quantity}</td>
-                          <td className="px-4 py-3 text-right text-gray-600">₹ {(item.rate || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                          <td className="px-4 py-3 text-center text-gray-600">{item.quantity ?? "-"}</td>
+                          <td className="px-4 py-3 text-right text-gray-600">₹ {(item.rate ?? item.amount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                           <td className="px-4 py-3 text-right text-gray-600">
                             {(item.discountAmount || 0) > 0 ? (
                               <div className="flex flex-col items-end">
@@ -227,7 +227,7 @@ export default function ExpenseDetailPage() {
                             ) : "-"}
                           </td>
                           <td className="px-4 py-3 text-right font-bold text-gray-800">
-                            ₹ {(item.amount || (item.quantity * item.rate)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                            ₹ {(item.amount ?? ((item.quantity ?? 0) * (item.rate ?? 0))).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
                       ))}
@@ -239,7 +239,7 @@ export default function ExpenseDetailPage() {
                     <div className="flex justify-between w-64 text-xs">
                       <span className="text-gray-500 font-semibold uppercase">Sub Total</span>
                       <span className="font-mono font-bold text-gray-800">
-                        ₹ {(expense.subTotal || expense.items.reduce((s:number, i:ExpenseItem) => s + (i.quantity*i.rate), 0)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        ₹ {(expense.subTotal ?? expense.items.reduce((s:number, i:ExpenseItem) => s + (i.amount ?? ((i.quantity ?? 0) * (i.rate ?? 0))), 0)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     {(expense.totalTax || 0) > 0 && (

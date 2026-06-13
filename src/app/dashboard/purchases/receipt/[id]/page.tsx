@@ -1241,6 +1241,8 @@ export default function ViewInvoice() {
       {showSMSModal && (
         <SMSModal
           customerName={invoice?.customerName || "Customer"}
+          invoiceNumber={(invoice as any)?.invoiceNumber || (invoice as any)?.quotationNumber || (invoice as any)?.challanNumber || (invoice as any)?.proformaInvoiceNumber || (invoice as any)?.orderNumber || (invoice as any)?.returnNumber || (invoice as any)?.debitNoteNumber || (invoice as any)?.creditNoteNumber || (invoice as any)?.receiptNumber || (invoice as any)?.id || "N/A"}
+          moduleName="Purchase Receipt"
           existingPhone={invoice?.customerPhone}
           message={`Dear ${invoice?.customerName},\n\nYour ${(invoice as any)?.invoiceType === 'estimate' ? 'Estimate' : 'Invoice'} has been generated.\n\nTotal Amount: *₹${invoice?.total?.toFixed(2)}*\n\nThank you for choosing ${company?.name || "our company"}.`}
           onClose={() => setShowSMSModal(false)}
