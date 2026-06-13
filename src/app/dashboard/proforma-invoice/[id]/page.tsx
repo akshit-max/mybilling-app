@@ -271,8 +271,9 @@ export default function ViewProformaInvoice() {
                 <MoreVertical size={15} />
               </button>
               {isMoreOpen && (
-                <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-md py-1 w-32 z-50 text-xs font-semibold">
-                  <Link href={`/dashboard/proforma-invoice/edit/${id}`} className="block px-4 py-2 text-gray-700 hover:bg-gray-50">Edit Proforma Invoice</Link>
+                <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-md py-1 w-40 z-50 text-xs font-semibold">
+                  <Link href={`/dashboard/invoices/create?fromProforma=${id}`} className="block px-4 py-2 text-indigo-600 hover:bg-indigo-50 font-bold border-b border-gray-100">Convert to Invoice</Link>
+                  <Link href={`/dashboard/proforma-invoice/edit/${id}`} className="block px-4 py-2 text-gray-700 hover:bg-gray-50">Edit Proforma</Link>
                   <button onClick={handleDelete} className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50">Delete</button>
                 </div>
               )}

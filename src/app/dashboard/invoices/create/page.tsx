@@ -193,6 +193,36 @@ export default function CreateSalesInvoice() {
           }
         }
 
+        const fromProformaId = params.get("fromProforma");
+        if (fromProformaId) {
+          try {
+            const snap = await getDoc(doc(db, "proformaInvoices", fromProformaId));
+            if (snap.exists()) {
+              const qData = snap.data();
+              if (qData.customerName) setCustomerName(qData.customerName);
+              if (qData.items && qData.items.length) {
+                const mappedItems = qData.items.map((i: any) => ({...i, gstRate: i.gstRate ?? 18}));
+                setItems(mappedItems);
+              }
+              if (qData.shippingAddress) setShippingAddress(qData.shippingAddress);
+              if (qData.notes) {
+                 setNotes(qData.notes);
+                 setShowNotes(true);
+              }
+              if (qData.discountType) setDiscountType(qData.discountType);
+              if (qData.discountValue) {
+                setDiscountValue(qData.discountValue);
+                setShowDiscountInput(true);
+              }
+              if (qData.additionalChargeName) setAdditionalChargeName(qData.additionalChargeName);
+              if (qData.additionalChargeValue) setAdditionalChargeValue(qData.additionalChargeValue);
+              toast.success("Converted Proforma data loaded! Review and Save as Invoice.");
+            }
+          } catch (e) {
+            console.error("Failed to load proforma", e);
+          }
+        }
+
         // Fetch Customers
         try {
           const cq = query(collection(db, "customers"), where("userId", "==", user.uid));

@@ -120,7 +120,27 @@ export default function AutomatedBillsProcessor() {
             }
 
             // 4. Create Invoice
-            await addDoc(collection(db, "invoices"), invoiceData);
+            const invoiceRef = await addDoc(collection(db, "invoices"), invoiceData);
+
+            // 4.5. Log SMS Tracker
+            try {
+              const messageContent = `Dear ${bill.customerName}, your Invoice #${invoiceNumber} for ₹${bill.total || 0} has been generated automatically. Thank you.`;
+              await addDoc(collection(db, "smsLogs"), {
+                userId,
+                automatedBillId: billDoc.id,
+                invoiceId: invoiceRef.id,
+                invoiceNumber,
+                customerName: bill.customerName || "Unknown",
+                phoneNumber: bill.customerPhone || "N/A",
+                message: messageContent,
+                status: "Pending",
+                scheduledDate: new Date(),
+                createdAt: new Date(),
+                type: "Automated Bill SMS"
+              });
+            } catch (smsErr) {
+              console.error("SMS Tracker logging skipped due to failure:", smsErr);
+            }
 
             // 5. Update Automated Bill
             const currentVouchers = Number(bill.vouchersMade || 0);

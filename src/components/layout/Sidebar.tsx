@@ -126,7 +126,7 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
     const expansions: Record<string, boolean> = {};
     if (pathname?.startsWith("/dashboard/customers")) expansions["Parties"] = true;
     if (pathname?.startsWith("/dashboard/products")) expansions["Items"] = true;
-    if (pathname?.startsWith("/dashboard/invoices") || pathname?.startsWith("/dashboard/credit-note") || pathname?.startsWith("/dashboard/delivery-challan") || pathname?.startsWith("/dashboard/proforma-invoice")) expansions["Sales"] = true;
+    if (pathname?.startsWith("/dashboard/invoices") || pathname?.startsWith("/dashboard/credit-note") || pathname?.startsWith("/dashboard/delivery-challan") || pathname?.startsWith("/dashboard/proforma-invoice") || pathname?.startsWith("/dashboard/sms-tracking") || pathname?.startsWith("/dashboard/automated-bills") || pathname?.startsWith("/dashboard/payment-in") || pathname?.startsWith("/dashboard/sales-return") || pathname?.startsWith("/dashboard/quotations")) expansions["Sales"] = true;
     if (pathname?.startsWith("/dashboard/purchases") || pathname?.startsWith("/dashboard/purchase-return") || pathname?.startsWith("/dashboard/debit-note") || pathname?.startsWith("/dashboard/purchase-orders") || pathname?.startsWith("/dashboard/payment-out")) expansions["Purchases"] = true;
     if (Object.keys(expansions).length > 0) {
       setExpandedMenus(prev => ({ ...prev, ...expansions }));
@@ -176,6 +176,8 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
             { name: "Credit Note", href: "/dashboard/credit-note" },
             { name: "Delivery Challan", href: "/dashboard/delivery-challan" },
             { name: "Proforma Invoice", href: "/dashboard/proforma-invoice" },
+            { name: "Automated Bills", href: "/dashboard/automated-bills" },
+            { name: "SMS Tracking", href: "/dashboard/sms-tracking" },
           ],
         },
         {
@@ -307,7 +309,7 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
             )}
 
             {group.items.map((item) => {
-              const isParentActive = (pathname?.startsWith(item.href) && item.href !== "/dashboard") || (item.name === "Purchases" && (pathname?.startsWith("/dashboard/purchase-return") || pathname?.startsWith("/dashboard/debit-note") || pathname?.startsWith("/dashboard/purchase-orders") || pathname?.startsWith("/dashboard/payment-out"))) || (item.name === "Sales" && (pathname?.startsWith("/dashboard/credit-note") || pathname?.startsWith("/dashboard/delivery-challan") || pathname?.startsWith("/dashboard/proforma-invoice") || pathname?.startsWith("/dashboard/payment-in") || pathname?.startsWith("/dashboard/sales-return") || pathname?.startsWith("/dashboard/quotations"))) ? true : pathname === item.href;
+              const isParentActive = (pathname?.startsWith(item.href) && item.href !== "/dashboard") || (item.name === "Purchases" && (pathname?.startsWith("/dashboard/purchase-return") || pathname?.startsWith("/dashboard/debit-note") || pathname?.startsWith("/dashboard/purchase-orders") || pathname?.startsWith("/dashboard/payment-out"))) || (item.name === "Sales" && (pathname?.startsWith("/dashboard/credit-note") || pathname?.startsWith("/dashboard/delivery-challan") || pathname?.startsWith("/dashboard/proforma-invoice") || pathname?.startsWith("/dashboard/payment-in") || pathname?.startsWith("/dashboard/sales-return") || pathname?.startsWith("/dashboard/quotations") || pathname?.startsWith("/dashboard/sms-tracking") || pathname?.startsWith("/dashboard/automated-bills"))) ? true : pathname === item.href;
               const isExpanded = expandedMenus[item.name];
 
               if (!item.hasSubmenu) {

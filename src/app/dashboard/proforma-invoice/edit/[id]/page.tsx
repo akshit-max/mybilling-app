@@ -333,7 +333,7 @@ export default function EditCreditNote() {
                 <input type="date" value={proformaInvoiceDate} onChange={(e) => setCreditNoteDate(e.target.value)} className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 font-bold font-mono text-gray-700 bg-white" />
               </div>
               <div className="space-y-1.5 col-span-2">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Link to Invoice:</label>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Reference Invoice No. (Optional):</label>
                 <div className="relative">
                   <input
                     type="text"

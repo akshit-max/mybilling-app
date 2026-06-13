@@ -960,9 +960,15 @@ export default function CreateAutomatedBill() {
                       </div>
                     </td>
 
-                    {/* HSN Code */}
+                                        {/* HSN Code - editable input */}
                     <td className="px-4 py-4 align-top">
-                      <span className="text-gray-600 font-mono font-medium block mt-1">{item.hsn || "-"}</span>
+                      <input
+                        type="text"
+                        value={item.hsn || ""}
+                        onChange={(e) => updateItem(idx, "hsn", e.target.value)}
+                        placeholder="HSN/SAC"
+                        className="w-20 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 font-mono bg-white block mt-0.5"
+                      />
                     </td>
 
                     {/* Quantity */}
@@ -987,9 +993,36 @@ export default function CreateAutomatedBill() {
                       />
                     </td>
 
-                    {/* Discount */}
+                                        {/* Per-item Discount (₹ or %) */}
                     <td className="px-4 py-4 align-top">
-                      <span className="text-gray-400 block mt-1">-</span>
+                      <div className="flex items-center border border-gray-200 rounded overflow-hidden bg-white mt-0.5 w-28">
+                        <select
+                          value={(item as any).discountType ?? "percent"}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountType: e.target.value } as any;
+                            updated[idx] = capItemDiscountUI(updated[idx]);
+                            setItems(updated);
+                          }}
+                          className="px-1 py-1 text-[10px] font-bold text-gray-500 bg-transparent border-r border-gray-200 focus:outline-none cursor-pointer"
+                        >
+                          <option value="percent">%</option>
+                          <option value="flat">₹</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          value={(item as any).discountValue ?? ""}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx] = { ...updated[idx], discountValue: e.target.value === "" ? undefined : Number(e.target.value) } as any;
+                            updated[idx] = capItemDiscountUI(updated[idx]);
+                            setItems(updated);
+                          }}
+                          placeholder="0"
+                          className="w-full px-2 py-1 text-xs focus:outline-none font-mono text-right bg-transparent"
+                        />
+                      </div>
                     </td>
 
                     {/* Tax rate displaying absolute calculations */}
