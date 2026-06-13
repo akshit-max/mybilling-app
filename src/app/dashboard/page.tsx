@@ -49,6 +49,8 @@ export default function Dashboard() {
   const [showTestExpiredModal, setShowTestExpiredModal] = useState(false);
   const [showTestOfferModal, setShowTestOfferModal] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
+  const [dashboardReminders, setDashboardReminders] = useState<any[]>([]);
+  const [remindersLoading, setRemindersLoading] = useState(true);
 
   // Chart aggregation states
   const [chartPoints, setChartPoints] = useState<{ x: number; y: number; label: string; value: number }[]>([]);
@@ -242,6 +244,42 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let unsub: () => void;
+    const authUnsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setRemindersLoading(true);
+        const q = query(
+          collection(db, "returnReminders"), 
+          where("userId", "==", user.uid), 
+          where("status", "==", "Pending"),
+          limit(50)
+        );
+        unsub = onSnapshot(q, (snap) => {
+          const fetched = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          // Sort in memory to avoid requiring a composite index
+          fetched.sort((a: any, b: any) => {
+            if (a.dueDate < b.dueDate) return -1;
+            if (a.dueDate > b.dueDate) return 1;
+            return 0;
+          });
+          setDashboardReminders(fetched.slice(0, 10));
+          setRemindersLoading(false);
+        }, (err) => {
+          console.error("Failed to fetch reminders", err);
+          setRemindersLoading(false);
+        });
+      } else {
+        setDashboardReminders([]);
+        setRemindersLoading(false);
+      }
+    });
+    return () => {
+      authUnsub();
+      if (unsub) unsub();
+    };
+  }, []);
 
   useEffect(() => {
     let unsubSnapshot: () => void;
@@ -621,23 +659,43 @@ export default function Dashboard() {
            </Link>
         </div>
 
-        {/* Today's Checklist */}
+        {/* Return Reminders Widget */}
         <div className="bg-white border border-brand-primary/10 rounded-2xl shadow-sm flex flex-col h-[360px] overflow-hidden">
-           <div className="px-6 py-4 border-b border-brand-primary/5 bg-brand-neutral/30 shrink-0">
-             <h2 className="text-[11px] font-bold text-brand-primary/80 uppercase tracking-wider">Today's Checklist</h2>
+           <div className="px-6 py-4 border-b border-brand-primary/5 bg-brand-neutral/30 flex justify-between items-center shrink-0">
+             <h2 className="text-[11px] font-bold text-brand-primary/80 uppercase tracking-wider">Return Reminders</h2>
+             <Link href="/dashboard/return-reminders" className="text-[10px] text-brand-secondary font-bold tracking-wide hover:underline">Manage All</Link>
            </div>
            
-           <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
-             <div className="w-16 h-16 bg-brand-neutral rounded-full flex items-center justify-center text-orange-400 mb-4 opacity-75">
-               <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M4 22h16" strokeLinecap="round" />
-                  <path d="M12 2L6 19h12L12 2z" fill="#FFEDD5" />
-                  <path d="M8 13h8" strokeLinecap="round" />
-                  <path d="M9.5 8h5" strokeLinecap="round" />
-               </svg>
-             </div>
-             <h3 className="text-sm font-bold text-gray-800 mb-1 uppercase tracking-wide">Coming Soon...</h3>
-             <p className="text-[10px] text-gray-400 leading-normal max-w-xs font-semibold">Smarter daily checklist for overdue invoices, low stock alerts, and customer follow-ups</p>
+           <div className="flex-1 overflow-y-auto p-0">
+             {remindersLoading ? (
+               <div className="h-full flex items-center justify-center text-xs text-gray-400">Loading...</div>
+             ) : dashboardReminders.length === 0 ? (
+               <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400 gap-2">
+                 <AlertCircle size={20} className="text-gray-300" />
+                 <p className="text-[11px] font-bold uppercase tracking-wider">No Pending Reminders</p>
+               </div>
+             ) : (
+               <ul className="divide-y divide-gray-50">
+                 {dashboardReminders.map(r => {
+                   const today = new Date().toISOString().split("T")[0];
+                   const isOverdue = r.dueDate < today;
+                   const isToday = r.dueDate === today;
+                   return (
+                     <li key={r.id} className="p-4 hover:bg-gray-50/50 transition">
+                       <div className="flex justify-between items-start mb-1">
+                         <span className="text-xs font-bold text-gray-800 truncate max-w-[150px]">{r.customerName}</span>
+                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${isOverdue ? 'bg-red-100 text-red-600' : isToday ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'}`}>
+                           {isOverdue ? 'Overdue' : isToday ? 'Today' : r.dueDate}
+                         </span>
+                       </div>
+                       <div className="text-[10px] text-gray-500 font-semibold truncate">
+                         {r.quantity}x {r.itemName}
+                       </div>
+                     </li>
+                   );
+                 })}
+               </ul>
+             )}
            </div>
         </div>
 

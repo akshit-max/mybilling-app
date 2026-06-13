@@ -215,6 +215,7 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
       items: [
         // { name: "AI Collections", href: "#", icon: Share2 },
         { name: "Staff Attendance & Payroll", href: "/dashboard/staff", icon: UsersRound },
+        { name: "Return Reminders", href: "/dashboard/return-reminders", icon: FileCheck2 },
         { name: "Manage Users", href: "/dashboard/manage-users", icon: UserCog },
         // { name: "Online Orders", href: "/dashboard/online-orders", icon: Globe },
         // { name: "SMS Marketing", href: "/dashboard/sms", icon: MessageSquare },
