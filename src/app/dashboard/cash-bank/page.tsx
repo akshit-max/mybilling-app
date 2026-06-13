@@ -220,6 +220,24 @@ export default function CashAndBankPage() {
     
     try {
       const isAdd = adjustData.action === "add";
+
+      // --- PRE-SAVE BALANCE VALIDATION ---
+      if (!isAdd) {
+        if (adjustData.accountId === "cash") {
+          if (amt > cashInHand) {
+            return toast.error(`Insufficient balance in Cash. Available: ₹${cashInHand}`);
+          }
+        } else {
+          const b = bankAccounts.find(x => x.id === adjustData.accountId);
+          const currentBank = b ? Number(b.balance || 0) : 0;
+          if (amt > currentBank) {
+            const bankName = b ? b.name : "Bank";
+            return toast.error(`Insufficient balance in ${bankName}. Available: ₹${currentBank}`);
+          }
+        }
+      }
+      // --- END VALIDATION ---
+
       const diff = isAdd ? amt : -amt;
       
       const newBal = await updateAccountBalance(adjustData.accountId, diff, user.uid);
@@ -306,6 +324,21 @@ export default function CashAndBankPage() {
     
     const user = auth.currentUser;
     if (!user) return;
+
+    // --- PRE-SAVE BALANCE VALIDATION ---
+    if (transferData.fromAccountId === "cash") {
+      if (amt > cashInHand) {
+        return toast.error(`Insufficient balance in Cash. Available: ₹${cashInHand}`);
+      }
+    } else {
+      const b = bankAccounts.find(x => x.id === transferData.fromAccountId);
+      const currentBank = b ? Number(b.balance || 0) : 0;
+      if (amt > currentBank) {
+        const bankName = b ? b.name : "Bank";
+        return toast.error(`Insufficient balance in ${bankName}. Available: ₹${currentBank}`);
+      }
+    }
+    // --- END VALIDATION ---
 
     try {
       const newFromBal = await updateAccountBalance(transferData.fromAccountId, -amt, user.uid);

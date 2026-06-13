@@ -9,7 +9,7 @@ import { collection, getDocs, query, where, updateDoc, doc, getDoc } from "fireb
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
-import { sanitizeNumericInput } from "@/lib/sanitize";
+import { sanitizeNumericInput , capItemDiscountUI, capGlobalDiscountUI } from "@/lib/sanitize";
 import { validateDiscount } from "@/lib/validateDiscount";
 import { calculateInvoice, DiscountType, getItemBaseAmount } from "@/lib/calcInvoice";
 import { v4 as uuidv4 } from "uuid";
@@ -426,6 +426,7 @@ export default function EditQuotation() {
       ...updated[index],
       [field]: field === "name" ? value : parsedValue,
     };
+    updated[index] = capItemDiscountUI(updated[index]);
     setItems(updated);
   };
 
@@ -1128,6 +1129,7 @@ export default function EditQuotation() {
                           onChange={(e) => {
                             const updated = [...items];
                             updated[idx] = { ...updated[idx], discountType: e.target.value } as any;
+                            updated[idx] = capItemDiscountUI(updated[idx]);
                             setItems(updated);
                           }}
                           className="px-1 py-1 text-[10px] font-bold text-gray-500 bg-transparent border-r border-gray-200 focus:outline-none cursor-pointer"
@@ -1142,6 +1144,7 @@ export default function EditQuotation() {
                           onChange={(e) => {
                             const updated = [...items];
                             updated[idx] = { ...updated[idx], discountValue: e.target.value === "" ? undefined : Number(e.target.value) } as any;
+                            updated[idx] = capItemDiscountUI(updated[idx]);
                             setItems(updated);
                           }}
                           placeholder="0"
@@ -1399,7 +1402,7 @@ export default function EditQuotation() {
                     <input
                       type="text"
                       value={discountValue}
-                      onChange={(e) => setDiscountValue(sanitizeNumericInput(e.target.value))}
+                      onChange={(e) => setDiscountValue(capGlobalDiscountUI(sanitizeNumericInput(e.target.value), discountType))}
                       className="w-16 border border-gray-200 rounded px-2 py-1 text-[10px] font-bold font-mono text-right text-gray-700 focus:outline-none focus:border-indigo-500 bg-white"
                     />
                   </div>

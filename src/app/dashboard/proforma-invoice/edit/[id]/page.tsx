@@ -9,7 +9,7 @@ import { collection, getDocs, query, where, updateDoc, doc, getDoc } from "fireb
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
-import { sanitizeNumericInput } from "@/lib/sanitize";
+import { sanitizeNumericInput , capItemDiscountUI, capGlobalDiscountUI } from "@/lib/sanitize";
 import { validateDiscount } from "@/lib/validateDiscount";
 import { calculateInvoice, DiscountType, getItemBaseAmount } from "@/lib/calcInvoice";
 
@@ -194,6 +194,7 @@ export default function EditCreditNote() {
   const updateItem = (index: number, field: keyof Item, value: string | number) => {
     const updated = [...items];
     updated[index] = { ...updated[index], [field]: field === "name" || field === "hsn" || field === "description" ? value : sanitizeNumericInput(String(value)) };
+    updated[index] = capItemDiscountUI(updated[index]);
     setItems(updated);
   };
 
@@ -473,7 +474,8 @@ export default function EditCreditNote() {
                         onChange={(e) => {
                           const updated = [...items];
                           updated[idx] = { ...updated[idx], discountType: e.target.value } as any;
-                          setItems(updated);
+                            updated[idx] = capItemDiscountUI(updated[idx]);
+                            setItems(updated);
                         }}
                         className="px-1 py-1.5 text-[10px] font-bold text-gray-500 bg-transparent border-r border-gray-200 focus:outline-none cursor-pointer"
                       >
@@ -487,7 +489,8 @@ export default function EditCreditNote() {
                         onChange={(e) => {
                           const updated = [...items];
                           updated[idx] = { ...updated[idx], discountValue: e.target.value === "" ? undefined : Number(e.target.value) } as any;
-                          setItems(updated);
+                            updated[idx] = capItemDiscountUI(updated[idx]);
+                            setItems(updated);
                         }}
                         placeholder="0"
                         className="w-full px-2 py-1.5 text-xs focus:outline-none font-mono text-right bg-transparent"
@@ -556,7 +559,7 @@ export default function EditCreditNote() {
                 {showDiscountInput && (
                   <div className="flex items-center gap-1">
                     <select value={discountType} onChange={(e) => setDiscountType(e.target.value as any)} className="border border-gray-200 rounded px-1.5 py-1 text-[10px] font-semibold text-gray-600 focus:outline-none"><option value="flat">Flat (₹)</option><option value="percentage">%</option></select>
-                    <input type="text" value={discountValue} onChange={(e) => setDiscountValue(sanitizeNumericInput(e.target.value))} className="border border-gray-200 rounded px-2 py-1 text-[10px] font-bold text-right w-16 focus:outline-none focus:border-indigo-500" />
+                    <input type="text" value={discountValue} onChange={(e) => setDiscountValue(capGlobalDiscountUI(sanitizeNumericInput(e.target.value), discountType))} className="border border-gray-200 rounded px-2 py-1 text-[10px] font-bold text-right w-16 focus:outline-none focus:border-indigo-500" />
                   </div>
                 )}
               </div>

@@ -9,7 +9,7 @@ import { collection, getDocs, query, where, addDoc, doc, getDoc, updateDoc } fro
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
-import { sanitizeNumericInput } from "@/lib/sanitize";
+import { sanitizeNumericInput , capItemDiscountUI, capGlobalDiscountUI } from "@/lib/sanitize";
 import { validateDiscount } from "@/lib/validateDiscount";
 import { calculateInvoice, DiscountType, getItemBaseAmount } from "@/lib/calcInvoice";
 import { v4 as uuidv4 } from "uuid";
@@ -451,6 +451,7 @@ export default function EditAutomatedBill() {
       ...updated[index],
       [field]: field === "name" ? value : parsedValue,
     };
+    updated[index] = capItemDiscountUI(updated[index]);
     setItems(updated);
   };
 
@@ -1312,7 +1313,7 @@ export default function EditAutomatedBill() {
                     <input 
                       type="number"
                       value={discountValue}
-                      onChange={(e) => setDiscountValue(sanitizeNumericInput(e.target.value))}
+                      onChange={(e) => setDiscountValue(capGlobalDiscountUI(sanitizeNumericInput(e.target.value), discountType))}
                       className="border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none font-mono text-right w-16 bg-white"
                     />
                   </div>

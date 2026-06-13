@@ -46,3 +46,48 @@ export const cleanUndefined = (obj: any): any => {
   }
   return obj;
 };
+
+/**
+ * Ensures item-level discount does not exceed item value (qty * price) for flat,
+ * or 100 for percent. Also blocks negative values.
+ */
+export const capItemDiscountUI = (item: any): any => {
+  const qty = Number(item.qty) || 0;
+  const price = Number(item.price) || 0;
+  const dType = item.discountType || "percent";
+  
+  // Some modules use discountValue, some use discountPct.
+  let rawDiscount = 0;
+  if (item.discountValue !== undefined && item.discountValue !== "") {
+    rawDiscount = Number(item.discountValue);
+  } else if (item.discountPct !== undefined && item.discountPct !== "") {
+    rawDiscount = Number(item.discountPct);
+  } else if (item.discountRate !== undefined && item.discountRate !== "") { // For expenses/pos
+    rawDiscount = Number(item.discountRate);
+  }
+
+  let capped = rawDiscount < 0 ? 0 : rawDiscount;
+  if (dType === "percent" && capped > 100) capped = 100;
+  if (dType === "flat" && capped > (qty * price)) capped = (qty * price);
+
+  // We must return string or number based on original so we don't break input typing empty strings
+  const finalVal = capped === 0 && rawDiscount === 0 && (item.discountValue === "" || item.discountPct === "" || item.discountRate === "") ? "" : capped;
+
+  if (item.discountValue !== undefined) item.discountValue = finalVal;
+  if (item.discountPct !== undefined) item.discountPct = finalVal;
+  if (item.discountRate !== undefined) item.discountRate = finalVal;
+  
+  return item;
+};
+
+/**
+ * Ensures global invoice discount does not exceed 100% for percent types,
+ * and blocks negative values.
+ */
+export const capGlobalDiscountUI = (value: string | number, discountType: string): string | number => {
+  if (value === "") return "";
+  const numVal = Number(value);
+  if (isNaN(numVal) || numVal < 0) return 0;
+  if (discountType === "percent" && numVal > 100) return 100;
+  return value;
+};

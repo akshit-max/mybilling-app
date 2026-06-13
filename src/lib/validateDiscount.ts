@@ -11,6 +11,40 @@ export function validateDiscount(
     return { isValid: false, error: "Total payable amount cannot be negative." };
   }
 
+  const globalDiscountValue = Number(discountValue) || 0;
+  if (globalDiscountValue < 0) {
+    return { isValid: false, error: "Invoice discount value cannot be negative." };
+  }
+  if (discountType === "percent" && globalDiscountValue > 100) {
+    return { isValid: false, error: "Invoice percentage discount cannot exceed 100%." };
+  }
+
+  // 1. Prevent item-level discounts from exceeding limits
+  for (const item of items) {
+    const rawAmount = (Number(item.qty) || 0) * (Number(item.price) || 0);
+    const itemDiscountValue = Number(item.discountValue ?? item.discountPct ?? 0);
+
+    if (itemDiscountValue < 0) {
+      return { isValid: false, error: `Discount value for '${item.name}' cannot be negative.` };
+    }
+
+    if (item.discountType === "flat") {
+      if (itemDiscountValue > rawAmount) {
+        return { 
+          isValid: false, 
+          error: `Flat discount (₹${itemDiscountValue}) applied to '${item.name}' exceeds its total value (₹${rawAmount}).` 
+        };
+      }
+    } else if (item.discountType === "percent" || item.discountType === undefined || item.discountPct !== undefined) {
+      if (itemDiscountValue > 100) {
+        return { 
+          isValid: false, 
+          error: `Percentage discount for '${item.name}' cannot exceed 100%.` 
+        };
+      }
+    }
+  }
+
   if (!checkCostPrice) return { isValid: true, error: "" };
 
   // Mirror exact math from calcInvoice.ts

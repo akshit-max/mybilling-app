@@ -7,7 +7,7 @@ import { ArrowLeft, Settings, Plus, Trash2, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc } from "firebase/firestore";
 import toast from "react-hot-toast";
-import { sanitizeNumericInput } from "@/lib/sanitize";
+import { sanitizeNumericInput , capItemDiscountUI, capGlobalDiscountUI } from "@/lib/sanitize";
 
 type ExpenseItem = {
   id: string;
@@ -219,6 +219,7 @@ export default function EditExpensePage() {
       if (item.id !== id) return item;
       
       const updated = { ...item, [field]: value };
+      Object.assign(updated, capItemDiscountUI(updated));
       
       // Auto-calculate
       const basePrice = updated.quantity * updated.rate;

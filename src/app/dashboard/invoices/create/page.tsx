@@ -10,7 +10,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 import { useSession } from "@/context/SessionContext";
 
-import { sanitizeNumericInput, cleanUndefined } from "@/lib/sanitize";
+import { sanitizeNumericInput, cleanUndefined , capItemDiscountUI, capGlobalDiscountUI } from "@/lib/sanitize";
 import { validateDiscount } from "@/lib/validateDiscount";
 import { calculateInvoice, DiscountType, getItemBaseAmount } from "@/lib/calcInvoice";
 import { syncInventory } from "@/lib/inventorySync";
@@ -501,6 +501,7 @@ export default function CreateSalesInvoice() {
       ...updated[index],
       [field]: field === "name" ? value : parsedValue,
     };
+    updated[index] = capItemDiscountUI(updated[index]);
     setItems(updated);
   };
 
@@ -1132,6 +1133,7 @@ export default function CreateSalesInvoice() {
                           onChange={(e) => {
                             const updated = [...items];
                             updated[idx] = { ...updated[idx], discountType: e.target.value } as any;
+                            updated[idx] = capItemDiscountUI(updated[idx]);
                             setItems(updated);
                           }}
                           className="px-1 py-1 text-[10px] font-bold text-gray-500 bg-transparent border-r border-gray-200 focus:outline-none cursor-pointer"
@@ -1146,6 +1148,7 @@ export default function CreateSalesInvoice() {
                           onChange={(e) => {
                             const updated = [...items];
                             updated[idx] = { ...updated[idx], discountValue: e.target.value === "" ? undefined : Number(e.target.value) } as any;
+                            updated[idx] = capItemDiscountUI(updated[idx]);
                             setItems(updated);
                           }}
                           placeholder="0"
@@ -1486,7 +1489,7 @@ export default function CreateSalesInvoice() {
                       min="0"
                       value={discountValue}
                       onChange={(e) => {
-                        setDiscountValue(e.target.value === "" ? "" : sanitizeNumericInput(e.target.value));
+                        setDiscountValue(capGlobalDiscountUI(e.target.value === "" ? "" : sanitizeNumericInput(e.target.value), discountType));
                       }}
                       placeholder="e.g. 10"
                       className="border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none font-mono text-right w-20 bg-white"

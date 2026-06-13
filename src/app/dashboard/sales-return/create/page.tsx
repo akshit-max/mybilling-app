@@ -9,7 +9,7 @@ import { collection, getDocs, query, where, addDoc, doc, getDoc, updateDoc } fro
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
-import { sanitizeNumericInput } from "@/lib/sanitize";
+import { sanitizeNumericInput , capItemDiscountUI, capGlobalDiscountUI } from "@/lib/sanitize";
 import { validateDiscount } from "@/lib/validateDiscount";
 import { calculateInvoice, DiscountType, getItemBaseAmount } from "@/lib/calcInvoice";
 import { syncInventory } from "@/lib/inventorySync";
@@ -77,6 +77,7 @@ export default function CreateSalesReturn() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isFetchingInvoice, setIsFetchingInvoice] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [companyState, setCompanyState] = useState("");
   const [showAddCustomer, setShowAddCustomer] = useState(false);
@@ -483,6 +484,7 @@ export default function CreateSalesReturn() {
       ...updated[index],
       [field]: field === "name" ? value : parsedValue,
     };
+    updated[index] = capItemDiscountUI(updated[index]);
     setItems(updated);
   };
 
@@ -551,6 +553,65 @@ export default function CreateSalesReturn() {
       toast.error("Failed to quick add customer");
     } finally {
       setAddingCustomer(false);
+    }
+  };
+
+  const handleFetchInvoice = async () => {
+    if (!linkedInvoiceNumber.trim()) return;
+    setIsFetchingInvoice(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        toast.error("Not logged in");
+        return;
+      }
+      
+      const q = query(
+        collection(db, "invoices"), 
+        where("userId", "==", user.uid),
+        where("invoiceNumber", "==", linkedInvoiceNumber.trim())
+      );
+      const snap = await getDocs(q);
+      
+      if (snap.empty) {
+        toast.error("No invoice found with that number.");
+        setIsFetchingInvoice(false);
+        return;
+      }
+
+      const invData = snap.docs[0].data();
+      
+      if (invData.customerName) {
+        setCustomerName(invData.customerName);
+      }
+      if (invData.shippingAddress) {
+        setShippingAddress(invData.shippingAddress);
+      }
+      
+      if (invData.items && Array.isArray(invData.items)) {
+        const mappedItems = invData.items.map((i: any) => ({
+          productId: i.productId || "CUSTOM",
+          name: i.name || "",
+          qty: Number(i.qty) || 1,
+          price: Number(i.price) || 0,
+          gstRate: i.gstRate ?? 18,
+          hsn: i.hsn || "",
+          description: i.description || "",
+          discountType: i.discountType || "percent",
+          discountValue: i.discountValue || 0,
+          unit: i.unit || "PCS"
+        }));
+        setItems(mappedItems.length > 0 ? mappedItems : [{ name: "", qty: 1, price: 0, gstRate: 18, description: "" }]);
+      }
+      
+      if (invData.gstEnabled !== undefined) setGstEnabled(invData.gstEnabled);
+
+      toast.success("Invoice details loaded successfully! Review items to return.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to fetch invoice details.");
+    } finally {
+      setIsFetchingInvoice(false);
     }
   };
 
@@ -902,7 +963,7 @@ export default function CreateSalesReturn() {
               {/* Link to Invoice */}
               <div className="flex items-center gap-2">
                 <label className="text-[10px] font-bold text-gray-500 whitespace-nowrap">Link to Invoice:</label>
-                <div className="relative flex-1">
+                <div className="relative flex-1 flex gap-2">
                   <input
                     type="text"
                     placeholder="Search invoices"
@@ -910,6 +971,14 @@ export default function CreateSalesReturn() {
                     onChange={(e) => setLinkedInvoiceNumber(e.target.value)}
                     className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-gray-700 bg-gray-50"
                   />
+                  <button 
+                    type="button"
+                    onClick={handleFetchInvoice}
+                    disabled={!linkedInvoiceNumber.trim() || isFetchingInvoice}
+                    className="bg-indigo-600 text-white text-[10px] px-3 py-1.5 rounded font-bold uppercase disabled:opacity-50 transition-all hover:bg-indigo-700"
+                  >
+                    {isFetchingInvoice ? "..." : "Fetch"}
+                  </button>
                 </div>
               </div>
 
@@ -1141,6 +1210,7 @@ export default function CreateSalesReturn() {
                           onChange={(e) => {
                             const updated = [...items];
                             updated[idx] = { ...updated[idx], discountType: e.target.value } as any;
+                            updated[idx] = capItemDiscountUI(updated[idx]);
                             setItems(updated);
                           }}
                           className="px-1 py-1 text-[10px] font-bold text-gray-500 bg-transparent border-r border-gray-200 focus:outline-none cursor-pointer"
@@ -1155,6 +1225,7 @@ export default function CreateSalesReturn() {
                           onChange={(e) => {
                             const updated = [...items];
                             updated[idx] = { ...updated[idx], discountValue: e.target.value === "" ? undefined : Number(e.target.value) } as any;
+                            updated[idx] = capItemDiscountUI(updated[idx]);
                             setItems(updated);
                           }}
                           placeholder="0"
@@ -1488,7 +1559,7 @@ export default function CreateSalesReturn() {
                     <input 
                       type="number"
                       value={discountValue}
-                      onChange={(e) => setDiscountValue(sanitizeNumericInput(e.target.value))}
+                      onChange={(e) => setDiscountValue(capGlobalDiscountUI(sanitizeNumericInput(e.target.value), discountType))}
                       className="border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none font-mono text-right w-16 bg-white"
                     />
                   </div>

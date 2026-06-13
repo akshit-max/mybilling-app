@@ -9,7 +9,7 @@ import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc } fro
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
-import { sanitizeNumericInput } from "@/lib/sanitize";
+import { sanitizeNumericInput , capItemDiscountUI, capGlobalDiscountUI } from "@/lib/sanitize";
 import { calculateInvoice, DiscountType } from "@/lib/calcInvoice";
 import { v4 as uuidv4 } from "uuid";
 
@@ -165,6 +165,7 @@ export default function CreateCreditNote() {
   const updateItem = (index: number, field: keyof Item, value: string | number) => {
     const updated = [...items];
     updated[index] = { ...updated[index], [field]: field === "name" || field === "hsn" || field === "description" ? value : sanitizeNumericInput(String(value)) };
+    updated[index] = capItemDiscountUI(updated[index]);
     setItems(updated);
   };
 
@@ -494,7 +495,7 @@ export default function CreateCreditNote() {
                 {showDiscountInput && (
                   <div className="flex items-center gap-1">
                     <select value={discountType} onChange={(e) => setDiscountType(e.target.value as any)} className="border border-gray-200 rounded px-1.5 py-1 text-[10px] font-semibold text-gray-600 focus:outline-none"><option value="flat">Flat (₹)</option><option value="percentage">%</option></select>
-                    <input type="text" value={discountValue} onChange={(e) => setDiscountValue(sanitizeNumericInput(e.target.value))} className="border border-gray-200 rounded px-2 py-1 text-[10px] font-bold text-right w-16 focus:outline-none focus:border-indigo-500" />
+                    <input type="text" value={discountValue} onChange={(e) => setDiscountValue(capGlobalDiscountUI(sanitizeNumericInput(e.target.value), discountType))} className="border border-gray-200 rounded px-2 py-1 text-[10px] font-bold text-right w-16 focus:outline-none focus:border-indigo-500" />
                   </div>
                 )}
               </div>

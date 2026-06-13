@@ -86,10 +86,13 @@ export default function EditPaymentOut() {
     if (!user) return toast.error("Authentication required");
 
     try {
-      setSaving(true);
       const rcv = Number(amountPaid || 0);
 
-      // 1. Find and Revert old transaction (add back since it was paid out)
+      // --- PRE-SAVE BALANCE VALIDATION ---
+      const isCash = paymentMode === "Cash";
+      let requiredBalance = rcv;
+
+      // Determine net impact by fetching the old transaction
       const tq = query(
         collection(db, "cashBankTransactions"),
         where("userId", "==", user.uid),
@@ -98,6 +101,39 @@ export default function EditPaymentOut() {
       );
       const tSnap = await getDocs(tq);
       
+      if (!tSnap.empty) {
+        const oldTxn = tSnap.docs[0].data();
+        const oldAccountId = oldTxn.accountId; // "cash" or bank id
+        const newAccountId = isCash ? "cash" : selectedBankId;
+        
+        if (oldAccountId === newAccountId) {
+          requiredBalance = rcv - (oldTxn.paid || 0);
+        }
+      }
+
+      if (requiredBalance > 0) {
+        if (isCash) {
+          const sRef = doc(db, "settings", user.uid);
+          const sSnap = await getDoc(sRef);
+          const currentCash = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+          if (requiredBalance > currentCash) {
+            return toast.error(`Insufficient balance in Cash. Available: ₹${currentCash}`);
+          }
+        } else if (selectedBankId) {
+          const bRef = doc(db, "bankAccounts", selectedBankId);
+          const bSnap = await getDoc(bRef);
+          const currentBank = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+          if (requiredBalance > currentBank) {
+            const bankName = bSnap.exists() ? (bSnap.data().name || "Bank") : "Bank";
+            return toast.error(`Insufficient balance in ${bankName}. Available: ₹${currentBank}`);
+          }
+        }
+      }
+      // --- END VALIDATION ---
+
+      setSaving(true);
+
+      // 1. Find and Revert old transaction (add back since it was paid out)
       if (!tSnap.empty) {
         const oldTxnDoc = tSnap.docs[0];
         const oldTxn = oldTxnDoc.data();
@@ -122,7 +158,6 @@ export default function EditPaymentOut() {
       }
 
       // 2. Apply new transaction balance (deduct)
-      const isCash = paymentMode === "Cash";
       let newBalance = 0;
       if (isCash) {
         const sRef = doc(db, "settings", user.uid);

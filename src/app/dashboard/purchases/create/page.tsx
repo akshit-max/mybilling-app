@@ -9,7 +9,7 @@ import { collection, getDocs, query, where, addDoc, doc, getDoc, updateDoc } fro
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
 
-import { sanitizeNumericInput } from "@/lib/sanitize";
+import { sanitizeNumericInput , capItemDiscountUI, capGlobalDiscountUI } from "@/lib/sanitize";
 import { calculateInvoice, DiscountType, getItemBaseAmount } from "@/lib/calcInvoice";
 import { syncInventory } from "@/lib/inventorySync";
 import { v4 as uuidv4 } from "uuid";
@@ -455,6 +455,7 @@ export default function CreateSalesInvoice() {
       ...updated[index],
       [field]: field === "name" ? value : parsedValue,
     };
+    updated[index] = capItemDiscountUI(updated[index]);
     setItems(updated);
   };
 
@@ -537,6 +538,38 @@ export default function CreateSalesInvoice() {
 
     const user = auth.currentUser;
     if (!user) return toast.error("Access denied. Please authenticate.");
+
+    // --- PRE-SAVE BALANCE VALIDATION ---
+    const amountPaidNum = Number(amountPaid);
+    if (amountPaidNum > 0) {
+      const isCash = paymentMode === "Cash";
+      if (!isCash && !selectedBankId) {
+        return toast.error("Please select a bank account for payment");
+      }
+
+      try {
+        if (isCash) {
+          const sRef = doc(db, "settings", user.uid);
+          const sSnap = await getDoc(sRef);
+          const currentCash = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+          if (amountPaidNum > currentCash) {
+            return toast.error(`Insufficient balance in Cash. Available: ₹${currentCash}`);
+          }
+        } else if (selectedBankId) {
+          const bRef = doc(db, "bankAccounts", selectedBankId);
+          const bSnap = await getDoc(bRef);
+          const currentBank = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+          if (amountPaidNum > currentBank) {
+            const bankName = bSnap.exists() ? (bSnap.data().name || "Bank") : "Bank";
+            return toast.error(`Insufficient balance in ${bankName}. Available: ₹${currentBank}`);
+          }
+        }
+      } catch (err) {
+        console.error("Balance validation failed:", err);
+        return toast.error("Failed to validate account balance");
+      }
+    }
+    // --- END VALIDATION ---
 
     try {
       setSaving(true);
@@ -1037,6 +1070,7 @@ export default function CreateSalesInvoice() {
                           onChange={(e) => {
                             const updated = [...items];
                             updated[idx] = { ...updated[idx], discountType: e.target.value } as any;
+                            updated[idx] = capItemDiscountUI(updated[idx]);
                             setItems(updated);
                           }}
                           className="px-1 py-1 text-[10px] font-bold text-gray-500 bg-transparent border-r border-gray-200 focus:outline-none cursor-pointer"
@@ -1051,6 +1085,7 @@ export default function CreateSalesInvoice() {
                           onChange={(e) => {
                             const updated = [...items];
                             updated[idx] = { ...updated[idx], discountValue: e.target.value === "" ? undefined : Number(e.target.value) } as any;
+                            updated[idx] = capItemDiscountUI(updated[idx]);
                             setItems(updated);
                           }}
                           placeholder="0"
@@ -1384,7 +1419,7 @@ export default function CreateSalesInvoice() {
                     <input 
                       type="number"
                       value={discountValue}
-                      onChange={(e) => setDiscountValue(sanitizeNumericInput(e.target.value))}
+                      onChange={(e) => setDiscountValue(capGlobalDiscountUI(sanitizeNumericInput(e.target.value), discountType))}
                       className="border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none font-mono text-right w-16 bg-white"
                     />
                   </div>
