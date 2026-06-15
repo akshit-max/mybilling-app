@@ -168,7 +168,7 @@ export default function ReturnRemindersPage() {
     <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
       
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white p-6 rounded-2xl border border-brand-primary/10 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total Pending</p>
@@ -185,15 +185,6 @@ export default function ReturnRemindersPage() {
           </div>
           <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center text-red-500">
             <AlertCircle size={24} />
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-2xl border border-brand-primary/10 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total Collected</p>
-            <p className="text-2xl font-bold text-green-600">{collectedCount}</p>
-          </div>
-          <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-500">
-            <CheckCircle2 size={24} />
           </div>
         </div>
       </div>

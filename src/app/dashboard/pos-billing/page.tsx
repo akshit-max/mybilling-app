@@ -5,12 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
   ChevronLeft, PlayCircle, Settings, X, Plus, Search, 
-  PackageOpen, Maximize, Edit3, ChevronDown, Trash2, Printer
+  PackageOpen, Maximize, Edit3, ChevronDown, Trash2, Printer, ScanBarcode
 } from "lucide-react";
+import dynamic from "next/dynamic";
+const BarcodeScanner = dynamic(() => import("react-qr-barcode-scanner"), { ssr: false });
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, increment, getDocsFromCache } from "firebase/firestore";
+import { collection, getDocs, query, where, addDoc, doc, updateDoc, setDoc, getDoc, increment, getDocsFromCache, runTransaction } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
+import { calculateInventoryUpdates } from "@/lib/inventorySync";
 
 import { sanitizeNumericInput , capItemDiscountUI, capGlobalDiscountUI } from "@/lib/sanitize";
 import { validateDiscount } from "@/lib/validateDiscount";
@@ -93,6 +96,7 @@ export default function POSBillingPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   // Print Receipt State
   const [printData, setPrintData] = useState<any>(null);
@@ -173,6 +177,53 @@ export default function POSBillingPage() {
     setShowResults(true);
   }, [searchQuery, products]);
 
+  // Global Hardware Barcode Scanner Listener
+  const barcodeBuffer = useRef("");
+  const barcodeTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is inside an input field to avoid interference
+      if (
+        e.target instanceof HTMLInputElement || 
+        e.target instanceof HTMLTextAreaElement || 
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+
+      if (e.key === "Enter") {
+        if (barcodeBuffer.current.length > 2) {
+          e.preventDefault();
+          const scannedCode = barcodeBuffer.current.trim();
+          const p = products.find(prod => (prod.barcode || "").toLowerCase() === scannedCode.toLowerCase());
+          
+          if (p) {
+            handleAddItem(p);
+            toast.success(`Scanned: ${p.name}`);
+            setSearchQuery("");
+            setShowResults(false);
+          } else {
+            toast.error(`Barcode not found: ${scannedCode}`);
+          }
+          barcodeBuffer.current = "";
+        }
+      } else if (e.key.length === 1) {
+        barcodeBuffer.current += e.key;
+        if (barcodeTimeout.current) clearTimeout(barcodeTimeout.current);
+        barcodeTimeout.current = setTimeout(() => {
+          barcodeBuffer.current = ""; // Clear buffer if human typing
+        }, 50); // Scanners fire keystrokes very fast (<50ms)
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (barcodeTimeout.current) clearTimeout(barcodeTimeout.current);
+    };
+  }, [products, activeBill, bills]); // Depend on current state so handleAddItem uses fresh data
+
   const handleAddItem = (prod: any) => {
     const newItems = [...activeBill.items];
     const existingIdx = newItems.findIndex(i => i.productId === prod.id);
@@ -207,6 +258,20 @@ export default function POSBillingPage() {
 
   const deleteItem = (itemId: string) => {
     updateActiveBill({ items: activeBill.items.filter(i => i.id !== itemId) });
+  };
+
+  const handleScanSuccess = (err: any, result: any) => {
+    if (result) {
+      const scannedCode = result.text.trim();
+      const p = products.find(prod => (prod.barcode || "").toLowerCase() === scannedCode.toLowerCase());
+      if (p) {
+        handleAddItem(p);
+        toast.success(`Scanned: ${p.name}`);
+      } else {
+        toast.error(`Barcode not found: ${scannedCode}`);
+      }
+      setShowScanner(false);
+    }
   };
 
   // Calculations
@@ -364,51 +429,89 @@ export default function POSBillingPage() {
         toast.success("POS Bill saved offline draft ✅");
 
       } else {
-        // --- ONLINE SAVING ---
-        // Handle Stock deduction (offline safe using increment)
-        for (const item of activeBill.items) {
-            if (item.productId) {
-              const ref = doc(db, "products", item.productId);
-              const qtyNum = Number(item.qty) || 0;
-              if (qtyNum > 0) {
-                await updateDoc(ref, { stock: increment(-qtyNum) }).catch(() => {});
-              }
-            }
+        // --- ONLINE SAVING (STRICT ATOMIC TRANSACTION) ---
+        let mainGodownId: string | null = null;
+        try {
+          const godownsQ = query(collection(db, "godowns"), where("userId", "==", user.uid), where("isMain", "==", true));
+          const godownsSnap = await getDocs(godownsQ);
+          if (!godownsSnap.empty) mainGodownId = godownsSnap.docs[0].id;
+        } catch (e) {
+          console.error("Failed to fetch godowns", e);
         }
 
-        // Save Invoice
-        await addDoc(collection(db, "invoices"), invoiceData);
+        const invoiceRef = doc(collection(db, "invoices"));
+        const txnRef = doc(collection(db, "cashBankTransactions"));
+        const isCash = activeBill.paymentMode === "Cash";
+        const ledgerRef = isCash 
+          ? doc(db, "settings", user.uid) 
+          : doc(db, "bankAccounts", activeBill.selectedBankId || "bank");
 
-        // Ledger sync (offline safe using increment)
-        if (amtReceivedNum > 0) {
-          const isCash = activeBill.paymentMode === "Cash";
-          let newBalance = amtReceivedNum;
-          if (isCash) {
-             const sRef = doc(db, "settings", user.uid);
-             await updateDoc(sRef, { cashInHand: increment(amtReceivedNum) }).catch(() => {});
-             // For offline transactions, balanceAfter is approximate without a blocking fetch
-          } else if (activeBill.selectedBankId) {
-             const bRef = doc(db, "bankAccounts", activeBill.selectedBankId);
-             await updateDoc(bRef, { balance: increment(amtReceivedNum) }).catch(() => {});
-             const b = bankAccounts.find(x => x.id === activeBill.selectedBankId);
-             newBalance = (b ? Number(b.balance || 0) : 0) + amtReceivedNum;
+        await runTransaction(db, async (t) => {
+          // --- 1. READ PHASE ---
+          const productSnaps = await Promise.all(
+            activeBill.items.map(item => t.get(doc(db, "products", item.productId)))
+          );
+          
+          let ledgerSnap: any = null;
+          if (amtReceivedNum > 0) {
+            ledgerSnap = await t.get(ledgerRef);
           }
 
-          await addDoc(collection(db, "cashBankTransactions"), {
-            userId: user.uid,
-            accountId: isCash ? "cash" : (activeBill.selectedBankId || "bank"),
-            type: "Sales Invoice",
-            txnNo: invoiceNumber,
-            date: invoiceDate,
-            party: customer,
-            mode: isCash ? "Cash" : "Bank",
-            paid: 0,
-            received: amtReceivedNum,
-            balanceAfter: newBalance,
-            remarks: `Received against POS Bill #${invoiceNumber}`,
-            createdAt: new Date()
+          // --- 2. CALCULATION PHASE ---
+          const currentLedgerBalance = ledgerSnap?.exists() 
+            ? Number(ledgerSnap.data()[isCash ? 'cashInHand' : 'balance'] || 0) 
+            : 0;
+          const newLedgerBalance = currentLedgerBalance + amtReceivedNum;
+
+          const productUpdates = productSnaps.map((pSnap, idx) => {
+             const item = activeBill.items[idx];
+             const qtyNum = Number(item.qty) || 0;
+             if (!pSnap.exists() || qtyNum <= 0) return null;
+             
+             const pData = pSnap.data();
+             if (pData.enableBatching && pData.batches !== undefined) {
+                 return calculateInventoryUpdates(pData, { quantity: qtyNum }, "DECREASE", mainGodownId);
+             } else {
+                 const updates: any = { stock: increment(-qtyNum) };
+                 if (mainGodownId && pData.stockByGodown) {
+                     updates[`stockByGodown.${mainGodownId}`] = increment(-qtyNum);
+                 }
+                 return updates;
+             }
           });
-        }
+
+          // --- 3. WRITE PHASE ---
+          // Write Stock
+          productSnaps.forEach((pSnap, idx) => {
+             const updates = productUpdates[idx];
+             if (updates && pSnap.exists()) {
+                 t.update(pSnap.ref, updates);
+             }
+          });
+
+          // Write Invoice
+          t.set(invoiceRef, { ...invoiceData, id: invoiceRef.id });
+
+          // Write Ledgers
+          if (amtReceivedNum > 0) {
+             t.set(ledgerRef, { [isCash ? 'cashInHand' : 'balance']: newLedgerBalance }, { merge: true });
+             
+             t.set(txnRef, {
+               userId: user.uid,
+               accountId: isCash ? "cash" : (activeBill.selectedBankId || "bank"),
+               type: "Sales Invoice",
+               txnNo: invoiceNumber,
+               date: invoiceDate,
+               party: customer,
+               mode: isCash ? "Cash" : "Bank",
+               paid: 0,
+               received: amtReceivedNum,
+               balanceAfter: newLedgerBalance,
+               remarks: `Received against POS Bill #${invoiceNumber}`,
+               createdAt: new Date()
+             });
+          }
+        });
 
         toast.success("Bill Saved Successfully");
       }
@@ -551,9 +654,41 @@ export default function POSBillingPage() {
                   type="text" 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && searchQuery.trim()) {
+                      const scannedCode = searchQuery.trim().toLowerCase();
+                      
+                      // 1. Try exact barcode or itemCode match
+                      const exactMatch = products.find(prod => 
+                        (prod.barcode || "").toLowerCase() === scannedCode || 
+                        (prod.itemCode || "").toLowerCase() === scannedCode
+                      );
+                      
+                      if (exactMatch) {
+                        handleAddItem(exactMatch);
+                        toast.success(`Added: ${exactMatch.name}`);
+                        return;
+                      }
+                      
+                      // 2. Fallback to first autocomplete result if exactly 1 option
+                      if (searchResults.length === 1) {
+                        handleAddItem(searchResults[0]);
+                        toast.success(`Added: ${searchResults[0].name}`);
+                        return;
+                      }
+
+                      // 3. Not found
+                      if (searchResults.length === 0) {
+                         toast.error(`No item found for: ${searchQuery}`);
+                      }
+                    }
+                  }}
                   placeholder="Search by Item Name/Item Code or Scan Barcode"
                   className="w-full border border-yellow-300 rounded-r py-2.5 pl-3 pr-10 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 bg-yellow-50/30"
                 />
+                <button onClick={() => setShowScanner(true)} className="absolute right-10 top-1/2 -translate-y-1/2 p-1 bg-white hover:bg-gray-100 border border-gray-200 rounded flex items-center justify-center text-gray-600 transition-colors">
+                  <ScanBarcode size={14} className="text-indigo-500" />
+                </button>
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-indigo-400 px-1.5 py-0.5 rounded">
                   [F1]
                 </div>
@@ -1080,6 +1215,46 @@ export default function POSBillingPage() {
             <p className="text-xs">Please visit again</p>
           </div>
           
+        </div>
+      )}
+
+      {/* WEBCAM BARCODE SCANNER MODAL */}
+      {showScanner && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col animate-fade-in">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">Webcam Barcode Scanner</span>
+              <button 
+                onClick={() => setShowScanner(false)}
+                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6 bg-black relative flex flex-col items-center justify-center">
+              <BarcodeScanner 
+                onUpdate={handleScanSuccess} 
+                width="100%" 
+                height="100%" 
+              />
+              <div className="absolute inset-0 border-2 border-indigo-500/50 m-12 rounded-lg pointer-events-none"></div>
+            </div>
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex flex-col items-center">
+              <div className="flex items-center gap-2 text-indigo-600 mb-2">
+                <ScanBarcode size={18} className="animate-pulse" />
+                <span className="text-xs font-bold uppercase tracking-wider">Scanning Active</span>
+              </div>
+              <p className="text-[10px] text-gray-500 text-center">
+                Hold your product's barcode steadily in front of the camera. The system will automatically detect and add the item.
+              </p>
+              <button 
+                onClick={() => setShowScanner(false)}
+                className="mt-4 px-6 py-2 bg-white border border-gray-200 text-gray-700 text-[11px] font-bold rounded shadow-sm hover:bg-gray-50 transition-colors w-full"
+              >
+                Cancel Scan
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

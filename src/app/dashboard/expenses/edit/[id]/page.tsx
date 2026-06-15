@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Settings, Plus, Trash2, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, runTransaction } from "firebase/firestore";
 import toast from "react-hot-toast";
 import { sanitizeNumericInput , capItemDiscountUI, capGlobalDiscountUI } from "@/lib/sanitize";
 
@@ -46,6 +46,9 @@ export default function EditExpensePage() {
   const [notes, setNotes] = useState("");
   const [manualAmount, setManualAmount] = useState<string | number>("");
   
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState("");
+  
   const [items, setItems] = useState<ExpenseItem[]>([]);
 
   // Add Party State
@@ -67,6 +70,12 @@ export default function EditExpensePage() {
         const q = query(collection(db, "customers"), where("userId", "==", user.uid));
         const partiesSnap = await getDocs(q);
         setParties(partiesSnap.docs.map(d => ({ id: d.id, name: d.data().name || "Unknown" })));
+
+        // Fetch Bank Accounts
+        const bq = query(collection(db, "bankAccounts"), where("userId", "==", user.uid));
+        const bsnap = await getDocs(bq);
+        const bList = bsnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setBankAccounts(bList);
 
         // Fetch Expense
         const docRef = doc(db, "expenses", id);
@@ -90,6 +99,12 @@ export default function EditExpensePage() {
           setPaymentMode(data.paymentMode || "Select");
           setNotes(data.notes || "");
           setManualAmount(data.amount || "");
+          
+          if (data.paymentMode !== "Cash" && data.paymentMode !== "Select") {
+             setSelectedBankId(data.selectedBankId || (bList.length > 0 ? bList[0].id : ""));
+          } else {
+             if (bList.length > 0) setSelectedBankId(bList[0].id);
+          }
           
           // Map existing items to ensure new properties exist
           const loadedItems = (data.items || []).map((item: any) => ({
@@ -176,6 +191,9 @@ export default function EditExpensePage() {
       setSaving(true);
       const selectedParty = parties.find(p => p.id === partyId);
       
+      const user = auth.currentUser;
+      if (!user) throw new Error("Not authenticated");
+
       const expenseData = {
         withGst,
         partyId,
@@ -184,7 +202,6 @@ export default function EditExpensePage() {
         expenseNumber,
         originalInvoiceNumber,
         date,
-        paymentMode: paymentMode === "Select" ? "Cash" : paymentMode,
         notes,
         amount: finalAmount,
         subTotal,
@@ -193,14 +210,143 @@ export default function EditExpensePage() {
         updatedAt: new Date()
       };
 
-      await updateDoc(doc(db, "expenses", id), expenseData);
+      await runTransaction(db, async (t) => {
+          // --- 1. DEFINE REFERENCES ---
+          const expRef = doc(db, "expenses", id);
+          
+          const expSnap = await t.get(expRef);
+          if (!expSnap.exists()) throw new Error("Expense not found");
+          
+          const oldExp = expSnap.data();
+          const oldAmount = Number(oldExp.amount || 0);
+          const oldPaymentMode = oldExp.paymentMode || "Cash";
+          const oldBankId = oldExp.selectedBankId || "";
+
+          let oldLedgerRef: any = null;
+          let oldLedgerSnap: any = null;
+          
+          const newPaymentMode = paymentMode === "Select" ? "Cash" : paymentMode;
+          const isNewCash = newPaymentMode === "Cash";
+          let finalLedgerRef: any = null;
+          let finalLedgerSnap: any = null;
+
+          // Figure out old ref
+          if (oldAmount > 0 && oldPaymentMode !== "Select") {
+             const isOldCash = oldPaymentMode === "Cash";
+             if (isOldCash || oldBankId) {
+                 oldLedgerRef = isOldCash ? doc(db, "settings", user.uid) : doc(db, "bankAccounts", oldBankId);
+             }
+          }
+
+          // Figure out new ref
+          if (finalAmount > 0 && newPaymentMode !== "Select") {
+             if (!isNewCash && !selectedBankId) throw new Error("Please select a bank account");
+             finalLedgerRef = isNewCash ? doc(db, "settings", user.uid) : doc(db, "bankAccounts", selectedBankId);
+          }
+
+          // --- 2. EXECUTE ALL REMAINING READS ---
+          if (oldLedgerRef) {
+             oldLedgerSnap = await t.get(oldLedgerRef);
+          }
+          
+          if (finalLedgerRef) {
+             // Avoid double reading the exact same document
+             if (oldLedgerRef && oldLedgerRef.path === finalLedgerRef.path) {
+                finalLedgerSnap = oldLedgerSnap;
+             } else {
+                finalLedgerSnap = await t.get(finalLedgerRef);
+             }
+          }
+
+          // --- 3. PERFORM CALCULATIONS ---
+          let oldBalance = 0;
+          let currentBalanceForNew = 0;
+          let revertedBalance = 0;
+
+          if (oldLedgerSnap) {
+             const isOldCash = oldPaymentMode === "Cash";
+             oldBalance = oldLedgerSnap.exists() ? Number((oldLedgerSnap.data() as any)[isOldCash ? 'cashInHand' : 'balance'] || 0) : 0;
+             revertedBalance = oldBalance + oldAmount;
+          }
+
+          if (finalLedgerSnap) {
+             const isNewCash = newPaymentMode === "Cash";
+             // Base balance from DB
+             currentBalanceForNew = finalLedgerSnap.exists() ? Number((finalLedgerSnap.data() as any)[isNewCash ? 'cashInHand' : 'balance'] || 0) : 0;
+             
+             // CRITICAL: If the new ledger is the EXACT SAME as the old ledger, 
+             // its true starting balance is the `revertedBalance` we just calculated!
+             if (oldLedgerRef && oldLedgerRef.path === finalLedgerRef.path) {
+                 currentBalanceForNew = revertedBalance;
+             }
+
+             if (currentBalanceForNew < finalAmount) {
+                throw new Error(`Insufficient funds in ${isNewCash ? 'Cash' : 'Bank'} account. Available: ${currentBalanceForNew.toFixed(2)}`);
+             }
+          }
+
+          // --- 4. EXECUTE ALL WRITES (NO READS PAST THIS POINT) ---
+          
+          // Revert Old
+          if (oldLedgerRef) {
+             const isOldCash = oldPaymentMode === "Cash";
+             t.set(oldLedgerRef, { [isOldCash ? 'cashInHand' : 'balance']: revertedBalance }, { merge: true });
+             
+             const txnRef = doc(collection(db, "cashBankTransactions"));
+             t.set(txnRef, {
+                userId: user.uid,
+                accountId: isOldCash ? "cash" : (oldBankId || "bank"),
+                type: "Expense Reversal",
+                txnNo: expenseNumber,
+                date: date,
+                party: selectedParty ? selectedParty.name : "Unknown",
+                mode: isOldCash ? "Cash" : "Bank",
+                paid: 0,
+                received: oldAmount,
+                balanceAfter: revertedBalance,
+                remarks: `Expense Edit Reversal: ${category}`,
+                createdAt: new Date()
+             });
+          }
+
+          // Apply New
+          if (finalLedgerRef) {
+             const isNewCash = newPaymentMode === "Cash";
+             const newBalance = currentBalanceForNew - finalAmount;
+             
+             t.set(finalLedgerRef, { [isNewCash ? 'cashInHand' : 'balance']: newBalance }, { merge: true });
+
+             const txnRef2 = doc(collection(db, "cashBankTransactions"));
+             t.set(txnRef2, {
+                userId: user.uid,
+                accountId: isNewCash ? "cash" : (selectedBankId || "bank"),
+                type: "Expense",
+                txnNo: expenseNumber,
+                date: date,
+                party: selectedParty ? selectedParty.name : "Unknown",
+                mode: isNewCash ? "Cash" : "Bank",
+                paid: finalAmount,
+                received: 0,
+                balanceAfter: newBalance,
+                remarks: `Expense Edited: ${category}`,
+                createdAt: new Date()
+             });
+          }
+
+          // Update Expense Record
+          t.update(expRef, {
+            ...expenseData,
+            paymentMode: newPaymentMode,
+            selectedBankId: isNewCash ? "" : selectedBankId
+          });
+      });
       
       toast.success("Expense updated successfully!");
       router.push("/dashboard/expenses");
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to update expense");
+      toast.error(err.message || "Failed to update expense");
     } finally {
       setSaving(false);
     }
@@ -403,6 +549,22 @@ export default function EditExpensePage() {
                 <option value="UPI">UPI</option>
               </select>
             </div>
+
+            {paymentMode !== "Cash" && paymentMode !== "Select" && (
+              <div>
+                <label className="block text-[10px] text-gray-500 font-semibold mb-1">Select Bank Account <span className="text-red-500">*</span></label>
+                <select 
+                  value={selectedBankId}
+                  onChange={(e) => setSelectedBankId(e.target.value)}
+                  className="w-full border border-gray-200 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 bg-white text-gray-700"
+                >
+                  {bankAccounts.length === 0 && <option value="">No bank accounts found</option>}
+                  {bankAccounts.map(b => (
+                    <option key={b.id} value={b.id}>{b.bankName} ({b.accountNumber})</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <label className="block text-[10px] text-gray-500 font-semibold mb-1">Note</label>

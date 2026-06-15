@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Settings, Plus, Trash2, X } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, where, doc, updateDoc, getDoc, runTransaction } from "firebase/firestore";
 import toast from "react-hot-toast";
 import { sanitizeNumericInput , capItemDiscountUI, capGlobalDiscountUI } from "@/lib/sanitize";
 import { useSession } from "@/context/SessionContext";
@@ -46,6 +46,9 @@ export default function CreateExpensePage() {
   const [notes, setNotes] = useState("");
   const [manualAmount, setManualAmount] = useState<string | number>("");
   
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState("");
+  
   const [items, setItems] = useState<ExpenseItem[]>([]);
 
   // Add Party State
@@ -66,6 +69,13 @@ export default function CreateExpensePage() {
         const q = query(collection(db, "customers"), where("userId", "==", user.uid));
         const snap = await getDocs(q);
         setParties(snap.docs.map(doc => ({ id: doc.id, name: doc.data().name || "Unknown" })));
+
+        // Fetch Bank Accounts
+        const bq = query(collection(db, "bankAccounts"), where("userId", "==", user.uid));
+        const bsnap = await getDocs(bq);
+        const bList = bsnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setBankAccounts(bList);
+        if (bList.length > 0) setSelectedBankId(bList[0].id);
       } catch (err) {
         console.error(err);
       }
@@ -134,6 +144,7 @@ export default function CreateExpensePage() {
       setSaving(true);
       const selectedParty = parties.find(p => p.id === partyId);
       
+      const finalPaymentMode = paymentMode === "Select" ? "Cash" : paymentMode;
       const expenseData = {
         userId: user.uid,
         withGst,
@@ -143,24 +154,77 @@ export default function CreateExpensePage() {
         expenseNumber,
         originalInvoiceNumber,
         date,
-        paymentMode: paymentMode === "Select" ? "Cash" : paymentMode,
+        paymentMode: finalPaymentMode,
         notes,
         amount: finalAmount,
         subTotal,
         totalTax: withGst ? totalTax : 0,
         items: items,
         createdAt: new Date(),
-        createdBy: activeProfile.name
+        createdBy: activeProfile.name,
+        selectedBankId: finalPaymentMode !== "Cash" ? selectedBankId : ""
       };
 
-      await addDoc(collection(db, "expenses"), expenseData);
+      await runTransaction(db, async (transaction) => {
+        let currentBalance = 0;
+        let ledgerRef: any = null;
+        const isCash = finalPaymentMode === "Cash";
+
+        // 1. Check & Deduct Balance
+        if (finalAmount > 0 && finalPaymentMode !== "Select") {
+          if (isCash) {
+            ledgerRef = doc(db, "settings", user.uid);
+            const sSnap = await transaction.get(ledgerRef);
+            currentBalance = sSnap.exists() ? Number((sSnap.data() as any).cashInHand || 0) : 0;
+          } else if (selectedBankId) {
+            ledgerRef = doc(db, "bankAccounts", selectedBankId);
+            const bSnap = await transaction.get(ledgerRef);
+            currentBalance = bSnap.exists() ? Number((bSnap.data() as any).balance || 0) : 0;
+          } else {
+             throw new Error("Payment mode is Bank but no bank account selected");
+          }
+
+          if (currentBalance < finalAmount) {
+             throw new Error(`Insufficient funds in ${isCash ? 'Cash' : 'Bank'} account. Available: ${currentBalance.toFixed(2)}`);
+          }
+
+          const newBalance = currentBalance - finalAmount;
+          
+          if (isCash) {
+            transaction.set(ledgerRef, { cashInHand: newBalance }, { merge: true });
+          } else {
+            transaction.set(ledgerRef, { balance: newBalance }, { merge: true });
+          }
+
+          // 2. Add CashBankTransaction Entry
+          const txnRef = doc(collection(db, "cashBankTransactions"));
+          transaction.set(txnRef, {
+            userId: user.uid,
+            accountId: isCash ? "cash" : (selectedBankId || "bank"),
+            type: "Expense",
+            txnNo: expenseNumber,
+            date: date,
+            party: selectedParty ? selectedParty.name : "Unknown",
+            mode: isCash ? "Cash" : "Bank",
+            paid: finalAmount,
+            received: 0,
+            balanceAfter: newBalance,
+            remarks: `Expense: ${category}`,
+            createdAt: new Date()
+          });
+        }
+
+        // 3. Add Expense Record
+        const expenseRef = doc(collection(db, "expenses"));
+        transaction.set(expenseRef, expenseData);
+      });
       
       toast.success("Expense saved successfully!");
       router.push("/dashboard/expenses");
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to save expense");
+      toast.error(err.message || "Failed to save expense");
     } finally {
       setSaving(false);
     }
@@ -354,11 +418,27 @@ export default function CreateExpensePage() {
               >
                 <option value="Select">Select</option>
                 <option value="Cash">Cash</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Credit Card">Credit Card</option>
+                <option value="Bank">Bank</option>
                 <option value="UPI">UPI</option>
+                <option value="Cheque">Cheque</option>
               </select>
             </div>
+
+            {paymentMode !== "Cash" && paymentMode !== "Select" && (
+              <div>
+                <label className="block text-[10px] text-gray-500 font-semibold mb-1">Select Bank Account</label>
+                <select 
+                  value={selectedBankId}
+                  onChange={(e) => setSelectedBankId(e.target.value)}
+                  className="w-full border border-gray-200 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 bg-white text-gray-700 cursor-pointer"
+                >
+                  <option value="">Select Bank...</option>
+                  {bankAccounts.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <label className="block text-[10px] text-gray-500 font-semibold mb-1">Note</label>

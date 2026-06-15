@@ -727,7 +727,7 @@ export default function CreateSalesInvoice() {
       }
 
       // --- ONLINE SAVING ---
-      const { doc, updateDoc, increment, addDoc, collection, getDoc } = await import("firebase/firestore");
+      const { doc, updateDoc, setDoc, increment, addDoc, collection, getDoc } = await import("firebase/firestore");
       
       if (invoiceType === "invoice") {
         for (const item of validItems) {
@@ -751,13 +751,13 @@ export default function CreateSalesInvoice() {
             const sSnap = await getDoc(sRef);
             const currentCash = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
             newBalance = currentCash + amountRec;
-            await updateDoc(sRef, { cashInHand: newBalance });
+            await setDoc(sRef, { cashInHand: newBalance }, { merge: true });
           } else if (selectedBankId) {
             const bRef = doc(db, "bankAccounts", selectedBankId);
             const bSnap = await getDoc(bRef);
             const currentBank = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
             newBalance = currentBank + amountRec;
-            await updateDoc(bRef, { balance: newBalance });
+            await setDoc(bRef, { balance: newBalance }, { merge: true });
           }
 
           await addDoc(collection(db, "cashBankTransactions"), {
