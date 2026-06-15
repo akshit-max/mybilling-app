@@ -618,6 +618,10 @@ export default function CreateSalesInvoice() {
       return toast.error("Discount cannot exceed subtotal");
     }
 
+    if (Number(amountReceived) > finalTotal) {
+      return toast.error("Received amount cannot exceed the bill total");
+    }
+
     const user = auth.currentUser;
     if (!user) return toast.error("Access denied. Please authenticate.");
 

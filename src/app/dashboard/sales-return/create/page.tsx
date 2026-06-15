@@ -651,6 +651,33 @@ export default function CreateSalesReturn() {
       const roundOffAmount = roundedTotal - rawTotal;
       const finalTotal = autoRoundOff ? roundedTotal : rawTotal;
 
+      const amountPaidNum = Number(amountReceived);
+      if (amountPaidNum > finalTotal) {
+         setSaving(false);
+         return toast.error("Refund amount cannot exceed the bill total");
+      }
+
+      if (amountPaidNum > 0 && !isOfflineMode) {
+          const { doc, getDoc } = await import("firebase/firestore");
+          if (paymentMode === "Cash") {
+            const sRef = doc(db, "settings", user.uid);
+            const sSnap = await getDoc(sRef);
+            const currentCash = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
+            if (amountPaidNum > currentCash) {
+               setSaving(false);
+               return toast.error(`Insufficient Cash Balance. Available: ₹${currentCash.toFixed(2)}`);
+            }
+          } else if (selectedBankId) {
+            const bRef = doc(db, "bankAccounts", selectedBankId);
+            const bSnap = await getDoc(bRef);
+            const currentBank = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
+            if (amountPaidNum > currentBank) {
+               setSaving(false);
+               return toast.error(`Insufficient Bank Balance. Available: ₹${currentBank.toFixed(2)}`);
+            }
+          }
+      }
+
       const invoiceData = {
         userId: user.uid,
         total: finalTotal,
@@ -740,7 +767,6 @@ export default function CreateSalesReturn() {
       await addDoc(collection(db, "salesReturns"), invoiceData);
 
       // Update Cash & Bank ledger for Sales Return (money going OUT as refund)
-      const amountPaidNum = Number(amountReceived);
       if (amountPaidNum > 0) {
         try {
           const isCash = paymentMode === "Cash";
@@ -749,13 +775,13 @@ export default function CreateSalesReturn() {
             const sRef = doc(db, "settings", user.uid);
             const sSnap = await getDoc(sRef);
             const currentCash = sSnap.exists() ? Number(sSnap.data().cashInHand || 0) : 0;
-            newBalance = Math.max(0, currentCash - amountPaidNum);
+            newBalance = currentCash - amountPaidNum;
             await updateDoc(sRef, { cashInHand: newBalance });
           } else if (selectedBankId) {
             const bRef = doc(db, "bankAccounts", selectedBankId);
             const bSnap = await getDoc(bRef);
             const currentBank = bSnap.exists() ? Number(bSnap.data().balance || 0) : 0;
-            newBalance = Math.max(0, currentBank - amountPaidNum);
+            newBalance = currentBank - amountPaidNum;
             await updateDoc(bRef, { balance: newBalance });
           }
           await addDoc(collection(db, "cashBankTransactions"), {

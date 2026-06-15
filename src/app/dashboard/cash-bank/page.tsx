@@ -392,17 +392,21 @@ export default function CashAndBankPage() {
     const user = auth.currentUser;
     if (!user) return;
     try {
-      if (txn.type === "add") {
-        await updateAccountBalance(txn.accountId, -txn.received, user.uid);
-      } else if (txn.type === "reduce") {
-        await updateAccountBalance(txn.accountId, txn.paid, user.uid);
-      } else if (txn.type === "transfer") {
+      if (txn.type === "transfer") {
         if (txn.paid > 0) { // Source (Reduce) record
            await updateAccountBalance(txn.accountId, txn.paid, user.uid);
            if (txn.relatedAccountId) await updateAccountBalance(txn.relatedAccountId, -txn.paid, user.uid);
         } else { // Destination (Add) record
            await updateAccountBalance(txn.accountId, -txn.received, user.uid);
            if (txn.relatedAccountId) await updateAccountBalance(txn.relatedAccountId, txn.received, user.uid);
+        }
+      } else {
+        // Automatically revert any other transaction type (Sales, Expense, etc.)
+        if (txn.received > 0) {
+           await updateAccountBalance(txn.accountId, -txn.received, user.uid);
+        }
+        if (txn.paid > 0) {
+           await updateAccountBalance(txn.accountId, txn.paid, user.uid);
         }
       }
       await deleteDoc(doc(db, "cashBankTransactions", txn.id));

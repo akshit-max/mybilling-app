@@ -378,6 +378,10 @@ export default function POSBillingPage() {
       const customer = activeBill.customerName.trim() ? activeBill.customerName : "Cash Sale";
 
       const amtReceivedNum = Number(activeBill.amountReceived) || 0;
+      if (amtReceivedNum > finalTotal) {
+         setSaving(false);
+         return toast.error("Amount received cannot exceed the bill total");
+      }
 
       const invoiceData = {
         userId: user.uid,
