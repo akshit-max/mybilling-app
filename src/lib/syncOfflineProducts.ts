@@ -12,7 +12,21 @@ const syncOneProduct = async (product: OfflineProduct) => {
     await updateDoc(doc(db, "products", product.originalProductId), firestoreProduct);
   } else {
     // It's a new product creation
-    await addDoc(collection(db, "products"), firestoreProduct);
+    // Add a strict server-side pre-flight check to prevent offline duplicate overriding
+    const { query, where, getDocs } = await import("firebase/firestore");
+    const duplicateQuery = query(
+      collection(db, "products"),
+      where("userId", "==", firestoreProduct.userId),
+      where("name", "==", firestoreProduct.name)
+    );
+    const duplicateSnap = await getDocs(duplicateQuery);
+    
+    if (!duplicateSnap.empty) {
+      console.log(`[Sync] Skipped creation of '${firestoreProduct.name}' as it already exists on server.`);
+      // We do not add it, and we let the sync loop delete it from the offline queue successfully.
+    } else {
+      await addDoc(collection(db, "products"), firestoreProduct);
+    }
   }
 };
 

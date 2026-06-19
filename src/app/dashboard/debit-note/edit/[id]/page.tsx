@@ -56,6 +56,9 @@ export default function EditCreditNote() {
   const [discountType, setDiscountType] = useState<DiscountType>("flat");
   const [discountValue, setDiscountValue] = useState<number | string>(0);
   const [gstEnabled, setGstEnabled] = useState(true);
+  // Save-to-inventory state (additive - no effect on existing flows)
+  const [savedToInventoryRows, setSavedToInventoryRows] = useState<Record<number, boolean>>({});
+  const [savingToInventoryRow, setSavingToInventoryRow] = useState<Record<number, boolean>>({});
   
   const [debitNoteNumber, setCreditNoteNumber] = useState("");
   const [debitNoteDate, setCreditNoteDate] = useState(new Date().toISOString().split("T")[0]);
@@ -195,6 +198,54 @@ export default function EditCreditNote() {
   const addItem = () => setItems([...items, { name: "", qty: 1, price: 0, gstRate: 18 }]);
   const removeItem = (index: number) => items.length > 1 ? setItems(items.filter((_, i) => i !== index)) : setItems([{ name: "", qty: 1, price: 0, gstRate: 18 }]);
 
+  // Save a CUSTOM item row to inventory - additive only, never alters the transaction
+  const handleSaveToInventory = async (idx: number) => {
+    const user = auth.currentUser;
+    if (!user) return toast.error("Not logged in");
+    const item = items[idx];
+    const trimmedName = (item.name || "").trim();
+    if (!trimmedName) return toast.error("Enter an item name first");
+    setSavingToInventoryRow((prev) => ({ ...prev, [idx]: true }));
+    try {
+      let isOfflineMode = !navigator.onLine;
+      if (!isOfflineMode) {
+        try {
+          const t = await fetch("/favicon.ico?cache=" + Date.now(), { method: "HEAD", cache: "no-store" });
+          if (!t.ok) isOfflineMode = true;
+        } catch { isOfflineMode = true; }
+      }
+      if (isOfflineMode) {
+        const { saveCustomItemToInventoryOffline } = await import("@/lib/saveToInventory");
+        const result = await saveCustomItemToInventoryOffline(
+          { name: item.name, price: item.price, gstRate: item.gstRate, hsn: (item as any).hsn, description: item.description },
+          user.uid, products, user.displayName || "Admin"
+        );
+        if (!result.success) return toast.error((result as any).error);
+        toast.success(`'${trimmedName}' queued for inventory. Syncs when online. 🔄`);
+      } else {
+        const { saveCustomItemToInventory } = await import("@/lib/saveToInventory");
+        const result = await saveCustomItemToInventory(
+          { name: item.name, price: item.price, gstRate: item.gstRate, hsn: (item as any).hsn, description: item.description },
+          user.uid, products, user.displayName || "Admin"
+        );
+        if (!result.success) return toast.error((result as any).error);
+        const newProduct = { id: (result as any).productId, name: trimmedName, price: Number(item.price) || 0, gst: Number(item.gstRate ?? 18), stock: 0, unit: "PCS", hsnCode: (item as any).hsn || "", barcode: "" };
+        setProducts((prev) => [...prev, newProduct]);
+        try {
+          const { getCachedProducts, cacheProducts } = await import("@/lib/indexedDB");
+          const cached = await getCachedProducts(user.uid);
+          await cacheProducts([...cached, { ...newProduct, userId: user.uid }]);
+        } catch { /* non-critical */ }
+        toast.success(`'${trimmedName}' saved to inventory! ✅`);
+      }
+      setSavedToInventoryRows((prev) => ({ ...prev, [idx]: true }));
+    } catch (err) {
+      console.error("Save to inventory failed:", err);
+      toast.error("Failed to save item to inventory");
+    } finally {
+      setSavingToInventoryRow((prev) => ({ ...prev, [idx]: false }));
+    }
+  };
   const handleUpdate = async () => {
     if (!customerName) return toast.error("Please select a party first");
     if (!validItems.length) return toast.error("Please add at least one valid item");
@@ -354,8 +405,9 @@ export default function EditCreditNote() {
                     <div className="col-span-1 text-center font-bold text-gray-400 font-mono text-xs">{idx + 1}</div>
                     <div className="col-span-4 relative flex flex-col gap-1.5">
                       {item.productId === "CUSTOM" ? (
-                      <div className="flex items-center gap-1 w-full">
-                        <input
+                      <div className="flex flex-col gap-1 w-full">
+                        <div className="flex items-center gap-1 w-full">
+                          <input
                           type="text"
                           value={item.name}
                           onChange={(e) => updateItem(idx, "name", e.target.value)}
@@ -373,9 +425,40 @@ export default function EditCreditNote() {
                           title="Cancel custom item"
                         >
                           <X size={14} />
-                        </button>
+                          </button>
+                        </div>
+                        {item.name.trim() && (
+                          <div className="flex justify-start mt-1 animate-in fade-in duration-200">
+                            {savedToInventoryRows[idx] ? (
+                              <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200/60 shadow-sm">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                Added to Catalog
+                              </div>
+                            ) : (
+                              <button 
+                                type="button" 
+                                onClick={() => handleSaveToInventory(idx)} 
+                                disabled={savingToInventoryRow[idx]} 
+                                className="group flex items-center gap-1.5 text-[10px] text-indigo-600 font-bold hover:text-white hover:bg-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-md transition-all duration-200 shadow-sm hover:shadow disabled:opacity-50"
+                                title="Add this custom item to your permanent product catalog"
+                              >
+                                {savingToInventoryRow[idx] ? (
+                                  <>
+                                    <svg className="animate-spin text-indigo-500 group-hover:text-white" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+                                    Saving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="text-indigo-500 group-hover:text-white transition-colors" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                    Save to Product Catalog
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    ) : (
+                      ) : (
                       <select
                         value={item.productId || ""}
                         onChange={(e) => {
