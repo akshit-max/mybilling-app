@@ -14,11 +14,11 @@ import { ReactNode } from "react";
 export default function Features() {
   return (
     <section className="bg-slate-50 py-24 relative overflow-hidden font-sans">
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-[size:32px_32px] opacity-40"></div>
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.15]"></div>
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         {/* HEADING */}
         <div className="max-w-2xl mx-auto text-center mb-16">
-          <h2 className="text-3xl md:text-[40px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-gray-600 tracking-tight drop-shadow-sm pb-1">
+          <h2 className="text-3xl md:text-[40px] font-bold text-brand-primary tracking-tight drop-shadow-sm pb-1">
             Everything you need to run your business
           </h2>
           <p className="text-brand-primary/60 mt-4 text-[16px] font-medium">

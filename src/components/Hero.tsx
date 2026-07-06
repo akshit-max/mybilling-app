@@ -240,6 +240,18 @@ export default function Hero() {
         </div>
 
       </div>
+
+      {/* 3. LOGO MARQUEE (Social Proof) */}
+      <div className="border-t border-white/10 mt-20 pt-10 pb-4 max-w-7xl mx-auto px-6 text-center">
+        <p className="text-white/40 text-[13px] font-bold uppercase tracking-widest mb-6">Trusted by forward-thinking companies</p>
+        <div className="flex flex-wrap justify-center items-center gap-10 md:gap-16 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+          {["Acme Corp", "GlobalTech", "Nexus", "Pinnacle", "Aether"].map((logo, i) => (
+            <span key={i} className="text-white text-[18px] md:text-[22px] font-extrabold tracking-tight select-none opacity-80">
+              {logo}
+            </span>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }

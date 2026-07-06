@@ -197,7 +197,7 @@ export default function Navbar() {
       </div>
 
       {/* 2. MAIN NAVIGATION HEADER */}
-      <nav className="bg-white border-b border-gray-200 h-16 w-full">
+      <nav className="bg-white/80 backdrop-blur-md border-b border-gray-200 h-16 w-full">
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
           
           {/* LOGO */}

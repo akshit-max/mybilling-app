@@ -7,7 +7,7 @@ export default function Testimonials() {
 
         {/* HEADING */}
         <div className="max-w-2xl mx-auto text-center mb-16">
-          <h2 className="text-3xl md:text-[40px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-gray-500 tracking-tight pb-1 drop-shadow-sm">
+          <h2 className="text-3xl md:text-[40px] font-bold text-brand-primary tracking-tight pb-1 drop-shadow-sm">
             Trusted Across Industries
           </h2>
           <p className="text-brand-primary/60 mt-4 text-[16px] font-medium">

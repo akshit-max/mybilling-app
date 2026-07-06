@@ -7,7 +7,7 @@ import { ReactNode } from "react";
 export default function Marketing() {
   return (
     <section className="bg-slate-50 py-24 md:py-32 select-none relative overflow-hidden">
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-[size:32px_32px] opacity-40"></div>
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.15]"></div>
       <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
 
         {/* LEFT IMAGE */}
@@ -29,7 +29,7 @@ export default function Marketing() {
             <span className="text-brand-primary font-bold text-[13px] uppercase tracking-widest bg-white shadow-sm px-4 py-2 rounded-[8px] border border-gray-200 inline-block">
               Your Personal Marketing Assistant
             </span>
-            <h2 className="text-3xl md:text-[40px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary via-gray-700 to-gray-500 leading-[1.15] tracking-tight pt-2 pb-1 drop-shadow-sm">
+            <h2 className="text-3xl md:text-[40px] font-bold text-brand-primary leading-[1.15] tracking-tight pt-2 pb-1 drop-shadow-sm">
               Get more customers, get more from your customers
             </h2>
           </div>

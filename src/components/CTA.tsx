@@ -28,13 +28,13 @@ export default function CTA() {
               all in one powerful platform.
             </p>
 
-            <div className="mt-8 flex items-center bg-white rounded-[10px] p-1.5 shadow-sm max-w-md border border-white/20">
+            <div className="mt-8 flex items-center bg-white rounded-[10px] p-1.5 shadow-sm max-w-md border border-white/20 focus-within:ring-2 focus-within:ring-brand-secondary focus-within:border-transparent transition-all">
               <input
                 type="text"
                 placeholder="+91 Enter mobile number"
                 className="flex-1 px-5 py-3 text-brand-primary text-[16px] font-medium bg-transparent outline-none placeholder:text-brand-primary/40"
               />
-              <button className="bg-brand-secondary hover:bg-brand-secondary/90 active:scale-[0.98] transition-all px-7 py-3.5 rounded-[8px] text-[14px] font-medium shadow-sm text-white">
+              <button className="bg-brand-secondary hover:bg-brand-secondary/90 active:scale-[0.98] transition-all px-7 py-3.5 rounded-[8px] text-[14px] font-medium shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-white/50">
                 Start Free →
               </button>
             </div>

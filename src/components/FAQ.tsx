@@ -26,7 +26,7 @@ export default function FAQ() {
       <div className="max-w-4xl mx-auto px-6">
 
         {/* HEADING */}
-        <h2 className="text-3xl md:text-[40px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-gray-500 text-center mb-10 tracking-tight pb-1 drop-shadow-sm">
+        <h2 className="text-3xl md:text-[40px] font-bold text-brand-primary text-center mb-10 tracking-tight pb-1 drop-shadow-sm">
           Frequently Asked Questions
         </h2>
 
