@@ -18,10 +18,10 @@ export default function Features() {
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         {/* HEADING */}
         <div className="max-w-2xl mx-auto text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-gray-600 tracking-tight drop-shadow-sm pb-1">
+          <h2 className="text-3xl md:text-[40px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-gray-600 tracking-tight drop-shadow-sm pb-1">
             Everything you need to run your business
           </h2>
-          <p className="text-brand-primary/60 mt-4 text-sm sm:text-lg font-medium">
+          <p className="text-brand-primary/60 mt-4 text-[16px] font-medium">
             Powering small and medium enterprises with tools that automate invoicing, bookkeeping, and inventory.
           </p>
         </div>
@@ -82,33 +82,33 @@ type TestimonialProps = {
 
 function Card({ icon, title, desc }: CardProps) {
   return (
-    <div className="bg-white border border-brand-primary/5 rounded-[2rem] p-8 text-left transition-all duration-300 hover:shadow-2xl hover:shadow-brand-secondary/15 hover:-translate-y-1 group ring-1 ring-black/5">
+    <div className="bg-white border border-gray-200 rounded-[12px] p-8 text-left transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-1 group">
       <div className="mb-6">
-        <div className="p-3.5 bg-brand-neutral/50 text-brand-primary rounded-xl w-fit transition-colors group-hover:bg-brand-secondary group-hover:text-white duration-300 shadow-sm">
+        <div className="p-3 bg-slate-50 text-brand-primary rounded-[8px] w-fit border border-gray-100 transition-colors group-hover:bg-brand-secondary group-hover:text-white duration-300">
           {icon}
         </div>
       </div>
 
-      <h4 className="font-extrabold text-brand-primary text-xl mb-3 transition-colors group-hover:text-brand-secondary duration-300">{title}</h4>
+      <h4 className="font-bold text-brand-primary text-[20px] mb-3 transition-colors group-hover:text-brand-secondary duration-300">{title}</h4>
 
-      <p className="text-sm text-brand-primary/60 leading-relaxed font-medium">{desc}</p>
+      <p className="text-[16px] text-brand-primary/60 leading-relaxed font-medium">{desc}</p>
     </div>
   );
 }
 
 function Testimonial({ name, company, text }: TestimonialProps) {
   return (
-    <div className="bg-white border border-brand-primary/10 rounded-2xl p-6 flex gap-4 items-start shadow-sm">
+    <div className="bg-white border border-gray-200 rounded-[12px] p-6 flex gap-4 items-start shadow-sm">
       {/* AVATAR */}
-      <div className="w-12 h-12 rounded-full bg-brand-neutral/50 flex-shrink-0" />
+      <div className="w-12 h-12 rounded-[12px] bg-brand-neutral/50 flex-shrink-0" />
 
       {/* CONTENT */}
       <div>
-        <p className="text-sm text-brand-primary/80 font-medium leading-relaxed mb-3">“{text}”</p>
+        <p className="text-[16px] text-brand-primary/80 font-medium leading-relaxed mb-3">“{text}”</p>
 
-        <p className="text-sm font-extrabold text-brand-primary">{name}</p>
+        <p className="text-[16px] font-bold text-brand-primary">{name}</p>
 
-        <p className="text-xs font-bold text-brand-primary/40 uppercase tracking-wider mt-0.5">{company}</p>
+        <p className="text-[13px] font-bold text-brand-primary/40 uppercase tracking-wider mt-0.5">{company}</p>
 
         {/* STARS */}
         <div className="flex gap-1 mt-2 text-yellow-400">

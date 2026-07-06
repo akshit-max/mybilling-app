@@ -191,7 +191,7 @@ export default function Navbar() {
       {/* 1. TOP PROMO BAR WITH SOFT COLOR GRADIENT */}
       <div className="bg-gradient-to-r from-brand-primary via-brand-secondary to-brand-primary text-center py-2.5 text-[11px] font-bold text-white select-none border-b border-brand-primary/10">
         Save up to 55% today{" "}
-        <Link href="/login" className="text-white hover:text-white/80 underline underline-offset-2 transition-colors ml-1 font-extrabold">
+        <Link href="/login" className="text-white hover:text-white/80 underline underline-offset-2 transition-colors ml-1 font-bold">
           Book 1:1 Demo →
         </Link>
       </div>
@@ -202,12 +202,12 @@ export default function Navbar() {
           
           {/* LOGO */}
           <Link href="/" className="flex items-center gap-1.5 z-50">
-            <div className="bg-brand-secondary text-white rounded-lg p-1.5 flex items-center justify-center shadow-md">
+            <div className="bg-brand-secondary text-white rounded-[8px] p-1.5 flex items-center justify-center shadow-sm">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="rotate-45 transform">
                 <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
               </svg>
             </div>
-            <span className="font-extrabold text-gray-800 text-base tracking-tight font-sans">
+            <span className="font-bold text-gray-800 text-[20px] tracking-tight font-sans">
               Cloud <span className="text-brand-secondary">Ledger</span>
             </span>
           </Link>
@@ -311,18 +311,18 @@ export default function Navbar() {
 
           {/* DESKTOP CTA - MODERN PILL STYLED */}
           <div className="hidden md:flex items-center gap-4">
-            <Link href="/login" className="text-xs font-semibold text-gray-600 hover:text-gray-900 transition">
+            <Link href="/login" className="text-[14px] font-semibold text-gray-600 hover:text-gray-900 transition">
               Login
             </Link>
             <Link 
               href="/login" 
-              className="text-xs font-bold border-2 border-brand-primary text-brand-primary px-5 py-2.5 rounded-full hover:bg-brand-primary/5 transition-colors shadow-sm select-none"
+              className="text-[14px] font-medium border border-brand-primary text-brand-primary px-7 py-3 rounded-[8px] hover:bg-brand-primary/5 transition-colors shadow-sm select-none"
             >
               Book Free Demo
             </Link>
             <Link
               href="/signup"
-              className="text-xs font-bold bg-brand-primary hover:bg-brand-primary/90 text-white px-5 py-2.5 rounded-full transition-all shadow-md select-none hover:shadow-lg active:scale-[0.98]"
+              className="text-[14px] font-medium bg-brand-primary hover:bg-brand-primary/90 text-white px-7 py-3 rounded-[8px] transition-all shadow-sm select-none hover:shadow-md active:scale-[0.98]"
             >
               Start Free Billing
             </Link>
@@ -361,14 +361,14 @@ export default function Navbar() {
               <div className="mt-auto space-y-3">
                 <Link
                   href="/login"
-                  className="block w-full text-center py-3 border-2 border-brand-primary text-brand-primary rounded-full font-bold"
+                  className="block w-full text-center py-3 border border-brand-primary text-brand-primary rounded-[8px] font-medium text-[14px]"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Book Free Demo
                 </Link>
                 <Link
                   href="/signup"
-                  className="block w-full text-center py-3 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-full font-bold shadow-md"
+                  className="block w-full text-center py-3 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-[8px] font-medium text-[14px] shadow-sm"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Start Free Billing

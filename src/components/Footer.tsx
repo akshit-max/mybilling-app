@@ -5,19 +5,19 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="bg-brand-primary text-white pt-20 pb-10 font-sans">
+    <footer className="bg-brand-primary text-white pt-24 pb-12 font-sans">
       <div className="max-w-7xl mx-auto px-6">
         {/* TOP GRID */}
         <div className="grid md:grid-cols-5 gap-12">
           {/* BRAND */}
           <div>
             <div className="flex items-center gap-1.5 z-50 mb-4">
-              <div className="bg-brand-secondary text-white rounded-lg p-1 flex items-center justify-center shadow-md">
+              <div className="bg-brand-secondary text-white rounded-[8px] p-1.5 flex items-center justify-center shadow-sm">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="rotate-45 transform">
                   <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
                 </svg>
               </div>
-              <span className="font-extrabold text-white text-xl tracking-tight font-sans">
+              <span className="font-bold text-white text-[20px] tracking-tight font-sans">
                 Cloud <span className="text-brand-secondary">Ledger</span>
               </span>
             </div>
@@ -61,7 +61,7 @@ export default function Footer() {
 
           {/* CONTACT */}
           <div>
-            <h4 className="font-semibold mb-4 text-white">Contact</h4>
+            <h4 className="font-bold mb-4 text-white">Contact</h4>
             <ul className="space-y-2 text-sm text-white/60">
               <li>support@Cloud Ledger.com</li>
               <li>+91 88911 77850</li>
@@ -97,7 +97,7 @@ export default function Footer() {
 function FooterCol({ title, items }: { title: string; items: string[] }) {
   return (
     <div>
-      <h4 className="font-semibold mb-4 text-white">{title}</h4>
+      <h4 className="font-bold mb-4 text-white">{title}</h4>
       <ul className="space-y-2 text-sm text-white/60">
         {items.map((item, i) => (
           <li key={i} className="hover:text-white cursor-pointer transition">
@@ -112,7 +112,7 @@ function FooterCol({ title, items }: { title: string; items: string[] }) {
 /* 🔹 Icon Wrapper */
 function IconWrap({ children }: { children: React.ReactNode }) {
   return (
-    <div className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition cursor-pointer text-lg">
+    <div className="p-2 bg-white/10 rounded-[8px] hover:bg-white/20 transition cursor-pointer text-lg">
       {children}
     </div>
   );

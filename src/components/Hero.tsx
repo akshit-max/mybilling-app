@@ -133,7 +133,7 @@ import { CheckCircle } from "lucide-react";
 
 export default function Hero() {
   return (
-    <section className="relative bg-brand-primary text-white py-12 md:py-16 lg:py-20 overflow-hidden select-none font-sans">
+    <section className="relative bg-brand-primary text-white py-24 md:py-28 overflow-hidden select-none font-sans">
       
       {/* 1. TOPOGRAPHY LINES SVG BACKGROUND PATTERN */}
       <div className="absolute inset-0 z-0 opacity-10 pointer-events-none select-none">
@@ -156,68 +156,68 @@ export default function Hero() {
         <div className="md:col-span-7 flex flex-col text-left space-y-10">
           
           {/* HEADING */}
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.1] tracking-tight text-white max-w-2xl drop-shadow-sm">
+          <h1 className="text-4xl sm:text-5xl md:text-[64px] font-bold leading-[1.1] tracking-tight text-white max-w-2xl drop-shadow-sm">
             Best GST Billing Software for Small Business in India
           </h1>
 
           {/* GREEN CHECK BULLET POINTS */}
-          <div className="space-y-3.5">
+          <div className="space-y-4">
             {[
               { text: "Create GST bill in ", bold: "8 seconds" },
               { text: "Increase stock rotation ", bold: "2.8x faster" },
               { text: "Collect ", bold: "97% payments on time" }
             ].map((bullet, idx) => (
-              <div key={idx} className="flex items-center gap-3 text-sm sm:text-base font-bold text-white/90">
+              <div key={idx} className="flex items-center gap-3 text-base font-medium text-white/90">
                 {/* Custom Green Checkmark */}
-                <div className="bg-emerald-500 text-white rounded-full p-1 flex items-center justify-center shadow-md shadow-emerald-500/20">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
+                <div className="bg-emerald-500 text-white rounded-[8px] p-1 flex items-center justify-center shadow-sm">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
                 </div>
                 <span>
-                  {bullet.text}<strong>{bullet.bold}</strong>
+                  {bullet.text}<strong className="font-bold">{bullet.bold}</strong>
                 </span>
               </div>
             ))}
           </div>
 
           {/* ACTION BUTTON CTAS */}
-          <div className="flex flex-wrap gap-4 pt-8 md:pt-15">
+          <div className="flex flex-wrap gap-4 pt-8 md:pt-10">
             <Link
               href="/signup"
-              className="px-8 py-3.5 bg-brand-secondary hover:bg-brand-secondary/90 active:scale-[0.98] text-white font-extrabold rounded-full shadow-lg hover:shadow-brand-secondary/40 transition-all text-sm flex items-center gap-2 select-none"
+              className="px-7 py-3.5 bg-brand-secondary hover:bg-brand-secondary/90 active:scale-[0.98] text-white font-medium rounded-[10px] shadow-sm hover:shadow-md transition-all text-[14px] flex items-center gap-2 select-none"
             >
               Start Free Billing →
             </Link>
 
             <Link
               href="/login"
-              className="px-8 py-3.5 border-2 border-white/20 hover:border-white/50 text-white font-extrabold rounded-full hover:bg-white/5 transition-all text-sm select-none shadow-sm backdrop-blur-sm"
+              className="px-7 py-3.5 border border-white/20 hover:border-white/50 text-white font-medium rounded-[10px] hover:bg-white/5 transition-all text-[14px] select-none shadow-sm backdrop-blur-sm"
             >
               Book Free Demo
             </Link>
           </div>
 
           {/* TRUST BADGES ROW SECTION */}
-          <div className="flex flex-col space-y-3 pt-6 border-t border-white/10 max-w-lg">
-            <p className="text-xs sm:text-sm font-extrabold text-white/80 uppercase tracking-widest">
+          <div className="flex flex-col space-y-4 pt-8 border-t border-white/10 max-w-lg">
+            <p className="text-[13px] font-semibold text-white/80 uppercase tracking-widest">
               Trusted by 1 Crore+ Businesses
             </p>
             
-            <div className="grid grid-cols-4 gap-2 items-center">
+            <div className="grid grid-cols-4 gap-3 items-center">
               {[
                 { title: "BEST TECH BRANDS", subtitle: "#1 IN INDIA 2023" },
                 { title: "EXCELLENCE IN GST", subtitle: "BUSINESS CONNECT 2023" },
                 { title: "4.7 ★", subtitle: "GOOGLE PLAY" },
                 { title: "100% DATA PRIVACY", subtitle: "GCA TRUSTED" }
               ].map((badge, idx) => (
-                <div key={idx} className="flex flex-col items-center text-center p-1.5 border border-white/15 rounded-lg bg-white/5 backdrop-blur-sm select-none">
+                <div key={idx} className="flex flex-col items-center text-center p-2 border border-white/15 rounded-[8px] bg-white/5 backdrop-blur-sm select-none">
                   {/* Decorative laurel leaf SVG path */}
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-yellow-400 opacity-90 mb-1">
                     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                   </svg>
-                  <span className="text-[8px] font-extrabold leading-tight text-white">{badge.title}</span>
-                  <span className="text-[7px] font-semibold text-white/60 leading-none">{badge.subtitle}</span>
+                  <span className="text-[10px] font-bold leading-tight text-white mb-0.5">{badge.title}</span>
+                  <span className="text-[9px] font-medium text-white/60 leading-none">{badge.subtitle}</span>
                 </div>
               ))}
             </div>
@@ -227,8 +227,7 @@ export default function Hero() {
 
         {/* RIGHT COLUMN - ORIGINAL REAL HERO.PNG IMAGE */}
         <div className="md:col-span-5 flex justify-center relative mt-12 md:-mt-8 lg:-mt-12">
-          <div className="absolute inset-0 bg-brand-secondary/30 blur-3xl rounded-full scale-90 opacity-70"></div>
-          <div className="relative w-full max-w-[480px] sm:max-w-[550px] overflow-hidden rounded-2xl shadow-xl shadow-brand-secondary/20 transition-all hover:scale-[1.02] hover:shadow-brand-secondary/40 duration-500 ring-1 ring-white/20">
+          <div className="relative w-full max-w-[480px] sm:max-w-[550px] overflow-hidden rounded-[16px] shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl duration-500 border border-white/20">
             <Image
               src="/dark-dashboard.png"
               alt="Cloud Ledger Premium Dashboard Preview"

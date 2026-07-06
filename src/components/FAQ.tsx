@@ -26,7 +26,7 @@ export default function FAQ() {
       <div className="max-w-4xl mx-auto px-6">
 
         {/* HEADING */}
-        <h2 className="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-gray-500 text-center mb-10 tracking-tight pb-1 drop-shadow-sm">
+        <h2 className="text-3xl md:text-[40px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-gray-500 text-center mb-10 tracking-tight pb-1 drop-shadow-sm">
           Frequently Asked Questions
         </h2>
 
@@ -35,7 +35,7 @@ export default function FAQ() {
           {faqs.map((item, i) => (
             <div
               key={i}
-              className="bg-slate-50 border border-brand-primary/5 rounded-[1.5rem] overflow-hidden shadow-sm hover:shadow-md transition-shadow ring-1 ring-black/5"
+              className="bg-white border border-gray-200 rounded-[12px] overflow-hidden shadow-sm hover:shadow-md transition-shadow"
             >
 
               {/* QUESTION */}
@@ -43,7 +43,7 @@ export default function FAQ() {
                 onClick={() => setOpen(open === i ? null : i)}
                 className="w-full flex items-center justify-between px-6 py-5 text-left"
               >
-                <span className="font-extrabold text-brand-primary">
+                <span className="font-bold text-[16px] text-brand-primary">
                   {item.q}
                 </span>
 
@@ -62,7 +62,7 @@ export default function FAQ() {
                     : "max-h-0 opacity-0"
                 } overflow-hidden`}
               >
-                <p className="text-brand-primary/70 font-medium text-sm leading-relaxed">
+                <p className="text-brand-primary/70 font-medium text-[14px] leading-relaxed">
                   {item.a}
                 </p>
               </div>

@@ -7,10 +7,10 @@ export default function Testimonials() {
 
         {/* HEADING */}
         <div className="max-w-2xl mx-auto text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-gray-500 tracking-tight pb-1 drop-shadow-sm">
+          <h2 className="text-3xl md:text-[40px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-gray-500 tracking-tight pb-1 drop-shadow-sm">
             Trusted Across Industries
           </h2>
-          <p className="text-brand-primary/60 mt-4 text-sm sm:text-lg font-medium">
+          <p className="text-brand-primary/60 mt-4 text-[16px] font-medium">
             See how small and medium enterprise owners simplified bookkeeping and accelerated cash collections.
           </p>
         </div>
@@ -36,24 +36,24 @@ export default function Testimonials() {
           ].map((t, i) => (
             <div
               key={i}
-              className="bg-slate-50 border border-brand-primary/5 rounded-[2rem] p-8 text-left transition-all duration-300 hover:shadow-2xl hover:shadow-brand-secondary/15 hover:-translate-y-1 flex flex-col justify-between ring-1 ring-black/5"
+              className="bg-white border border-gray-200 rounded-[12px] p-8 text-left transition-all duration-300 hover:shadow-md hover:-translate-y-1 shadow-sm flex flex-col justify-between"
             >
               {/* Quote Mark */}
               <div className="space-y-4">
                 <span className="text-5xl font-serif text-brand-primary/20 leading-none select-none">“</span>
-                <p className="text-sm text-brand-primary/70 font-medium leading-relaxed italic">
+                <p className="text-[16px] text-brand-primary/70 font-medium leading-relaxed italic">
                   {t.quote}
                 </p>
               </div>
 
               {/* Author badge */}
-              <div className="flex items-center gap-4 mt-8 pt-6 border-t border-brand-primary/5">
-                <div className="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center text-white font-extrabold text-sm shadow-md">
+              <div className="flex items-center gap-4 mt-8 pt-6 border-t border-gray-100">
+                <div className="w-10 h-10 rounded-[8px] bg-brand-primary flex items-center justify-center text-white font-bold text-[16px] shadow-sm">
                   {t.name[0]}
                 </div>
                 <div>
-                  <p className="text-sm font-extrabold text-brand-primary leading-tight">{t.name}</p>
-                  <p className="text-[10px] font-bold text-brand-primary/40 uppercase tracking-wider mt-0.5">{t.role}</p>
+                  <p className="text-[16px] font-bold text-brand-primary leading-tight">{t.name}</p>
+                  <p className="text-[13px] font-bold text-brand-primary/40 uppercase tracking-wider mt-0.5">{t.role}</p>
                 </div>
               </div>
             </div>

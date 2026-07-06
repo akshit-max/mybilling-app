@@ -24,10 +24,10 @@ export default function FeaturesGrid() {
 
         {/* HEADING */}
         <div className="max-w-2xl mx-auto text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-gray-500 tracking-tight pb-1 drop-shadow-sm">
+          <h2 className="text-3xl md:text-[40px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-gray-500 tracking-tight pb-1 drop-shadow-sm">
             A lot more than you can imagine
           </h2>
-          <p className="text-brand-primary/60 mt-4 text-sm sm:text-lg font-medium">
+          <p className="text-brand-primary/60 mt-4 text-[16px] font-medium">
             Engineered with enterprise-grade tools and modern safeguards to give your business a digital edge.
           </p>
         </div>
@@ -38,15 +38,15 @@ export default function FeaturesGrid() {
           {features.map((f, i) => (
             <div
               key={i}
-              className="bg-white border border-brand-primary/5 rounded-[2rem] p-8 text-left transition-all duration-300 hover:shadow-2xl hover:shadow-brand-secondary/15 hover:-translate-y-1 group ring-1 ring-black/5"
+              className="bg-white border border-gray-200 rounded-[12px] p-8 text-left transition-all duration-300 hover:shadow-md hover:-translate-y-1 shadow-sm group"
             >
               <div className="mb-6">
-                <div className="p-3.5 bg-brand-neutral/50 text-brand-primary rounded-xl w-fit transition-colors group-hover:bg-brand-secondary group-hover:text-white duration-300 shadow-sm">
+                <div className="p-3 bg-slate-50 text-brand-primary rounded-[8px] border border-gray-100 w-fit transition-colors group-hover:bg-brand-secondary group-hover:text-white duration-300">
                   {f.icon}
                 </div>
               </div>
 
-              <p className="text-sm font-bold text-brand-primary leading-relaxed transition-colors group-hover:text-brand-primary/80 duration-300">
+              <p className="text-[16px] font-bold text-brand-primary leading-relaxed transition-colors group-hover:text-brand-primary/80 duration-300">
                 {f.text}
               </p>
             </div>
