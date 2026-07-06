@@ -1,0 +1,167 @@
+
+> billing-app@0.1.0 build
+> next build
+
+▲ Next.js 16.2.4 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 24.6s
+  Running TypeScript ...
+  Finished TypeScript in 28.9s ...
+  Collecting page data using 7 workers ...
+[Firebase Admin] CRITICAL: FIREBASE_PROJECT_ID is not set. Server-side subscription updates will fail. Configure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY on your hosting provider.
+[Firebase Admin] CRITICAL: FIREBASE_PROJECT_ID is not set. Server-side subscription updates will fail. Configure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY on your hosting provider.
+  Generating static pages using 7 workers (0/112) ...
+  Generating static pages using 7 workers (28/112) 
+  Generating static pages using 7 workers (56/112) 
+[Firebase Admin] CRITICAL: FIREBASE_PROJECT_ID is not set. Server-side subscription updates will fail. Configure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY on your hosting provider.
+  Generating static pages using 7 workers (84/112) 
+✓ Generating static pages using 7 workers (112/112) in 3.2s
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ƒ /api/create-razorpay-order
+├ ƒ /api/reset
+├ ƒ /api/send-email
+├ ƒ /api/send-sms
+├ ƒ /api/verify-payment
+├ ○ /dashboard
+├ ○ /dashboard/automated-bills
+├ ƒ /dashboard/automated-bills/[id]
+├ ○ /dashboard/automated-bills/create
+├ ƒ /dashboard/automated-bills/edit/[id]
+├ ○ /dashboard/backup
+├ ○ /dashboard/cash-bank
+├ ○ /dashboard/credit-note
+├ ƒ /dashboard/credit-note/[id]
+├ ○ /dashboard/credit-note/create
+├ ƒ /dashboard/credit-note/edit/[id]
+├ ○ /dashboard/customers
+├ ƒ /dashboard/customers/[id]
+├ ○ /dashboard/customers/create
+├ ƒ /dashboard/customers/edit/[id]
+├ ○ /dashboard/customers/shared-ledger
+├ ○ /dashboard/debit-note
+├ ƒ /dashboard/debit-note/[id]
+├ ○ /dashboard/debit-note/create
+├ ƒ /dashboard/debit-note/edit/[id]
+├ ○ /dashboard/delivery-challan
+├ ƒ /dashboard/delivery-challan/[id]
+├ ○ /dashboard/delivery-challan/create
+├ ƒ /dashboard/delivery-challan/edit/[id]
+├ ○ /dashboard/e-invoicing
+├ ƒ /dashboard/e-invoicing/generate/[id]
+├ ƒ /dashboard/e-invoicing/print/[id]
+├ ƒ /dashboard/e-way-bill/generate/[id]
+├ ƒ /dashboard/e-way-bill/print/[id]
+├ ○ /dashboard/expenses
+├ ƒ /dashboard/expenses/[id]
+├ ○ /dashboard/expenses/create
+├ ƒ /dashboard/expenses/edit/[id]
+├ ○ /dashboard/invoices
+├ ƒ /dashboard/invoices/[id]
+├ ○ /dashboard/invoices/create
+├ ○ /dashboard/invoices/edit-offline
+├ ƒ /dashboard/invoices/edit/[id]
+├ ƒ /dashboard/invoices/receipt/[id]
+├ ○ /dashboard/invoices/view-offline
+├ ○ /dashboard/manage-users
+├ ○ /dashboard/online-orders
+├ ƒ /dashboard/online-orders/edit/[id]
+├ ○ /dashboard/payment-in
+├ ƒ /dashboard/payment-in/[id]
+├ ○ /dashboard/payment-in/create
+├ ƒ /dashboard/payment-in/edit/[id]
+├ ○ /dashboard/payment-out
+├ ƒ /dashboard/payment-out/[id]
+├ ○ /dashboard/payment-out/create
+├ ƒ /dashboard/payment-out/edit/[id]
+├ ○ /dashboard/pos-billing
+├ ○ /dashboard/products
+├ ƒ /dashboard/products/[id]
+├ ○ /dashboard/products/create
+├ ƒ /dashboard/products/edit/[id]
+├ ○ /dashboard/products/godown
+├ ○ /dashboard/proforma-invoice
+├ ƒ /dashboard/proforma-invoice/[id]
+├ ○ /dashboard/proforma-invoice/create
+├ ƒ /dashboard/proforma-invoice/edit/[id]
+├ ○ /dashboard/purchase-orders
+├ ƒ /dashboard/purchase-orders/[id]
+├ ○ /dashboard/purchase-orders/create
+├ ƒ /dashboard/purchase-orders/edit/[id]
+├ ○ /dashboard/purchase-return
+├ ƒ /dashboard/purchase-return/[id]
+├ ○ /dashboard/purchase-return/create
+├ ƒ /dashboard/purchase-return/edit/[id]
+├ ○ /dashboard/purchases
+├ ○ /dashboard/purchases/create
+├ ƒ /dashboard/purchases/edit/[id]
+├ ƒ /dashboard/purchases/receipt/[id]
+├ ○ /dashboard/quotations
+├ ƒ /dashboard/quotations/[id]
+├ ○ /dashboard/quotations/create
+├ ƒ /dashboard/quotations/edit/[id]
+├ ○ /dashboard/reports
+├ ● /dashboard/reports/[slug]
+│ ├ /dashboard/reports/rate-list
+│ ├ /dashboard/reports/stock-summary
+│ ├ /dashboard/reports/low-stock-summary
+│ └ [+27 more paths]
+├ ○ /dashboard/reports/ageing-report
+├ ○ /dashboard/reports/bill-wise-profit
+├ ○ /dashboard/reports/daybook
+├ ○ /dashboard/reports/daybook-purchase
+├ ○ /dashboard/reports/expense-category-report
+├ ○ /dashboard/reports/expense-transaction-report
+├ ○ /dashboard/reports/gstr-1
+├ ○ /dashboard/reports/gstr-2
+├ ○ /dashboard/reports/item-report-by-party
+├ ○ /dashboard/reports/item-sales-summary
+├ ○ /dashboard/reports/low-stock-summary
+├ ○ /dashboard/reports/party-outstanding
+├ ○ /dashboard/reports/rate-list
+├ ○ /dashboard/reports/sales-summary
+├ ○ /dashboard/reports/stock-summary
+├ ○ /dashboard/return-reminders
+├ ○ /dashboard/sales-return
+├ ƒ /dashboard/sales-return/[id]
+├ ○ /dashboard/sales-return/create
+├ ƒ /dashboard/sales-return/edit/[id]
+├ ○ /dashboard/settings
+├ ○ /dashboard/settings/account
+├ ○ /dashboard/settings/ca-reports
+├ ○ /dashboard/settings/help-support
+├ ○ /dashboard/settings/invoice
+├ ○ /dashboard/settings/item
+├ ○ /dashboard/settings/manage-users
+├ ○ /dashboard/settings/pricing
+├ ○ /dashboard/settings/pricing/checkout
+├ ○ /dashboard/settings/print
+├ ○ /dashboard/settings/refer-and-earn
+├ ○ /dashboard/settings/reminders
+├ ○ /dashboard/settings/security
+├ ○ /dashboard/sms
+├ ○ /dashboard/sms-tracking
+├ ○ /dashboard/staff
+├ ƒ /dashboard/staff/[id]
+├ ƒ /dashboard/staff/[id]/salary-slip
+├ ○ /login
+├ ○ /offline
+├ ○ /privacy-policy
+├ ○ /signup
+├ ƒ /store/[slug]
+├ ○ /superadmin
+├ ○ /superadmin/legal
+├ ○ /superadmin/settings
+└ ○ /terms-and-conditions
+
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+
