@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: Check if the current user is a subuser of the target admin
+    function isSubuserOf(targetUserId) {
+      return exists(/databases/$(database)/documents/subusers/$(request.auth.uid)) 
+        && get(/databases/$(database)/documents/subusers/$(request.auth.uid)).data.adminId == targetUserId;
+    }
+
+    // Helper: User is Owner OR a registered Subuser of the Owner
+    function hasTenantAccess(docUserId) {
+      return request.auth.uid == docUserId || isSubuserOf(docUserId);
+    }
+
+    // ─────────────────────────────────────────────
+    // USERS COLLECTION (Razorpay Security)
+    // ─────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null 
+                    && request.auth.uid == userId
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['isPaid', 'plan', 'subscriptionCycle', 'subscriptionStartDate']);
+    }
+
+    // ─────────────────────────────────────────────
+    // TRANSACTIONS COLLECTION (Razorpay Audit)
+    // ─────────────────────────────────────────────
+    match /transactions/{transactionId} {
+      allow read, write: if false; // Server-only (Admin SDK)
+    }
+
+    // ─────────────────────────────────────────────
+    // PLATFORM SETTINGS (Super Admin)
+    // ─────────────────────────────────────────────
+    match /platformSettings/{docId} {
+      // Legal docs and platform configs are public or readable by anyone
+      allow read: if true;
+      
+      // Preferred: Custom claim (admin == true). Fallback: hardcoded email.
+      allow write: if request.auth != null && (
+        request.auth.token.email == 'superadmin@test.com' || 
+        request.auth.token.admin == true
+      );
+    }
+
+    // ─────────────────────────────────────────────
+    // USER CONFIGURATION (Uses docId as ownership)
+    // ─────────────────────────────────────────────
+    match /settings/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /attendanceSettings/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ─────────────────────────────────────────────
+    // SUBUSERS (Employee access)
+    // ─────────────────────────────────────────────
+    match /subusers/{subuserId} {
+      allow read: if request.auth != null 
+                  && (request.auth.uid == subuserId || resource.data.adminId == request.auth.uid);
+      allow update, delete: if request.auth != null && resource.data.adminId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.adminId == request.auth.uid;
+    }
+
+    // ─────────────────────────────────────────────
+    // ⚠️ ⚠️ ⚠️ CRITICAL WARNING ⚠️ ⚠️ ⚠️
+    // TENANT ISOLATION CATCH-ALL
+    // This rule matches EVERY collection not explicitly named above.
+    // DO NOT add collections above this block unless you specifically 
+    // want to bypass this strict tenant isolation.
+    // All business data (invoices, customers, etc.) falls into this rule.
+    // ─────────────────────────────────────────────
+    match /{document=**} {
+      // READ: must be authenticated and own (or sub-own) the document
+      allow read: if request.auth != null 
+        && "userId" in resource.data 
+        && hasTenantAccess(resource.data.userId);
+
+      // UPDATE: ownership is immutable — userId cannot be changed by client
+      allow update: if request.auth != null
+        && "userId" in resource.data
+        && "userId" in request.resource.data
+        && resource.data.userId == request.resource.data.userId
+        && hasTenantAccess(resource.data.userId);
+
+      // DELETE: must own the document
+      allow delete: if request.auth != null 
+        && "userId" in resource.data 
+        && hasTenantAccess(resource.data.userId);
+
+      // CREATE: must set userId, must be a string, must be your own tenant
+      allow create: if request.auth != null
+        && "userId" in request.resource.data 
+        && request.resource.data.userId is string
+        && hasTenantAccess(request.resource.data.userId);
+    }
+  }
+}
