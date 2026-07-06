@@ -125,60 +125,60 @@ export default function Signup() {
       {step === 3 ? (
         /* ================= STEP 3 SCREEN ================= */
         <div className="w-full max-w-4xl px-6 text-center space-y-10 py-12">
-          <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">
+          <h2 className="text-2xl md:text-[32px] font-bold text-brand-primary tracking-tight">
             How would you like to get started?
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
             {/* Create Invoice Card */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition duration-300 flex flex-col justify-between items-center text-center space-y-6">
-              <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl">
+            <div className="bg-white border border-gray-200 rounded-[12px] p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition duration-300 flex flex-col justify-between items-center text-center space-y-6">
+              <div className="p-4 bg-indigo-50 text-indigo-600 rounded-[10px]">
                 <FileText size={32} />
               </div>
               <div>
-                <h3 className="text-base font-bold text-gray-900">Create Invoice</h3>
-                <p className="text-xs text-gray-400 mt-2">Start by creating your first invoice</p>
+                <h3 className="text-[16px] font-bold text-gray-900">Create Invoice</h3>
+                <p className="text-[13px] text-gray-500 mt-2">Start by creating your first invoice</p>
               </div>
               <button 
                 onClick={() => router.push("/dashboard/invoices/create")}
-                className="w-full py-2.5 rounded-xl text-xs font-bold bg-brand-primary hover:bg-brand-primary/90 text-white transition active:scale-95 duration-150"
+                className="w-full py-2.5 rounded-[10px] text-[14px] font-medium bg-brand-primary hover:bg-brand-primary/90 text-white transition active:scale-95 duration-150"
               >
                 Create Invoice
               </button>
             </div>
 
             {/* Explore Dashboard Card */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition duration-300 flex flex-col justify-between items-center text-center space-y-6">
-              <div className="p-4 bg-brand-neutral text-orange-600 rounded-2xl">
+            <div className="bg-white border border-gray-200 rounded-[12px] p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition duration-300 flex flex-col justify-between items-center text-center space-y-6">
+              <div className="p-4 bg-brand-neutral text-orange-600 rounded-[10px]">
                 <LayoutDashboard size={32} />
               </div>
               <div>
-                <h3 className="text-base font-bold text-gray-900">Explore Dashboard</h3>
-                <p className="text-xs text-gray-400 mt-2">Browse all features at your own pace</p>
+                <h3 className="text-[16px] font-bold text-gray-900">Explore Dashboard</h3>
+                <p className="text-[13px] text-gray-500 mt-2">Browse all features at your own pace</p>
               </div>
               <button 
                 onClick={() => router.push("/dashboard")}
-                className="w-full py-2.5 rounded-xl text-xs font-bold bg-brand-primary hover:bg-brand-primary/90 text-white transition active:scale-95 duration-150"
+                className="w-full py-2.5 rounded-[10px] text-[14px] font-medium bg-brand-primary hover:bg-brand-primary/90 text-white transition active:scale-95 duration-150"
               >
                 Explore Now
               </button>
             </div>
 
             {/* Book Demo Card */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition duration-300 flex flex-col justify-between items-center text-center space-y-6">
-              <div className="p-4 bg-emerald-50 text-brand-tertiary rounded-2xl">
+            <div className="bg-white border border-gray-200 rounded-[12px] p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition duration-300 flex flex-col justify-between items-center text-center space-y-6">
+              <div className="p-4 bg-emerald-50 text-brand-tertiary rounded-[10px]">
                 <Headset size={32} />
               </div>
               <div>
-                <h3 className="text-base font-bold text-gray-900">Book Demo</h3>
-                <p className="text-xs text-gray-400 mt-2">Get a demo from our expert team</p>
+                <h3 className="text-[16px] font-bold text-gray-900">Book Demo</h3>
+                <p className="text-[13px] text-gray-500 mt-2">Get a demo from our expert team</p>
               </div>
               <button 
                 onClick={() => {
                   toast.success("Demo Booked! Our expert will call you shortly.");
                   router.push("/dashboard");
                 }}
-                className="w-full py-2.5 rounded-xl text-xs font-bold bg-brand-primary hover:bg-brand-primary/90 text-white transition active:scale-95 duration-150"
+                className="w-full py-2.5 rounded-[10px] text-[14px] font-medium bg-brand-primary hover:bg-brand-primary/90 text-white transition active:scale-95 duration-150"
               >
                 Book Demo
               </button>
@@ -191,28 +191,23 @@ export default function Signup() {
           
           {/* LEFT SIDE: Premium Hero Graphic Panel */}
           <div className="hidden lg:flex flex-col justify-between p-12 bg-brand-primary relative overflow-hidden">
-            {/* Abstract Background Elements */}
-            <div className="absolute inset-0 z-0 opacity-20">
-              <div className="absolute top-0 -left-1/4 w-full h-full bg-gradient-to-br from-brand-secondary/40 to-transparent blur-3xl transform rotate-12 rounded-full"></div>
-              <div className="absolute bottom-0 -right-1/4 w-full h-full bg-gradient-to-tl from-brand-tertiary/20 to-transparent blur-3xl transform -rotate-12 rounded-full"></div>
-            </div>
 
             <div className="relative z-10 flex flex-col h-full justify-between">
               {/* Logo */}
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-brand-secondary rounded-xl text-white shadow-lg shadow-brand-secondary/30 flex items-center justify-center">
+                <div className="p-2.5 bg-brand-secondary rounded-[8px] text-white shadow-sm flex items-center justify-center">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="rotate-45 transform">
                     <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
                   </svg>
                 </div>
                 <div>
-                  <span className="text-3xl font-extrabold text-white tracking-tight">Cloud <span className="text-brand-secondary">Ledger</span></span>
+                  <span className="text-[20px] font-bold text-white tracking-tight">Cloud <span className="text-brand-secondary">Ledger</span></span>
                 </div>
               </div>
 
               {/* Value Proposition */}
               <div className="max-w-md space-y-6 my-auto">
-                <h1 className="text-4xl lg:text-5xl font-extrabold text-white leading-[1.1] tracking-tight">
+                <h1 className="text-4xl lg:text-[40px] font-bold text-white leading-[1.1] tracking-tight">
                   Join millions of successful businesses.
                 </h1>
                 <p className="text-lg text-brand-neutral/80 font-medium">
@@ -236,9 +231,9 @@ export default function Signup() {
 
           {/* RIGHT SIDE FORM PANEL */}
           <div className="flex flex-col justify-center px-6 sm:px-16 py-12 bg-slate-50 relative max-w-xl mx-auto lg:max-w-none lg:w-full">
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-[size:32px_32px] opacity-40"></div>
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.15]"></div>
             
-            <div className="relative z-10 max-w-md lg:max-w-[480px] mx-auto w-full space-y-8 bg-white p-8 sm:p-10 rounded-[2rem] shadow-2xl shadow-brand-primary/5 ring-1 ring-brand-primary/5">
+            <div className="relative z-10 max-w-md lg:max-w-[480px] mx-auto w-full space-y-8 bg-white p-8 sm:p-10 rounded-[12px] shadow-lg border border-gray-200">
               
               {/* Header Title */}
               <div className="text-left space-y-4">
@@ -271,50 +266,50 @@ export default function Signup() {
                 <form onSubmit={handleStep1Continue} className="space-y-4">
                   {/* Email Field */}
                   <div className="space-y-1 text-left">
-                    <label className="text-[11px] font-extrabold text-brand-primary/70 uppercase tracking-wider">Email Address *</label>
+                    <label className="text-[11px] font-bold text-brand-primary/70 uppercase tracking-wider">Email Address *</label>
                     <input
                       type="email"
                       placeholder="Enter Email Address"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-4 py-3.5 rounded-xl border border-brand-primary/10 bg-slate-50 text-sm font-bold text-brand-primary placeholder:text-brand-primary/30 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all hover:bg-white shadow-inner"
+                      className="w-full px-4 py-3.5 rounded-[10px] border border-gray-200 bg-slate-50 text-[16px] font-medium text-brand-primary placeholder:text-brand-primary/40 outline-none focus:border-transparent focus:ring-2 focus:ring-brand-secondary transition-all hover:bg-white"
                     />
                   </div>
 
                   {/* Password Field */}
                   <div className="space-y-1.5 text-left">
-                    <label className="text-[11px] font-extrabold text-brand-primary/70 uppercase tracking-wider">Password (Min 6 Characters) *</label>
+                    <label className="text-[11px] font-bold text-brand-primary/70 uppercase tracking-wider">Password (Min 6 Characters) *</label>
                     <input
                       type="password"
                       placeholder="Enter Secure Password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-4 py-3.5 rounded-xl border border-brand-primary/10 bg-slate-50 text-sm font-bold text-brand-primary placeholder:text-brand-primary/30 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all hover:bg-white shadow-inner"
+                      className="w-full px-4 py-3.5 rounded-[10px] border border-gray-200 bg-slate-50 text-[16px] font-medium text-brand-primary placeholder:text-brand-primary/40 outline-none focus:border-transparent focus:ring-2 focus:ring-brand-secondary transition-all hover:bg-white"
                     />
                   </div>
 
                   {/* Business Name Field */}
                   <div className="space-y-1.5 text-left">
-                    <label className="text-[11px] font-extrabold text-brand-primary/70 uppercase tracking-wider">Your Business Name *</label>
+                    <label className="text-[11px] font-bold text-brand-primary/70 uppercase tracking-wider">Your Business Name *</label>
                     <input
                       type="text"
                       placeholder="Enter Business Name"
                       value={businessName}
                       onChange={(e) => setBusinessName(e.target.value)}
-                      className="w-full px-4 py-3.5 rounded-xl border border-brand-primary/10 bg-slate-50 text-sm font-bold text-brand-primary placeholder:text-brand-primary/30 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all hover:bg-white shadow-inner"
+                      className="w-full px-4 py-3.5 rounded-[10px] border border-gray-200 bg-slate-50 text-[16px] font-medium text-brand-primary placeholder:text-brand-primary/40 outline-none focus:border-transparent focus:ring-2 focus:ring-brand-secondary transition-all hover:bg-white"
                     />
                   </div>
 
                   {/* City Search Field */}
                   <div className="space-y-1.5 text-left">
-                    <label className="text-[11px] font-extrabold text-brand-primary/70 uppercase tracking-wider">Which City? *</label>
+                    <label className="text-[11px] font-bold text-brand-primary/70 uppercase tracking-wider">Which City? *</label>
                     <div className="relative">
                       <input
                         type="text"
                         placeholder="Search Cities"
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
-                        className="w-full pl-4 pr-10 py-3.5 rounded-xl border border-brand-primary/10 bg-slate-50 text-sm font-bold text-brand-primary placeholder:text-brand-primary/30 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all hover:bg-white shadow-inner"
+                        className="w-full pl-4 pr-10 py-3.5 rounded-[10px] border border-gray-200 bg-slate-50 text-[16px] font-medium text-brand-primary placeholder:text-brand-primary/40 outline-none focus:border-transparent focus:ring-2 focus:ring-brand-secondary transition-all hover:bg-white"
                       />
                       <svg className="absolute right-4 top-3.5 w-5 h-5 text-brand-primary/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -324,13 +319,13 @@ export default function Signup() {
 
                   {/* GSTIN Field (Optional) */}
                   <div className="space-y-1.5 text-left">
-                    <label className="text-[11px] font-extrabold text-brand-primary/70 uppercase tracking-wider">GST Number (Optional)</label>
+                    <label className="text-[11px] font-bold text-brand-primary/70 uppercase tracking-wider">GST Number (Optional)</label>
                     <input
                       type="text"
                       placeholder="e.g. 29ABCDE1234F1Z5"
                       value={gstin}
                       onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                      className="w-full px-4 py-3.5 rounded-xl border border-brand-primary/10 bg-slate-50 text-sm font-bold text-brand-primary placeholder:text-brand-primary/30 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all hover:bg-white shadow-inner"
+                      className="w-full px-4 py-3.5 rounded-[10px] border border-gray-200 bg-slate-50 text-[16px] font-medium text-brand-primary placeholder:text-brand-primary/40 outline-none focus:border-transparent focus:ring-2 focus:ring-brand-secondary transition-all hover:bg-white"
                     />
                   </div>
 
@@ -378,7 +373,7 @@ export default function Signup() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-4 mt-4 rounded-xl text-sm font-extrabold bg-brand-primary hover:bg-brand-primary/90 text-white transition-all shadow-xl hover:shadow-brand-primary/30 hover:-translate-y-0.5 active:scale-[0.98] duration-150 flex items-center justify-center gap-2"
+                    className="w-full py-[14px] mt-4 rounded-[10px] text-[14px] font-medium bg-brand-primary hover:bg-brand-primary/90 text-white transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] duration-150 flex items-center justify-center gap-2"
                   >
                     {loading ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

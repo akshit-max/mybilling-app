@@ -113,28 +113,22 @@ export default function Login() {
       
       {/* LEFT SIDE: Premium Hero Graphic Panel */}
       <div className="hidden lg:flex flex-col justify-between p-12 bg-brand-primary relative overflow-hidden">
-        {/* Abstract Background Elements */}
-        <div className="absolute inset-0 z-0 opacity-20">
-          <div className="absolute top-0 -left-1/4 w-full h-full bg-gradient-to-br from-brand-secondary/40 to-transparent blur-3xl transform rotate-12 rounded-full"></div>
-          <div className="absolute bottom-0 -right-1/4 w-full h-full bg-gradient-to-tl from-brand-tertiary/20 to-transparent blur-3xl transform -rotate-12 rounded-full"></div>
-        </div>
-
         <div className="relative z-10 flex flex-col h-full justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-brand-secondary rounded-xl text-white shadow-lg shadow-brand-secondary/30 flex items-center justify-center">
+            <div className="p-2.5 bg-brand-secondary rounded-[8px] text-white shadow-sm flex items-center justify-center">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="rotate-45 transform">
                 <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
               </svg>
             </div>
             <div>
-              <span className="text-3xl font-extrabold text-white tracking-tight">Cloud <span className="text-brand-secondary">Ledger</span></span>
+              <span className="text-[20px] font-bold text-white tracking-tight">Cloud <span className="text-brand-secondary">Ledger</span></span>
             </div>
           </div>
 
           {/* Value Proposition */}
           <div className="max-w-md space-y-6 my-auto">
-            <h1 className="text-4xl lg:text-5xl font-extrabold text-white leading-[1.1] tracking-tight">
+            <h1 className="text-4xl lg:text-[40px] font-bold text-white leading-[1.1] tracking-tight">
               Manage your business with absolute clarity.
             </h1>
             <p className="text-lg text-brand-neutral/80 font-medium">
@@ -158,7 +152,7 @@ export default function Login() {
 
       {/* RIGHT SIDE: Authentication Form Panel */}
       <div className="flex flex-col justify-center px-6 sm:px-16 py-12 bg-slate-50 relative">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-[size:32px_32px] opacity-40"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.15]"></div>
         
         {/* Top Right Close Button */}
         <button 
@@ -168,19 +162,19 @@ export default function Login() {
           <X size={20} />
         </button>
 
-        <div className="relative z-10 w-full max-w-[440px] mx-auto flex flex-col bg-white p-8 sm:p-10 rounded-[2rem] shadow-2xl shadow-brand-primary/5 ring-1 ring-brand-primary/5">
+        <div className="relative z-10 w-full max-w-[440px] mx-auto flex flex-col bg-white p-8 sm:p-10 rounded-[12px] shadow-lg border border-gray-200">
           
           <div className="flex lg:hidden items-center gap-2 mb-10">
-            <div className="p-2 bg-brand-secondary rounded-lg text-white shadow-md flex items-center justify-center">
+            <div className="p-2 bg-brand-secondary rounded-[8px] text-white shadow-sm flex items-center justify-center">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="rotate-45 transform">
               <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
             </svg>
             </div>
-            <span className="text-2xl font-extrabold text-brand-primary tracking-tight">Cloud <span className="text-brand-secondary">Ledger</span></span>
+            <span className="text-[20px] font-bold text-brand-primary tracking-tight">Cloud <span className="text-brand-secondary">Ledger</span></span>
           </div>
 
           <div className="mb-8">
-            <h2 className="text-3xl font-extrabold text-brand-primary tracking-tight">
+            <h2 className="text-[32px] font-bold text-brand-primary tracking-tight">
               {isResetMode ? "Reset Password" : "Welcome back"}
             </h2>
             <p className="text-sm font-semibold text-brand-primary/60 mt-2">
@@ -195,13 +189,13 @@ export default function Login() {
 
             {/* Email field */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-extrabold text-brand-primary/70 uppercase tracking-wider">Email Address</label>
+              <label className="text-[11px] font-bold text-brand-primary/70 uppercase tracking-wider">Email Address</label>
               <input
                 type="email"
                 placeholder="hello@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3.5 rounded-xl border border-brand-primary/10 bg-slate-50 text-sm font-bold text-brand-primary placeholder:text-brand-primary/30 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all hover:bg-white shadow-inner"
+                className="w-full px-4 py-3.5 rounded-[10px] border border-gray-200 bg-slate-50 text-[16px] font-medium text-brand-primary placeholder:text-brand-primary/40 outline-none focus:border-transparent focus:ring-2 focus:ring-brand-secondary transition-all hover:bg-white"
               />
             </div>
 
@@ -209,11 +203,11 @@ export default function Login() {
             {!isResetMode && (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-extrabold text-brand-primary/70 uppercase tracking-wider">Password</label>
+                  <label className="text-[11px] font-bold text-brand-primary/70 uppercase tracking-wider">Password</label>
                   <button 
                     type="button"
                     onClick={() => setIsResetMode(true)}
-                    className="text-[11px] font-bold text-brand-secondary hover:text-brand-secondary/80 transition-colors"
+                    className="text-[11px] font-medium text-brand-secondary hover:text-brand-secondary/80 transition-colors"
                   >
                     Forgot Password?
                   </button>
@@ -223,7 +217,7 @@ export default function Login() {
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3.5 rounded-xl border border-brand-primary/10 bg-slate-50 text-sm font-bold text-brand-primary placeholder:text-brand-primary/30 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all hover:bg-white shadow-inner"
+                  className="w-full px-4 py-3.5 rounded-[10px] border border-gray-200 bg-slate-50 text-[16px] font-medium text-brand-primary placeholder:text-brand-primary/40 outline-none focus:border-transparent focus:ring-2 focus:ring-brand-secondary transition-all hover:bg-white"
                 />
               </div>
             )}
@@ -232,7 +226,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 mt-2 rounded-xl text-sm font-extrabold bg-brand-primary hover:bg-brand-primary/90 text-white transition-all shadow-xl hover:shadow-brand-primary/30 hover:-translate-y-0.5 active:scale-[0.98] duration-150 flex items-center justify-center"
+              className="w-full py-[14px] mt-2 rounded-[10px] text-[14px] font-medium bg-brand-primary hover:bg-brand-primary/90 text-white transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] duration-150 flex items-center justify-center"
             >
             {loading ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

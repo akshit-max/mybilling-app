@@ -636,13 +636,17 @@ export default function Dashboard() {
                         
                         const txnType = (tx.invoiceType || "invoice") === "estimate" ? "Estimate" : "Sales Invoices";
                         return (
-                          <Link key={tx.id} href={`/dashboard/invoices/${tx.id}`} className="table-row hover:bg-brand-neutral/50 cursor-pointer transition-colors">
+                          <tr 
+                            key={tx.id} 
+                            onClick={() => router.push(`/dashboard/invoices/${tx.id}`)}
+                            className="hover:bg-brand-neutral/50 cursor-pointer transition-colors"
+                          >
                              <td className="py-3.5 px-6 font-bold text-brand-primary">{dateFormatted}</td>
                              <td className="py-3.5 px-6 text-brand-primary/60 font-bold">{txnType}</td>
                              <td className="py-3.5 px-6 font-mono text-brand-primary/60">{tx.invoiceNumber}</td>
                              <td className="py-3.5 px-6 text-brand-primary font-bold uppercase truncate max-w-[120px]">{tx.customerName}</td>
                              <td className="py-3.5 px-6 text-right font-bold text-brand-primary font-mono">₹{tx.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                          </Link>
+                          </tr>
                         );
                       })}
                    </tbody>
