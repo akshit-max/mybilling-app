@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebaseAdmin";
 
 export async function POST(req: Request) {
   try {
-    const { plan, cycle, promo } = await req.json();
+    const { plan, cycle, promo, uid, formData } = await req.json();
+
+    if (!uid) {
+      return NextResponse.json({ error: "User identity required" }, { status: 400 });
+    }
 
     let originalPrice = 249;
     if (plan === "Diamond" && cycle === "Yearly") originalPrice = 2599;
@@ -49,6 +54,18 @@ export async function POST(req: Request) {
       console.error("Razorpay Order Error:", data);
       return NextResponse.json({ error: "Failed to create Razorpay order" }, { status: 400 });
     }
+
+    // Store transaction intent securely on server
+    await adminDb.collection("transactions").doc(data.id).set({
+      orderId: data.id,
+      uid,
+      plan: plan || "Diamond",
+      cycle: cycle || "Monthly",
+      amount: totalPrice,
+      formData: formData || {},
+      status: "PENDING",
+      createdAt: new Date().toISOString()
+    });
 
     return NextResponse.json(data);
   } catch (error: any) {

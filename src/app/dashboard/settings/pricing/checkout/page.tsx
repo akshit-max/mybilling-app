@@ -119,7 +119,7 @@ export default function CheckoutPage() {
       const orderRes = await fetch("/api/create-razorpay-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, cycle, promo })
+        body: JSON.stringify({ plan, cycle, promo, uid, formData })
       });
       
       const orderData = await orderRes.json();
@@ -165,19 +165,6 @@ export default function CheckoutPage() {
                 return;
             }
 
-            toast.loading("Upgrading your plan...", { id: "upgrade" });
-            await setDoc(doc(db, "users", uid), {
-              businessName: formData.businessName,
-              state: formData.state,
-              pincode: formData.pincode,
-              gstNumber: formData.hasGst ? formData.gstNumber : "",
-              streetAddress: formData.streetAddress,
-              city: formData.city,
-              plan: plan,
-              subscriptionCycle: cycle,
-              isPaid: true,
-              subscriptionStartDate: new Date().toISOString()
-            }, { merge: true });
             setShowModal(false);
             toast.success("Payment successful! Your plan has been upgraded.", { id: "upgrade", icon: "🎉" });
             router.push("/dashboard/settings/pricing");
