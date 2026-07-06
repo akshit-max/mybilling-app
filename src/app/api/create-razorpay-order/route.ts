@@ -1,12 +1,26 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { getApps } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 
 export async function POST(req: Request) {
   try {
-    const { plan, cycle, promo, uid, formData } = await req.json();
+    const { plan, cycle, promo, formData } = await req.json();
 
-    if (!uid) {
-      return NextResponse.json({ error: "User identity required" }, { status: 400 });
+    // Derive uid from server-verified Firebase ID Token — never trust client payload
+    const authHeader = req.headers.get("Authorization");
+    const idToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+    if (!idToken) {
+      return NextResponse.json({ error: "Unauthorized: Missing token" }, { status: 401 });
+    }
+
+    let uid: string;
+    try {
+      const decoded = await getAuth(getApps()[0]).verifyIdToken(idToken);
+      uid = decoded.uid;
+    } catch {
+      return NextResponse.json({ error: "Unauthorized: Invalid token" }, { status: 401 });
     }
 
     let originalPrice = 249;
