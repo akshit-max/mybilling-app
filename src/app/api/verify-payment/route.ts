@@ -40,32 +40,35 @@ export async function POST(req: Request) {
 
       const { uid, plan, cycle, formData } = transactionData as any;
 
-      if (uid) {
-        // Atomic update of user plan and transaction status
-        const batch = adminDb.batch();
-
-        const userRef = adminDb.collection('users').doc(uid);
-        batch.set(userRef, {
-          businessName: formData?.businessName || "",
-          state: formData?.state || "",
-          pincode: formData?.pincode || "",
-          gstNumber: formData?.hasGst ? (formData?.gstNumber || "") : "",
-          streetAddress: formData?.streetAddress || "",
-          city: formData?.city || "",
-          plan: plan || "Diamond",
-          subscriptionCycle: cycle || "Monthly",
-          isPaid: true,
-          subscriptionStartDate: new Date().toISOString()
-        }, { merge: true });
-
-        batch.update(transactionRef, {
-          status: "SUCCESS",
-          paymentId: razorpay_payment_id,
-          verifiedAt: new Date().toISOString()
-        });
-
-        await batch.commit();
+      if (!uid) {
+        console.error("Transaction doc missing uid — cannot activate subscription.", razorpay_order_id);
+        return NextResponse.json({ verified: false, message: "Transaction record is incomplete. Contact support." }, { status: 500 });
       }
+
+      // Atomic update of user plan and transaction status
+      const batch = adminDb.batch();
+
+      const userRef = adminDb.collection('users').doc(uid);
+      batch.set(userRef, {
+        businessName: formData?.businessName || "",
+        state: formData?.state || "",
+        pincode: formData?.pincode || "",
+        gstNumber: formData?.hasGst ? (formData?.gstNumber || "") : "",
+        streetAddress: formData?.streetAddress || "",
+        city: formData?.city || "",
+        plan: plan || "Diamond",
+        subscriptionCycle: cycle || "Monthly",
+        isPaid: true,
+        subscriptionStartDate: new Date().toISOString()
+      }, { merge: true });
+
+      batch.update(transactionRef, {
+        status: "SUCCESS",
+        paymentId: razorpay_payment_id,
+        verifiedAt: new Date().toISOString()
+      });
+
+      await batch.commit();
 
       return NextResponse.json({ verified: true, message: "Payment successfully verified and subscription activated." });
     } else {
