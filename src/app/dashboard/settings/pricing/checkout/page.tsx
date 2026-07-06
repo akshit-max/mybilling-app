@@ -105,8 +105,6 @@ export default function CheckoutPage() {
     try {
       setIsSubmitting(true);
       
-      const uid = auth.currentUser.uid;
-
       const res = await loadScript("https://checkout.razorpay.com/v1/checkout.js");
 
       if (!res) {
@@ -115,11 +113,17 @@ export default function CheckoutPage() {
         return;
       }
 
+      // Get a short-lived ID token so the backend can verify who this user is
+      const idToken = await auth.currentUser.getIdToken();
+
       // 1. Create Order on Server
       const orderRes = await fetch("/api/create-razorpay-order", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, cycle, promo, uid, formData })
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ plan, cycle, promo, formData })
       });
       
       const orderData = await orderRes.json();
