@@ -13,11 +13,20 @@ service cloud.firestore {
       return request.auth.uid == docUserId || isSubuserOf(docUserId);
     }
 
+    // Helper: Caller is the registered Platform Super Admin
+    // Verifies against the UID stored in platformSettings/security — not a hardcoded value.
+    function isSuperAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/platformSettings/security)
+        && get(/databases/$(database)/documents/platformSettings/security).data.superAdminUid == request.auth.uid;
+    }
+
     // ─────────────────────────────────────────────
     // USERS COLLECTION (Razorpay Security)
     // ─────────────────────────────────────────────
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null
+                  && (request.auth.uid == userId || isSuperAdmin());
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null 
                     && request.auth.uid == userId
@@ -50,7 +59,9 @@ service cloud.firestore {
     // USER CONFIGURATION (Uses docId as ownership)
     // ─────────────────────────────────────────────
     match /settings/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null
+                  && (request.auth.uid == userId || isSuperAdmin());
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
     match /attendanceSettings/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -60,8 +71,10 @@ service cloud.firestore {
     // SUBUSERS (Employee access)
     // ─────────────────────────────────────────────
     match /subusers/{subuserId} {
-      allow read: if request.auth != null 
-                  && (request.auth.uid == subuserId || resource.data.adminId == request.auth.uid);
+      allow read: if request.auth != null
+                  && (request.auth.uid == subuserId
+                      || resource.data.adminId == request.auth.uid
+                      || isSuperAdmin());
       allow update, delete: if request.auth != null && resource.data.adminId == request.auth.uid;
       allow create: if request.auth != null && request.resource.data.adminId == request.auth.uid;
     }
