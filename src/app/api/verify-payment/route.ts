@@ -25,50 +25,55 @@ export async function POST(req: Request) {
     if (generated_signature === razorpay_signature) {
       // Look up the transaction intent created by the server
       const transactionRef = adminDb.collection('transactions').doc(razorpay_order_id);
-      const transactionDoc = await transactionRef.get();
 
-      if (!transactionDoc.exists) {
-        return NextResponse.json({ verified: false, message: "Order not found." }, { status: 404 });
-      }
+      const result = await adminDb.runTransaction(async (t) => {
+        const transactionDoc = await t.get(transactionRef);
 
-      const transactionData = transactionDoc.data();
-      
-      // Idempotency Check
-      if (transactionData?.status === "SUCCESS") {
-        return NextResponse.json({ verified: true, message: "Payment already processed." });
-      }
+        if (!transactionDoc.exists) {
+          return { error: true, status: 404, payload: { verified: false, message: "Order not found." } };
+        }
 
-      const { uid, plan, cycle, formData } = transactionData as any;
+        const transactionData = transactionDoc.data();
+        
+        // Idempotency Check
+        if (transactionData?.status === "SUCCESS") {
+          return { error: true, status: 200, payload: { verified: true, message: "Payment already processed." } };
+        }
 
-      if (!uid) {
-        console.error("Transaction doc missing uid — cannot activate subscription.", razorpay_order_id);
-        return NextResponse.json({ verified: false, message: "Transaction record is incomplete. Contact support." }, { status: 500 });
-      }
+        const { uid, plan, cycle, formData } = transactionData as any;
 
-      // Atomic update of user plan and transaction status
-      const batch = adminDb.batch();
+        if (!uid) {
+          console.error("Transaction doc missing uid — cannot activate subscription.", razorpay_order_id);
+          return { error: true, status: 500, payload: { verified: false, message: "Transaction record is incomplete. Contact support." } };
+        }
 
-      const userRef = adminDb.collection('users').doc(uid);
-      batch.set(userRef, {
-        businessName: formData?.businessName || "",
-        state: formData?.state || "",
-        pincode: formData?.pincode || "",
-        gstNumber: formData?.hasGst ? (formData?.gstNumber || "") : "",
-        streetAddress: formData?.streetAddress || "",
-        city: formData?.city || "",
-        plan: plan || "Diamond",
-        subscriptionCycle: cycle || "Monthly",
-        isPaid: true,
-        subscriptionStartDate: new Date().toISOString()
-      }, { merge: true });
+        const userRef = adminDb.collection('users').doc(uid);
+        
+        t.set(userRef, {
+          businessName: formData?.businessName || "",
+          state: formData?.state || "",
+          pincode: formData?.pincode || "",
+          gstNumber: formData?.hasGst ? (formData?.gstNumber || "") : "",
+          streetAddress: formData?.streetAddress || "",
+          city: formData?.city || "",
+          plan: plan || "Diamond",
+          subscriptionCycle: cycle || "Monthly",
+          isPaid: true,
+          subscriptionStartDate: new Date().toISOString()
+        }, { merge: true });
 
-      batch.update(transactionRef, {
-        status: "SUCCESS",
-        paymentId: razorpay_payment_id,
-        verifiedAt: new Date().toISOString()
+        t.update(transactionRef, {
+          status: "SUCCESS",
+          paymentId: razorpay_payment_id,
+          verifiedAt: new Date().toISOString()
+        });
+
+        return { error: false };
       });
 
-      await batch.commit();
+      if (result.error) {
+        return NextResponse.json(result.payload, { status: result.status });
+      }
 
       return NextResponse.json({ verified: true, message: "Payment successfully verified and subscription activated." });
     } else {
