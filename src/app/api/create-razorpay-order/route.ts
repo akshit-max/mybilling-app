@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { DEFAULT_PRICING } from "@/lib/pricing";
 
 export async function POST(req: Request) {
   try {
@@ -39,12 +40,40 @@ export async function POST(req: Request) {
       }
     }
 
-    let originalPrice = 249;
-    if (plan === "Diamond" && cycle === "Yearly") originalPrice = 2599;
-    if (plan === "Platinum" && cycle === "Monthly") originalPrice = 299;
-    if (plan === "Platinum" && cycle === "Yearly") originalPrice = 2999;
-    if (plan === "Enterprise" && cycle === "Monthly") originalPrice = 750;
-    if (plan === "Enterprise" && cycle === "Yearly") originalPrice = 4999;
+    // Fetch pricing config from Firestore, fallback to defaults
+    const pricingDoc = await adminDb.collection("platformSettings").doc("subscriptionPricing").get();
+    let pricingData = DEFAULT_PRICING;
+    if (pricingDoc.exists) {
+      pricingData = pricingDoc.data() as typeof DEFAULT_PRICING;
+    }
+
+    // Validate plan
+    if (!pricingData[plan as keyof typeof pricingData]) {
+      return NextResponse.json({ error: "Invalid plan selected." }, { status: 400 });
+    }
+
+    const planConfig = pricingData[plan as keyof typeof pricingData];
+    if (planConfig.enabled === false) {
+      return NextResponse.json({ error: "This plan is currently disabled." }, { status: 400 });
+    }
+
+    if (cycle !== "Monthly" && cycle !== "Yearly") {
+      return NextResponse.json({ error: "Invalid billing cycle selected." }, { status: 400 });
+    }
+    const billingCycle = cycle as "Monthly" | "Yearly";
+    const originalPrice = planConfig[billingCycle];
+    if (typeof originalPrice !== "number") {
+      return NextResponse.json({ error: "Invalid billing cycle selected." }, { status: 400 });
+    }
+
+    // ── PRICING TRACE ── uncomment to debug pricing issues
+    // console.log("[create-razorpay-order] PRICING TRACE", {
+    //   plan,
+    //   cycle,
+    //   firestoreDocExists: pricingDoc.exists,
+    //   firestorePricingData: JSON.stringify(pricingData),
+    //   resolvedOriginalPrice: originalPrice,
+    // });
 
     let totalPrice = 0;
     if (promo === "31DAYS2") {
@@ -53,6 +82,13 @@ export async function POST(req: Request) {
       const gstAmount = Math.round(originalPrice * 0.18);
       totalPrice = originalPrice + gstAmount;
     }
+    // ── AMOUNT TRACE ── uncomment to debug pricing issues
+    // console.log("[create-razorpay-order] AMOUNT TRACE", {
+    //   originalPrice,
+    //   gstAmount: promo === "31DAYS2" ? 0 : Math.round(originalPrice * 0.18),
+    //   totalPrice,
+    //   amountInPaise: totalPrice * 100,
+    // });
     const amountInPaise = totalPrice * 100;
 
     const key_id = process.env.NEXT_PUBLIC_RAZORPAY_KEY || "";
