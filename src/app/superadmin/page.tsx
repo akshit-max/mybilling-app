@@ -6,10 +6,10 @@ import {
   UserCog, ChevronLeft, Settings, LogOut, TrendingUp, PieChart, Activity, 
   CreditCard, Filter, ArrowUpRight, AlertTriangle, Clock, Zap, CheckCircle2,
   DollarSign, BarChart3, AlertCircle, RefreshCw, XCircle, SearchX, History, List,
-  Download, UserPlus, UserCheck, CheckSquare, Briefcase
+  Download, UserPlus, UserCheck, CheckSquare, Briefcase, Edit2, X, Crown
 } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { collection, query, getDocs } from "firebase/firestore";
+import { collection, query, getDocs, doc, updateDoc, getDoc, setDoc } from "firebase/firestore";
 import Loader from "@/components/Loader";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
@@ -29,9 +29,19 @@ type CompanyData = {
   updatedAt: Date | null;
   lastActive: Date | null;
   renewalDate: Date | null;
+  subscriptionStartDate: Date | null;
+  trialStartDate: Date | null;
   employeeCount: number;
   rolesBreakdown: Record<string, number>;
   employeesList: { name: string; role: string; email: string; date: Date | null }[];
+};
+
+type EditForm = {
+  isPaid: boolean;
+  plan: string;
+  subscriptionCycle: string;
+  subscriptionStartDate: string;
+  trialStartDate: string;
 };
 
 type ActivityEvent = {
@@ -56,6 +66,11 @@ export default function SuperAdminDashboard() {
   const [filterStatus, setFilterStatus] = useState("All");
 
   const [selectedCompany, setSelectedCompany] = useState<CompanyData | null>(null);
+
+  // Edit subscription modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     init();
@@ -204,8 +219,10 @@ export default function SuperAdminDashboard() {
             status: status,
             createdAt: createdDate,
             updatedAt: updatedDate,
-            lastActive: lastActiveDate || updatedDate || createdDate, // True Last Active Fallbacks
+            lastActive: lastActiveDate || updatedDate || createdDate,
             renewalDate,
+            subscriptionStartDate: subStartDate,
+            trialStartDate: parseDate(d.trialStartDate),
             employeeCount: employees.length,
             rolesBreakdown,
             employeesList
@@ -224,6 +241,60 @@ export default function SuperAdminDashboard() {
       } finally {
         setLoading(false);
       }
+  };
+
+  const handleSaveSubscription = async () => {
+    if (!selectedCompany || !editForm) return;
+    setSaving(true);
+    try {
+      const updates: Record<string, any> = {
+        isPaid: editForm.isPaid,
+        plan: editForm.isPaid ? editForm.plan : "Free",
+        status: editForm.isPaid ? "Paid" : "Trial",
+      };
+
+      if (editForm.isPaid) {
+        updates.subscriptionCycle = editForm.subscriptionCycle;
+        if (editForm.subscriptionStartDate) {
+          updates.subscriptionStartDate = editForm.subscriptionStartDate;
+        }
+      } else {
+        if (editForm.trialStartDate) {
+          updates.trialStartDate = editForm.trialStartDate;
+        }
+      }
+
+      await updateDoc(doc(db, "users", selectedCompany.uid), updates);
+
+      // Compute new renewalDate locally
+      let newRenewal: Date | null = null;
+      if (editForm.isPaid && editForm.subscriptionStartDate) {
+        newRenewal = new Date(editForm.subscriptionStartDate);
+        if (editForm.subscriptionCycle === "Yearly") newRenewal.setFullYear(newRenewal.getFullYear() + 1);
+        else newRenewal.setMonth(newRenewal.getMonth() + 1);
+      }
+
+      const updated: CompanyData = {
+        ...selectedCompany,
+        isPaid: editForm.isPaid,
+        plan: editForm.isPaid ? editForm.plan : "Free/Trial",
+        subscriptionCycle: editForm.isPaid ? editForm.subscriptionCycle : "N/A",
+        status: editForm.isPaid ? "Paid" : "Trial",
+        subscriptionStartDate: editForm.subscriptionStartDate ? new Date(editForm.subscriptionStartDate) : null,
+        trialStartDate: !editForm.isPaid && editForm.trialStartDate ? new Date(editForm.trialStartDate) : selectedCompany.trialStartDate,
+        renewalDate: newRenewal,
+      };
+
+      setCompanies(prev => prev.map(c => c.uid === selectedCompany.uid ? updated : c));
+      setSelectedCompany(updated);
+      setShowEditModal(false);
+      toast.success("Subscription updated successfully!");
+    } catch (err: any) {
+      console.error("Failed to update subscription:", err);
+      toast.error(err.message || "Failed to update subscription.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleExport = (type: "csv" | "excel") => {
@@ -637,6 +708,25 @@ export default function SuperAdminDashboard() {
                           <span className="flex items-center gap-1.5 md:border-l border-slate-700 md:pl-4"><Mail size={16} className="text-slate-500"/> {selectedCompany.email}</span>
                        </div>
                      </div>
+                     <button
+                        onClick={() => {
+                          setEditForm({
+                            isPaid: selectedCompany.isPaid,
+                            plan: selectedCompany.plan === "Free/Trial" ? "Free" : selectedCompany.plan,
+                            subscriptionCycle: selectedCompany.subscriptionCycle === "N/A" ? "Monthly" : selectedCompany.subscriptionCycle,
+                            subscriptionStartDate: selectedCompany.subscriptionStartDate
+                              ? selectedCompany.subscriptionStartDate.toISOString().split("T")[0]
+                              : "",
+                            trialStartDate: selectedCompany.trialStartDate
+                              ? selectedCompany.trialStartDate.toISOString().split("T")[0]
+                              : "",
+                          });
+                          setShowEditModal(true);
+                        }}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-bold rounded-xl transition-colors shrink-0"
+                      >
+                        <Edit2 size={15} /> Edit Subscription
+                      </button>
                    </div>
                  </div>
 
@@ -780,6 +870,127 @@ export default function SuperAdminDashboard() {
         </div>
 
       </main>
+
+      {/* ─── EDIT SUBSCRIPTION MODAL ─── */}
+      {showEditModal && editForm && selectedCompany && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+              <div>
+                <h2 className="text-base font-black text-slate-900">Edit Subscription</h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5 truncate max-w-[280px]">{selectedCompany.businessName}</p>
+              </div>
+              <button onClick={() => setShowEditModal(false)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-5">
+
+              {/* Status toggle */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Subscription Status</label>
+                <div className="flex rounded-xl overflow-hidden border border-slate-200">
+                  <button
+                    onClick={() => setEditForm(f => f ? { ...f, isPaid: false, plan: "Free" } : f)}
+                    className={`flex-1 py-2.5 text-xs font-bold transition-colors ${
+                      !editForm.isPaid ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-50"
+                    }`}
+                  >
+                    Trial / Free
+                  </button>
+                  <button
+                    onClick={() => setEditForm(f => f ? { ...f, isPaid: true } : f)}
+                    className={`flex-1 py-2.5 text-xs font-bold transition-colors ${
+                      editForm.isPaid ? "bg-emerald-600 text-white" : "bg-white text-slate-500 hover:bg-slate-50"
+                    }`}
+                  >
+                    Paid
+                  </button>
+                </div>
+              </div>
+
+              {/* Plan */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Plan</label>
+                <select
+                  value={editForm.plan}
+                  onChange={e => setEditForm(f => f ? { ...f, plan: e.target.value } : f)}
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                >
+                  <option value="Free">Free / Trial</option>
+                  <option value="Diamond">Diamond</option>
+                  <option value="Platinum">Platinum</option>
+                  <option value="Enterprise">Enterprise</option>
+                </select>
+              </div>
+
+              {/* Paid-only fields */}
+              {editForm.isPaid && (
+                <>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Billing Cycle</label>
+                    <select
+                      value={editForm.subscriptionCycle}
+                      onChange={e => setEditForm(f => f ? { ...f, subscriptionCycle: e.target.value } : f)}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    >
+                      <option value="Monthly">Monthly</option>
+                      <option value="Yearly">Yearly</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Subscription Start Date</label>
+                    <input
+                      type="date"
+                      value={editForm.subscriptionStartDate}
+                      onChange={e => setEditForm(f => f ? { ...f, subscriptionStartDate: e.target.value } : f)}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    />
+                    <p className="text-[10px] text-slate-400 font-medium mt-1">Renewal date is calculated automatically from this date.</p>
+                  </div>
+                </>
+              )}
+
+              {/* Trial-only field */}
+              {!editForm.isPaid && (
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Trial Start Date</label>
+                  <input
+                    type="date"
+                    value={editForm.trialStartDate}
+                    onChange={e => setEditForm(f => f ? { ...f, trialStartDate: e.target.value } : f)}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                  <p className="text-[10px] text-slate-400 font-medium mt-1">Adjusting this controls how many trial days remain (3 days from start).</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+              <button
+                onClick={() => setShowEditModal(false)}
+                disabled={saving}
+                className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveSubscription}
+                disabled={saving}
+                className="px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
