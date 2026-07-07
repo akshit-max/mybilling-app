@@ -22,7 +22,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import TrialExpiredModal from "@/components/ui/TrialExpiredModal";
-import OfferModal from "@/components/ui/OfferModal";
+// import OfferModal from "@/components/ui/OfferModal";
+// Promotional ₹2 onboarding offer — temporarily disabled for production.
+// Re-enable only if the client approves this marketing campaign.
 
 type Invoice = {
   id: string;
@@ -47,8 +49,10 @@ export default function Dashboard() {
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
   const [subDaysLeft, setSubDaysLeft] = useState<number | null>(null);
   const [showTestExpiredModal, setShowTestExpiredModal] = useState(false);
-  const [showTestOfferModal, setShowTestOfferModal] = useState(false);
+  // const [showTestOfferModal, setShowTestOfferModal] = useState(false); // ₹2 promo — disabled
   const [isPaid, setIsPaid] = useState(false);
+  // Computed client-side only — Firestore is never written from here
+  const [isSubscriptionExpired, setIsSubscriptionExpired] = useState(false);
   const [dashboardReminders, setDashboardReminders] = useState<any[]>([]);
   const [remindersLoading, setRemindersLoading] = useState(true);
 
@@ -302,9 +306,19 @@ export default function Dashboard() {
                    let duration = 30;
                    if (data.subscriptionCycle === "Yearly") duration = 365;
                    else if (data.plan === "Platinum" && data.subscriptionCycle === "Monthly") duration = 31;
-                   setSubDaysLeft(Math.max(0, duration - diffDays));
+                   const daysLeft = duration - diffDays;
+                   if (daysLeft <= 0) {
+                     // Expired: mark client-side only, DO NOT write to Firestore
+                     setSubDaysLeft(0);
+                     setIsSubscriptionExpired(true);
+                     setShowTestExpiredModal(true);
+                   } else {
+                     setSubDaysLeft(daysLeft);
+                     setIsSubscriptionExpired(false);
+                   }
                 } else {
                    setSubDaysLeft(30);
+                   setIsSubscriptionExpired(false);
                 }
               } else {
                 setIsPaid(false);
@@ -445,8 +459,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10 font-sans px-2">
       
-      {/* DEV CONTROLS FOR PAID USERS */}
-      {isPaid && (
+      {/* DEV CONTROLS — only visible in development, hidden in production */}
+      {process.env.NODE_ENV === 'development' && isPaid && !isSubscriptionExpired && (
         <div className="bg-[#141725] text-white border border-gray-800 rounded-xl p-3 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
             <AlertCircle size={14} /> Dev Mode
@@ -476,8 +490,26 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 0. PREMIUM TIMELINE BANNER (FOR PAID USERS) */}
-      {isPaid && subDaysLeft !== null && (
+      {/* SUBSCRIPTION EXPIRED BANNER */}
+      {isPaid && isSubscriptionExpired && (
+        <div className="bg-gradient-to-r from-red-500/10 via-orange-400/5 to-red-500/10 border border-red-200/60 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm mb-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-red-100 p-2 rounded-full text-red-600">
+              <AlertCircle size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-red-900 text-sm">Subscription Expired</h3>
+              <p className="text-xs text-red-700 font-medium">Your plan has ended. Renew to restore full access to all features.</p>
+            </div>
+          </div>
+          <button onClick={() => setShowTestExpiredModal(true)} className="px-4 py-1.5 text-xs bg-red-600 text-white rounded font-bold hover:bg-red-700 shadow-sm transition-colors whitespace-nowrap">
+            Renew Now
+          </button>
+        </div>
+      )}
+
+      {/* PREMIUM ACTIVE BANNER */}
+      {isPaid && !isSubscriptionExpired && subDaysLeft !== null && (
         <div className="bg-gradient-to-r from-emerald-500/10 via-emerald-400/5 to-emerald-500/10 border border-emerald-200/50 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm mb-6">
           <div className="flex items-center gap-3">
              <div className="bg-emerald-100 p-2 rounded-full text-brand-tertiary">
@@ -512,13 +544,15 @@ export default function Dashboard() {
               <p className="text-xs text-amber-700">Upgrade to a premium plan to continue enjoying all benefits.</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+           <div className="flex flex-wrap gap-2">
              <button onClick={() => setShowTestExpiredModal(true)} className="px-3 py-1.5 text-[10px] uppercase tracking-wider bg-white border border-gray-300 rounded font-bold hover:bg-gray-50 text-gray-700">
                Test Regular Expiry
              </button>
-             <button onClick={() => setShowTestOfferModal(true)} className="px-3 py-1.5 text-[10px] uppercase tracking-wider bg-white border border-gray-300 rounded font-bold hover:bg-gray-50 text-gray-700">
+             {/* ₹2 Promo offer button — disabled until client approves campaign
+             <button onClick={() => setShowTestOfferModal(true)} ...>
                Test ₹2 Offer Pop
              </button>
+             */}
              <Link href="/dashboard/settings/pricing" className="px-4 py-1.5 text-xs bg-amber-500 text-white rounded font-bold hover:bg-amber-600 shadow-sm ml-2">
                Upgrade Now
              </Link>
@@ -853,7 +887,9 @@ export default function Dashboard() {
 
       {/* Test Modals */}
       <TrialExpiredModal isOpen={showTestExpiredModal} onClose={() => setShowTestExpiredModal(false)} />
+      {/* Promotional ₹2 OfferModal — disabled until client approves campaign
       <OfferModal isOpen={showTestOfferModal} onClose={() => setShowTestOfferModal(false)} />
+      */}
 
     </div>
   );
