@@ -1,12 +1,26 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, AlertTriangle, Crown, Percent } from "lucide-react";
+import { AlertTriangle, Crown, Percent } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { DEFAULT_PRICING, PricingConfig } from "@/lib/pricing";
 
 export default function TrialExpiredModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const router = useRouter();
   const [selectedPlan, setSelectedPlan] = useState<"Diamond" | "Platinum" | "Enterprise">("Platinum");
+  const [pricing, setPricing] = useState<PricingConfig>(DEFAULT_PRICING);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      getDoc(doc(db, "platformSettings", "subscriptionPricing")).then(docSnap => {
+        if (docSnap.exists()) {
+          setPricing(docSnap.data() as PricingConfig);
+        }
+      }).catch(console.error);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -22,17 +36,15 @@ export default function TrialExpiredModal({ isOpen, onClose }: { isOpen: boolean
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      {/* Backdrop — no click-to-close: this modal is mandatory */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       
       {/* Modal Content */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl animate-in zoom-in-95 duration-200 flex flex-col font-sans">
         
         {/* Wavy/Gradient Header Area */}
         <div className="h-32 bg-gradient-to-br from-orange-50 via-orange-100/50 to-white rounded-t-2xl relative flex flex-col items-center justify-end pb-4 border-b border-orange-100/50">
-          <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-white/50 hover:bg-white rounded-full p-1.5 transition-colors">
-            <X size={18} />
-          </button>
+
           
           <div className="absolute -top-6 w-20 h-20 bg-brand-secondary rounded-full flex items-center justify-center shadow-lg border-4 border-white">
             <AlertTriangle size={32} className="text-white" />
@@ -64,11 +76,10 @@ export default function TrialExpiredModal({ isOpen, onClose }: { isOpen: boolean
               
               <div className="mt-2">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-xs text-gray-400 line-through">₹300</span>
-                  <span className="text-lg font-black text-gray-900">₹217</span>
+                  <span className="text-lg font-black text-gray-900">₹{Math.round(pricing.Diamond.Yearly / 12)}</span>
                   <span className="text-[10px] text-gray-500">/month</span>
                 </div>
-                <p className="text-[10px] text-gray-500 mt-1">Pay ₹2,599/year</p>
+                <p className="text-[10px] text-gray-500 mt-1">Pay ₹{pricing.Diamond.Yearly}/year</p>
               </div>
             </div>
             
@@ -105,11 +116,10 @@ export default function TrialExpiredModal({ isOpen, onClose }: { isOpen: boolean
               
               <div className="mt-3">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-sm text-gray-400 line-through">₹500</span>
-                  <span className="text-2xl font-black text-gray-900">₹250</span>
+                  <span className="text-2xl font-black text-gray-900">₹{Math.round(pricing.Platinum.Yearly / 12)}</span>
                   <span className="text-xs text-gray-500">/month</span>
                 </div>
-                <p className="text-[11px] text-gray-500 mt-1">Pay ₹2,999/year</p>
+                <p className="text-[11px] text-gray-500 mt-1">Pay ₹{pricing.Platinum.Yearly}/year</p>
               </div>
             </div>
 
@@ -143,11 +153,10 @@ export default function TrialExpiredModal({ isOpen, onClose }: { isOpen: boolean
               <div className="mt-2">
                 <div className="flex items-baseline gap-1">
                   <span className="text-[10px] text-gray-500">Starts @</span>
-                  <span className="text-xs text-gray-400 line-through">₹750</span>
-                  <span className="text-lg font-black text-gray-900">₹417</span>
+                  <span className="text-lg font-black text-gray-900">₹{Math.round(pricing.Enterprise.Yearly / 12)}</span>
                   <span className="text-[10px] text-gray-500">/month</span>
                 </div>
-                <p className="text-[10px] text-gray-500 mt-1">Pay ₹4,999/year</p>
+                <p className="text-[10px] text-gray-500 mt-1">Pay ₹{pricing.Enterprise.Yearly}/year</p>
               </div>
             </div>
             
