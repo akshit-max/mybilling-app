@@ -9,14 +9,25 @@ import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
 import SettingsSidebar from "../SettingsSidebar";
+import { DEFAULT_PRICING, PricingConfig } from "@/lib/pricing";
 
 export default function PricingPage() {
   const router = useRouter();
   const [billingCycle, setBillingCycle] = useState<"Monthly" | "Yearly">("Yearly");
   const [activePlan, setActivePlan] = useState<any>(null);
   const [isPaid, setIsPaid] = useState(false);
+  // Client-side expiry detection — same algorithm as dashboard/page.tsx and TrialEnforcer
+  const [isSubscriptionExpired, setIsSubscriptionExpired] = useState(false);
+  const [pricing, setPricing] = useState<PricingConfig>(DEFAULT_PRICING);
 
   React.useEffect(() => {
+    // Fetch pricing
+    getDoc(doc(db, "platformSettings", "subscriptionPricing")).then(docSnap => {
+      if (docSnap.exists()) {
+        setPricing(docSnap.data() as PricingConfig);
+      }
+    }).catch(console.error);
+
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
@@ -26,6 +37,13 @@ export default function PricingPage() {
             setIsPaid(!!data.isPaid);
             if (data.isPaid && data.plan) {
               setActivePlan({ plan: data.plan, cycle: data.subscriptionCycle || "Monthly" });
+              // Check expiry — no Firestore write, display only
+              if (data.subscriptionStartDate) {
+                const start = new Date(data.subscriptionStartDate);
+                const duration = data.subscriptionCycle === "Yearly" ? 365 : 31;
+                const diffDays = Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24));
+                setIsSubscriptionExpired(diffDays >= duration);
+              }
             }
           }
         } catch (err) {
@@ -106,10 +124,21 @@ export default function PricingPage() {
         <div className="bg-brand-neutral border-b border-orange-100 px-6 py-4 flex flex-col items-center justify-center shrink-0 z-10 text-center relative shadow-sm">
           {isPaid && activePlan ? (
             <>
-              <h2 className="text-sm font-bold text-gray-800">
-                You are currently on the <span className="text-brand-tertiary">{activePlan.plan}</span> Plan
-              </h2>
-              <p className="text-xs text-gray-600 mt-1">Your {activePlan.cycle.toLowerCase()} subscription is active.</p>
+              {isSubscriptionExpired ? (
+                <>
+                  <h2 className="text-sm font-bold text-red-700">
+                    Your <span className="text-red-600">{activePlan.plan}</span> Plan has expired
+                  </h2>
+                  <p className="text-xs text-red-500 mt-1">Renew your subscription to restore full access.</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-sm font-bold text-gray-800">
+                    You are currently on the <span className="text-brand-tertiary">{activePlan.plan}</span> Plan
+                  </h2>
+                  <p className="text-xs text-gray-600 mt-1">Your {activePlan.cycle.toLowerCase()} subscription is active.</p>
+                </>
+              )}
             </>
           ) : (
             <>
@@ -165,20 +194,17 @@ export default function PricingPage() {
                   {billingCycle === "Yearly" ? (
                     <>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-sm font-bold text-gray-400 line-through">₹300</span>
-                        <span className="text-2xl font-bold text-gray-900">₹217</span>
+                        <span className="text-2xl font-bold text-gray-900">₹{Math.round(pricing.Diamond.Yearly / 12)}</span>
                         <span className="text-[10px] text-gray-500 font-medium">/month</span>
                       </div>
                       <div className="flex items-center gap-1 mt-1">
-                        <p className="text-[10px] text-gray-400 line-through">₹3,599/year</p>
-                        <p className="text-[10px] text-gray-500 font-medium">Billed Annually ₹2,599/year</p>
-                        <span className="text-[9px] font-bold text-brand-tertiary bg-emerald-50 px-1 rounded border border-emerald-100">28% Off</span>
+                        <p className="text-[10px] text-gray-500 font-medium">Billed Annually ₹{pricing.Diamond.Yearly}/year</p>
                       </div>
                     </>
                   ) : (
                     <>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-bold text-gray-900">₹249</span>
+                        <span className="text-2xl font-bold text-gray-900">₹{pricing.Diamond.Monthly}</span>
                         <span className="text-[10px] text-gray-500 font-medium">/month</span>
                       </div>
                       <p className="text-[10px] text-gray-400 mt-1">Billed Monthly</p>
@@ -235,20 +261,17 @@ export default function PricingPage() {
                   {billingCycle === "Yearly" ? (
                     <>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-sm font-bold text-gray-400 line-through">₹500</span>
-                        <span className="text-2xl font-bold text-gray-900">₹250</span>
+                        <span className="text-2xl font-bold text-gray-900">₹{Math.round(pricing.Platinum.Yearly / 12)}</span>
                         <span className="text-[10px] text-gray-500 font-medium">/month</span>
                       </div>
                       <div className="flex items-center gap-1 mt-1">
-                        <p className="text-[10px] text-gray-400 line-through">₹5,999/year</p>
-                        <p className="text-[10px] text-gray-500 font-medium">Billed Annually ₹2,999/year</p>
-                        <span className="text-[9px] font-bold text-brand-tertiary bg-emerald-50 px-1 rounded border border-emerald-100">50% Off</span>
+                        <p className="text-[10px] text-gray-500 font-medium">Billed Annually ₹{pricing.Platinum.Yearly}/year</p>
                       </div>
                     </>
                   ) : (
                     <>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-bold text-gray-900">₹299</span>
+                        <span className="text-2xl font-bold text-gray-900">₹{pricing.Platinum.Monthly}</span>
                         <span className="text-[10px] text-gray-500 font-medium">/month</span>
                       </div>
                       <p className="text-[10px] text-gray-400 mt-1">Billed Monthly</p>
@@ -297,17 +320,25 @@ export default function PricingPage() {
                   <p className="text-xs text-indigo-600 font-semibold mt-1">Fully customizable for bigger businesses</p>
                 </div>
                 <div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-[10px] text-gray-500">Starting @ </span>
-                    <span className="text-sm font-bold text-gray-400 line-through">₹750</span>
-                    <span className="text-2xl font-bold text-gray-900">₹417</span>
-                    <span className="text-[10px] text-gray-500 font-medium">/month</span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-1">
-                    <p className="text-[10px] text-gray-400 line-through">₹8,999/year</p>
-                    <p className="text-[10px] text-gray-500 font-medium">Billed Annually ₹4,999/year</p>
-                    <span className="text-[9px] font-bold text-brand-tertiary bg-emerald-50 px-1 rounded border border-emerald-100">44% Off</span>
-                  </div>
+                  {billingCycle === "Yearly" ? (
+                    <>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-bold text-gray-900">₹{Math.round(pricing.Enterprise.Yearly / 12)}</span>
+                        <span className="text-[10px] text-gray-500 font-medium">/month</span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1">
+                        <p className="text-[10px] text-gray-500 font-medium">Billed Annually ₹{pricing.Enterprise.Yearly}/year</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-bold text-gray-900">₹{pricing.Enterprise.Monthly}</span>
+                        <span className="text-[10px] text-gray-500 font-medium">/month</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1">Billed Monthly</p>
+                    </>
+                  )}
                 </div>
                 {isPaid && activePlan?.plan === "Enterprise" && activePlan?.cycle === billingCycle ? (
                   <button disabled className="w-full py-2 border border-emerald-500 bg-emerald-50 text-emerald-700 font-bold text-xs rounded cursor-not-allowed shadow-inner flex justify-center items-center gap-2">
