@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import { db, auth } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import { DEFAULT_PRICING, PricingConfig } from "@/lib/pricing";
 
 const loadScript = (src: string) => {
   return new Promise((resolve) => {
@@ -44,22 +45,26 @@ export default function CheckoutPage() {
     city: ""
   });
 
-  // Calculate pricing
-  let originalPrice = 249;
-  if (plan === "Diamond" && cycle === "Yearly") originalPrice = 2599;
-  if (plan === "Platinum" && cycle === "Monthly") originalPrice = 299;
-  if (plan === "Platinum" && cycle === "Yearly") originalPrice = 2999;
-  if (plan === "Enterprise" && cycle === "Monthly") originalPrice = 750;
-  if (plan === "Enterprise" && cycle === "Yearly") originalPrice = 4999;
+  const [pricing, setPricing] = useState<PricingConfig>(DEFAULT_PRICING);
 
+  // Derive display prices from Firestore-backed state
+  const planPricing = pricing[plan as keyof PricingConfig];
+  let originalPrice = planPricing ? (cycle === "Monthly" ? planPricing.Monthly : planPricing.Yearly) : 0;
   let gstAmount = Math.round(originalPrice * 0.18);
   let totalPrice = originalPrice + gstAmount;
-  
+
   if (promo === "31DAYS2") {
     originalPrice = 2;
     gstAmount = 0;
     totalPrice = 2;
   }
+
+  // Fetch pricing config from Firestore
+  useEffect(() => {
+    getDoc(doc(db, "platformSettings", "subscriptionPricing"))
+      .then(snap => { if (snap.exists()) setPricing(snap.data() as PricingConfig); })
+      .catch(console.error);
+  }, []);
 
   // Fetch User details
   useEffect(() => {
