@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Check, X, ShieldCheck, Crown } from "lucide-react";
+import { Check, X, ShieldCheck, Crown, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { db, auth } from "@/lib/firebase";
@@ -150,7 +150,12 @@ export default function PricingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             
             {/* Diamond Plan */}
-            <div className="bg-white border border-gray-200 border-t-4 border-t-[#F16D31] rounded-lg shadow-sm flex flex-col">
+            <div className="bg-white border border-gray-200 border-t-4 border-t-[#F16D31] rounded-lg shadow-sm flex flex-col relative">
+              {isPaid && activePlan?.plan === "Diamond" && activePlan?.cycle === billingCycle && (
+                <div className="absolute top-4 right-4 bg-emerald-500 text-white text-[9px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm z-10 animate-pulse-subtle">
+                  <CheckCircle size={10} /> Active Plan
+                </div>
+              )}
               <div className="p-6 border-b border-gray-100 flex flex-col space-y-4">
                 <div>
                   <h3 className="text-lg font-bold text-gray-800">Diamond Plan</h3>
@@ -180,9 +185,15 @@ export default function PricingPage() {
                     </>
                   )}
                 </div>
-                <button onClick={() => handleBuy("Diamond")} className="w-full py-2 border border-[#F16D31] text-[#F16D31] font-bold text-xs rounded hover:bg-brand-neutral transition-colors">
-                  Buy Diamond Plan
-                </button>
+                {isPaid && activePlan?.plan === "Diamond" && activePlan?.cycle === billingCycle ? (
+                  <button disabled className="w-full py-2 border border-emerald-500 bg-emerald-50 text-emerald-700 font-bold text-xs rounded cursor-not-allowed shadow-inner flex justify-center items-center gap-2">
+                    <CheckCircle size={14} /> Active Plan
+                  </button>
+                ) : (
+                  <button onClick={() => handleBuy("Diamond")} className="w-full py-2 border border-[#F16D31] text-[#F16D31] font-bold text-xs rounded hover:bg-brand-neutral transition-colors">
+                    Buy Diamond Plan
+                  </button>
+                )}
                 <div className="space-y-2 text-[11px] font-medium text-gray-600 pt-2">
                    <p>Manage <span className="font-bold text-gray-800">1 Business</span></p>
                    <p>Access for <span className="font-bold text-gray-800">1 User + 1 CA</span></p>
@@ -205,8 +216,15 @@ export default function PricingPage() {
 
             {/* Platinum Plan (Popular) */}
             <div className="bg-white border border-indigo-200 border-t-4 border-t-indigo-600 rounded-lg shadow-md flex flex-col relative transform lg:-translate-y-4">
-              <div className="absolute top-4 right-4 bg-[#F16D31] text-white text-[9px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm">
-                <Crown size={10} /> Most Popular
+              <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 z-10">
+                {isPaid && activePlan?.plan === "Platinum" && activePlan?.cycle === billingCycle && (
+                  <div className="bg-emerald-500 text-white text-[9px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm animate-pulse-subtle">
+                    <CheckCircle size={10} /> Active Plan
+                  </div>
+                )}
+                <div className="bg-[#F16D31] text-white text-[9px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm">
+                  <Crown size={10} /> Most Popular
+                </div>
               </div>
               <div className="p-6 border-b border-gray-100 flex flex-col space-y-4">
                 <div>
@@ -237,9 +255,15 @@ export default function PricingPage() {
                     </>
                   )}
                 </div>
-                <button onClick={() => handleBuy("Platinum")} className="w-full py-2 bg-indigo-600 text-white font-bold text-xs rounded shadow-sm hover:bg-indigo-700 transition-colors">
-                  Buy Platinum Plan
-                </button>
+                {isPaid && activePlan?.plan === "Platinum" && activePlan?.cycle === billingCycle ? (
+                  <button disabled className="w-full py-2 border border-emerald-500 bg-emerald-50 text-emerald-700 font-bold text-xs rounded cursor-not-allowed shadow-inner flex justify-center items-center gap-2">
+                    <CheckCircle size={14} /> Active Plan
+                  </button>
+                ) : (
+                  <button onClick={() => handleBuy("Platinum")} className="w-full py-2 bg-indigo-600 text-white font-bold text-xs rounded shadow-sm hover:bg-indigo-700 transition-colors">
+                    Buy Platinum Plan
+                  </button>
+                )}
                 <div className="space-y-2 text-[11px] font-medium text-gray-600 pt-2">
                    <p>Manage <span className="font-bold text-gray-800">2 Businesses</span></p>
                    <p>Access for <span className="font-bold text-gray-800">3 Users + 1 CA</span></p>
@@ -261,7 +285,12 @@ export default function PricingPage() {
             </div>
 
             {/* Enterprise Plan */}
-            <div className="bg-white border border-gray-200 border-t-4 border-t-emerald-500 rounded-lg shadow-sm flex flex-col">
+            <div className="bg-white border border-gray-200 border-t-4 border-t-emerald-500 rounded-lg shadow-sm flex flex-col relative">
+              {isPaid && activePlan?.plan === "Enterprise" && activePlan?.cycle === billingCycle && (
+                <div className="absolute top-4 right-4 bg-emerald-500 text-white text-[9px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm z-10 animate-pulse-subtle">
+                  <CheckCircle size={10} /> Active Plan
+                </div>
+              )}
               <div className="p-6 border-b border-gray-100 flex flex-col space-y-4">
                 <div>
                   <h3 className="text-lg font-bold text-gray-800">Enterprise Plan</h3>
@@ -280,9 +309,15 @@ export default function PricingPage() {
                     <span className="text-[9px] font-bold text-brand-tertiary bg-emerald-50 px-1 rounded border border-emerald-100">44% Off</span>
                   </div>
                 </div>
-                <button onClick={() => handleBuy("Enterprise")} className="w-full py-2 border border-emerald-500 text-brand-tertiary font-bold text-xs rounded hover:bg-emerald-50 transition-colors">
-                  Talk To Sales
-                </button>
+                {isPaid && activePlan?.plan === "Enterprise" && activePlan?.cycle === billingCycle ? (
+                  <button disabled className="w-full py-2 border border-emerald-500 bg-emerald-50 text-emerald-700 font-bold text-xs rounded cursor-not-allowed shadow-inner flex justify-center items-center gap-2">
+                    <CheckCircle size={14} /> Active Plan
+                  </button>
+                ) : (
+                  <button onClick={() => handleBuy("Enterprise")} className="w-full py-2 border border-emerald-500 text-brand-tertiary font-bold text-xs rounded hover:bg-emerald-50 transition-colors">
+                    Talk To Sales
+                  </button>
+                )}
                 <div className="space-y-2 text-[11px] font-medium text-gray-600 pt-2">
                    <p>Manage <span className="font-bold text-gray-800">2 Businesses</span> (Upgrade to add more)</p>
                    <p>Access for <span className="font-bold text-gray-800">3 Users</span> (Upgrade to add more) <span className="font-bold text-gray-800">+ 1 CA</span></p>

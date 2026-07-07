@@ -108,6 +108,7 @@ export default function AutomatedBillsProcessor() {
             if (bill.items && Array.isArray(bill.items)) {
               for (const item of bill.items) {
                 if (item.productId) {
+                  console.log("Loading product:", item.productId);
                   const pRef = doc(db, "products", item.productId);
                   const pSnap = await getDoc(pRef);
                   if (pSnap.exists()) {
