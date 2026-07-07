@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { db, auth } from "@/lib/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import OfferModal from "./ui/OfferModal";
+import TrialExpiredModal from "./ui/TrialExpiredModal";
 import { usePathname } from "next/navigation";
 
 export default function TrialEnforcer() {
@@ -24,8 +24,25 @@ export default function TrialEnforcer() {
             if (docSnap.exists()) {
               const data = docSnap.data();
               
-              // 1. If paid, never block
+              // 1. If paid, check whether the subscription is still active.
+              //    Uses the same calculation as dashboard/page.tsx:
+              //    Monthly = 31 days, Yearly = 365 days.
+              //    No Firestore writes — client-side check only.
               if (data.isPaid) {
+                if (data.subscriptionStartDate) {
+                  const start = new Date(data.subscriptionStartDate);
+                  const duration = data.subscriptionCycle === "Yearly" ? 365 : 31;
+                  const diffDays = Math.floor(
+                    (Date.now() - start.getTime()) / (1000 * 60 * 60 * 24)
+                  );
+                  if (diffDays >= duration) {
+                    // Paid but expired → block access, same as expired trial
+                    setIsExpired(true);
+                    setLoading(false);
+                    return;
+                  }
+                }
+                // Paid and active (or no start date on record) → allow
                 setIsExpired(false);
                 setLoading(false);
                 return;
@@ -73,5 +90,5 @@ export default function TrialEnforcer() {
   
   if (loading) return null;
 
-  return <OfferModal isOpen={isExpired} onClose={() => {}} hideClose={true} />;
+  return <TrialExpiredModal isOpen={isExpired} onClose={() => {}} />;
 }
