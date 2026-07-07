@@ -11,7 +11,8 @@ import {
   Menu,
   Indent,
   Lock,
-  FileText
+  FileText,
+  DollarSign
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 
@@ -29,6 +30,11 @@ export function SuperAdminSidebar({ collapsed, setCollapsed, mobileOpen, setMobi
       name: "Dashboard",
       href: "/superadmin",
       icon: LayoutDashboard,
+    },
+    {
+      name: "Pricing",
+      href: "/superadmin/pricing",
+      icon: DollarSign,
     },
     {
       name: "Settings",
