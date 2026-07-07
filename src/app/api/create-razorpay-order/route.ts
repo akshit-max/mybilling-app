@@ -23,6 +23,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized: Invalid token" }, { status: 401 });
     }
 
+    // Backend enforcement: reject if user already owns this exact plan and cycle
+    const userDoc = await adminDb.collection("users").doc(uid).get();
+    if (userDoc.exists) {
+      const userData = userDoc.data();
+      if (
+        userData?.isPaid === true &&
+        userData?.plan === plan &&
+        userData?.subscriptionCycle === cycle
+      ) {
+        return NextResponse.json(
+          { error: "You are already subscribed to this plan." },
+          { status: 409 }
+        );
+      }
+    }
+
     let originalPrice = 249;
     if (plan === "Diamond" && cycle === "Yearly") originalPrice = 2599;
     if (plan === "Platinum" && cycle === "Monthly") originalPrice = 299;
