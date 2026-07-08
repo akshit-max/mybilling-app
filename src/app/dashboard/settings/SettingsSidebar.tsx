@@ -8,6 +8,7 @@ import { auth, db } from "@/lib/firebase";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import toast from "react-hot-toast";
+import { clearAllSessionStorage } from "@/components/TrialEnforcer";
 
 export default function SettingsSidebar() {
   const pathname = usePathname();
@@ -38,6 +39,7 @@ export default function SettingsSidebar() {
   const handleLogout = async () => {
     try {
       setLoggingOut(true);
+      clearAllSessionStorage();
       await signOut(auth);
       toast.success("Successfully logged out!");
       router.push("/login");
