@@ -15,12 +15,14 @@ import {
   DollarSign
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
+import { clearAllSessionStorage } from "@/components/TrialEnforcer";
 
 export function SuperAdminSidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: any) {
   const pathname = usePathname();
   const router = useRouter();
 
   const handleLogout = async () => {
+    clearAllSessionStorage();
     await auth.signOut();
     router.push("/login");
   };
