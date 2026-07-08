@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -50,6 +50,25 @@ export default function Login() {
       } catch (err) {
         // Ignore errors to ensure login is never blocked
       }
+
+      // ── Single-Session Token ──────────────────────────────────────────────
+      // Generate a UUID for this session. Stored in Firestore and localStorage.
+      // Any other browser/device that is still logged in will detect this
+      // token change via onSnapshot and be signed out gracefully.
+      try {
+        const sessionToken = crypto.randomUUID();
+        await setDoc(
+          doc(db, "users", userCredential.user.uid),
+          { activeSessionToken: sessionToken },
+          { merge: true }
+        );
+        localStorage.setItem("sessionToken", sessionToken);
+      } catch (tokenErr) {
+        // Non-blocking: login continues even if token write fails.
+        // TrialEnforcer's graceful recovery will establish the token on first load.
+        console.warn("Session token write failed (non-critical):", tokenErr);
+      }
+      // ─────────────────────────────────────────────────────────────────────
 
       if (savedUid && userCredential.user.uid === savedUid) {
         toast.success("Welcome, Platform Owner");
